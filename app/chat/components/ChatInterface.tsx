@@ -63,44 +63,53 @@ export default function ChatInterface() {
 
   return (
     <div className="h-screen bg-black">
-      <div className="w-full max-w-[420px] mx-auto h-full flex flex-col">
+      <div className="w-full max-w-[420px] mx-auto h-full flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="bg-black border-b border-gray-800 px-3 py-3">
-          <h1 className="text-lg font-semibold text-white">Global Chat</h1>
+        <div className="sticky top-0 z-10 bg-black border-b border-gray-800 px-3 py-3 shadow-lg">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+            <h1 className="text-lg font-semibold text-white">Global Chat</h1>
+          </div>
         </div>
 
         {/* Messages Feed */}
         <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-            >
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-gray-500 text-sm">Start the conversation!</p>
+            </div>
+          ) : (
+            messages.map((message) => (
               <div
-                className={`max-w-[80%] rounded-2xl px-3 py-2.5 ${
-                  message.isUser
-                    ? 'bg-blue-500 text-white rounded-br-sm'
-                    : 'bg-gray-800 text-gray-100 rounded-bl-sm'
-                }`}
+                key={message.id}
+                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} animate-fade-in`}
               >
-                {!message.isUser && (
-                  <div className="text-xs font-semibold mb-1 text-gray-300">
-                    {message.username}
-                  </div>
-                )}
-                <div className="text-sm break-words leading-relaxed">
-                  {message.text}
-                </div>
                 <div
-                  className={`text-xs mt-1.5 ${
-                    message.isUser ? 'text-blue-100' : 'text-gray-400'
+                  className={`max-w-[80%] rounded-3xl px-4 py-3 ${
+                    message.isUser
+                      ? 'bg-white text-black rounded-br-sm'
+                      : 'bg-gray-700 text-gray-300 rounded-bl-sm'
                   }`}
                 >
-                  {formatTime(message.timestamp)}
+                  {!message.isUser && (
+                    <div className="text-xs font-semibold mb-1 text-gray-400">
+                      {message.username}
+                    </div>
+                  )}
+                  <div className="text-sm break-words leading-relaxed">
+                    {message.text}
+                  </div>
+                  <div
+                    className={`text-xs mt-1.5 ${
+                      message.isUser ? 'text-gray-600' : 'text-gray-500'
+                    }`}
+                  >
+                    {formatTime(message.timestamp)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
           <div ref={messagesEndRef} />
         </div>
 
@@ -113,15 +122,28 @@ export default function ChatInterface() {
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="What's on your mind today?"
-              className="flex-1 px-4 py-2.5 bg-gray-900 text-white border border-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500 text-sm"
+              placeholder="What's on your mind?"
+              className="flex-1 px-4 py-3 bg-gray-900 text-white border border-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:shadow-lg focus:shadow-blue-500/20 placeholder-gray-500 text-sm"
             />
             <button
               onClick={handleSend}
               disabled={inputText.trim() === ''}
-              className="bg-blue-500 text-white px-5 py-2.5 rounded-full hover:bg-blue-600 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              className="bg-blue-500 text-white p-3 rounded-full hover:bg-blue-600 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
             >
-              Send
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-5 h-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
+                />
+              </svg>
             </button>
           </div>
         </div>

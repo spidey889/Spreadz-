@@ -62,10 +62,10 @@ export default function ChatInterface() {
   }
 
   return (
-    <div className="h-screen bg-black overflow-hidden">
-      <div className="w-full max-w-[420px] mx-auto h-full flex flex-col shadow-2xl relative">
+    <div className="h-full bg-black">
+      <div className="w-full max-w-[420px] mx-auto h-full flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-black border-b border-gray-800 px-3 py-3 shadow-lg flex-shrink-0">
+        <div className="bg-black border-b border-gray-800 px-3 py-3 shadow-lg flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-blue-500"></div>
             <h1 className="text-lg font-semibold text-white">Global Chat</h1>
@@ -73,7 +73,7 @@ export default function ChatInterface() {
         </div>
 
         {/* Messages Feed */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0 pb-20">
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500 text-sm">Start the conversation!</p>
@@ -114,7 +114,7 @@ export default function ChatInterface() {
         </div>
 
         {/* Input Bar */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black border-t border-gray-800 px-3 py-3 flex-shrink-0">
+        <div className="bg-black border-t border-gray-800 px-3 py-3 flex-shrink-0">
           <div className="flex items-center space-x-2">
             <input
               ref={inputRef}

@@ -73,7 +73,7 @@ export default function ChatInterface() {
         </div>
 
         {/* Messages Feed */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0 max-h-full">
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-0 max-h-full">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500 text-sm">Start the conversation!</p>
@@ -82,29 +82,19 @@ export default function ChatInterface() {
             messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} animate-fade-in`}
+                className="animate-fade-in"
               >
-                <div
-                  className={`max-w-[80%] rounded-3xl px-4 py-3 ${
-                    message.isUser
-                      ? 'bg-white text-black rounded-br-sm'
-                      : 'bg-gray-700 text-gray-300 rounded-bl-sm'
-                  }`}
-                >
-                  {!message.isUser && (
-                    <div className="text-xs font-semibold mb-1 text-gray-400">
+                <div className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-2.5 hover:border-gray-700 transition-colors">
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <div className="text-sm font-semibold text-gray-200">
                       {message.username}
                     </div>
-                  )}
-                  <div className="text-sm break-words leading-relaxed">
-                    {message.text}
+                    <div className="text-xs text-gray-500 ml-2">
+                      {formatTime(message.timestamp)}
+                    </div>
                   </div>
-                  <div
-                    className={`text-xs mt-1.5 ${
-                      message.isUser ? 'text-gray-600' : 'text-gray-500'
-                    }`}
-                  >
-                    {formatTime(message.timestamp)}
+                  <div className="text-sm text-gray-300 break-words leading-relaxed">
+                    {message.text}
                   </div>
                 </div>
               </div>

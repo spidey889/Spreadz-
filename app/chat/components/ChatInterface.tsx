@@ -62,7 +62,7 @@ export default function ChatInterface() {
   }
 
   return (
-    <div className="h-full bg-black">
+    <div className="h-full flex flex-col bg-black">
       <div className="w-full max-w-[420px] mx-auto h-full flex flex-col shadow-2xl">
         {/* Header */}
         <div className="bg-black border-b border-gray-800 px-3 py-3 shadow-lg flex-shrink-0">
@@ -73,7 +73,7 @@ export default function ChatInterface() {
         </div>
 
         {/* Messages Feed */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0">
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0 max-h-full">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-500 text-sm">Start the conversation!</p>

@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
 html,
 body {
   height: 100%;
@@ -11,10 +13,9 @@ body {
 }
 
 body {
-  background-color: #000000;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  background-color: #1a1a1f;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+    'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -24,6 +25,7 @@ body {
     opacity: 0;
     transform: translateY(4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -31,9 +33,24 @@ body {
 }
 
 .animate-fade-in {
-  animation: fade-in 0.3s ease-out;
+  animation: fade-in 0.25s ease-out;
 }
 
+/* Subtle scrollbar */
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a30 transparent;
+}
 
+.chat-scroll::-webkit-scrollbar {
+  width: 4px;
+}
 
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
 
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: #2a2a30;
+  border-radius: 4px;
+}

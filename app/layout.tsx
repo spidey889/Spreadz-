@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Spreadz Chat',
-  description: 'Simple chat interface',
+  title: 'SpreadZ',
+  description: 'Global live chat',
 }
 
 export default function RootLayout({
@@ -12,12 +12,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="bg-black">
-      <body className="bg-black">{children}</body>
+    <html lang="en" className="bg-[#1a1a1f]">
+      <body className="bg-[#1a1a1f]">{children}</body>
     </html>
   )
 }
-
-
-
-

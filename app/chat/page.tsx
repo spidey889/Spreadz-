@@ -8,21 +8,18 @@ export default function GlobalChat() {
         rel="stylesheet"
       />
 
-      <div className="screen">
+      <div className="phone">
         <div className="status">
           <span>9:41</span>
-          <span>{'\u25CF \u25CF \u25CF'}</span>
+          <span>● ● ●</span>
         </div>
 
         <div className="header">
           <div className="logo">
-            <div className="logo-icon">
-              <span>Sz</span>
-            </div>
-            <div className="logo-text">SpreadZ</div>
+            <img src='/ChatGPT_Image_Feb_15__2026__05_18_31_PM-removebg-preview.png' alt='SpreadZ' style={{ height: '64px', width: 'auto' }} />
           </div>
 
-          <button className="settings-btn" aria-label="Settings">
+          <button className="settings-btn">
             <svg
               width="22"
               height="22"
@@ -41,9 +38,9 @@ export default function GlobalChat() {
 
         <div className="ai-card-wrap">
           <div className="ai-card">
-            <div className="ai-label">CONTEXT</div>
+            <div className="ai-label">Context</div>
             <div className="ai-headline">
-              {"\"Engineers split on whether AI raises the bar \u2014 or kills entry-level jobs\""}
+              "Engineers split on whether AI raises the bar — or kills entry-level jobs"
             </div>
           </div>
         </div>
@@ -57,7 +54,7 @@ export default function GlobalChat() {
                 <span className="msg-time">now</span>
               </div>
               <div className="msg-college">MIT</div>
-              <div className="msg-text">{"AI won't replace devs \u2014 it'll replace the ones who don't use it."}</div>
+              <div className="msg-text">AI won't replace devs — it'll replace the ones who don't use it.</div>
             </div>
           </div>
 
@@ -93,7 +90,7 @@ export default function GlobalChat() {
                 <span className="msg-time">3m</span>
               </div>
               <div className="msg-college">UC Berkeley</div>
-              <div className="msg-text">{"\"Prompt engineering\" as a real skill \u{1F480} it's literally just talking."}</div>
+              <div className="msg-text">"Prompt engineering" as a real skill 💀 it's literally just talking.</div>
             </div>
           </div>
 
@@ -108,13 +105,27 @@ export default function GlobalChat() {
               <div className="msg-text">Systems thinking doesn't go away. AI kills the boring parts.</div>
             </div>
           </div>
+
+          <div className="typing-row">
+            <div className="avatar c1">SC</div>
+            <div>
+              <div style={{ fontSize: '12px', color: '#636366', marginBottom: '5px' }}>
+                Sofia Chen · Harvard
+              </div>
+              <div className="typing-dots">
+                <div className="td"></div>
+                <div className="td"></div>
+                <div className="td"></div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="input-area">
-          <div className="hint">{"\u2195 swipe for new people & topics"}</div>
+          <div className="hint">↕ swipe for new people & topics</div>
           <div className="input-wrap">
             <input type="text" placeholder="What's on your mind?" />
-            <button className="send-btn" aria-label="Send">
+            <button className="send-btn">
               <svg
                 width="15"
                 height="15"
@@ -145,22 +156,26 @@ export default function GlobalChat() {
     --text-sub: #ababab;
     --text-dim: #636366;
   }
-
-  html, body { height: 100%; }
-
   body {
-    background: var(--bg);
+    background: #141414;
     font-family: 'Inter', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     min-height: 100vh;
+    padding: 20px;
   }
-
-  .screen {
-    min-height: 100vh;
+  .phone {
+    width: 375px;
+    height: 812px;
     background: var(--bg);
+    border-radius: 44px;
+    border: 1px solid #333;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7);
   }
-
   .status {
     display: flex;
     justify-content: space-between;
@@ -170,7 +185,6 @@ export default function GlobalChat() {
     color: var(--text);
     background: var(--bg);
   }
-
   .header {
     display: flex;
     align-items: center;
@@ -179,59 +193,23 @@ export default function GlobalChat() {
     background: var(--bg);
     border-bottom: 1px solid var(--border);
   }
-
   .logo {
     display: flex;
     align-items: center;
     gap: 8px;
   }
-
-  .logo-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    background: linear-gradient(145deg, #6aff3a, #1db954);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
   }
-
-  .logo-icon span {
-    font-size: 12px;
-    font-weight: 900;
-    color: #0a1f05;
-    letter-spacing: -0.3px;
-  }
-
-  .logo-text {
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: -1.2px;
-    background: linear-gradient(135deg, #6aff3a 0%, #39ff14 60%, #1db954 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
   .settings-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-dim);
-    display: flex;
-    align-items: center;
-    padding: 4px;
-    transition: color 0.15s;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-dim); display: flex; align-items: center;
+    padding: 4px; transition: color 0.15s;
   }
-
   .settings-btn:hover { color: var(--text-sub); }
-
   .ai-card-wrap {
-    margin: 12px 14px;
+    padding: 12px 14px;
+    background: var(--bg);
     position: relative;
   }
-
   .ai-card-wrap::before {
     content: '';
     position: absolute;
@@ -240,7 +218,6 @@ export default function GlobalChat() {
                 radial-gradient(ellipse at 80% 20%, rgba(100,180,255,0.10) 0%, transparent 60%);
     pointer-events: none;
   }
-
   .ai-card {
     position: relative;
     background: linear-gradient(155deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.07) 45%, rgba(255,255,255,0.04) 100%);
@@ -249,19 +226,15 @@ export default function GlobalChat() {
     border-radius: 22px;
     padding: 14px 17px;
     overflow: hidden;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.13), 0 4px 6px rgba(0,0,0,0.35), 0 16px 48px rgba(0,0,0,0.6), inset 0 2px 8px rgba(255,255,255,0.18), inset 0 -3px 10px rgba(0,0,0,0.28);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.13), 0 4px 6px rgba(0,0,0,0.35), 0 16px 48px rgba(0,0,0,0.6), inset 0 2px 8px rgba(255,255,255,0.18), inset 0 -3px 10px rgba(0,0,0,0.28), inset 3px 0 8px rgba(0,0,0,0.1), inset -3px 0 8px rgba(0,0,0,0.1);
   }
-
   .ai-card::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 8%;
-    right: 8%;
+    top: 0; left: 8%; right: 8%;
     height: 1px;
     background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 20%, rgba(255,255,255,0.95) 50%, rgba(255,255,255,0.55) 80%, transparent 100%);
   }
-
   .ai-card::after {
     content: '';
     position: absolute;
@@ -270,150 +243,69 @@ export default function GlobalChat() {
     background: linear-gradient(170deg, rgba(255,255,255,0.09) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
     pointer-events: none;
   }
-
   .ai-label {
-    font-size: 10px;
-    font-weight: 700;
-    color: rgba(180,220,255,0.5);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
+    font-size: 10px; font-weight: 700;
+    color: rgba(180,220,255,0.5); letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 6px;
   }
-
   .ai-headline {
-    font-size: 13.5px;
-    font-weight: 500;
-    color: rgba(235,245,255,0.9);
-    line-height: 1.45;
+    font-size: 13.5px; font-weight: 500;
+    color: rgba(235,245,255,0.9); line-height: 1.45;
   }
-
-  .messages {
-    flex: 1;
-    overflow-y: auto;
-    scrollbar-width: none;
-  }
-
+  .messages { flex: 1; overflow-y: auto; scrollbar-width: none; }
   .messages::-webkit-scrollbar { display: none; }
-
   .msg {
-    display: flex;
-    gap: 11px;
-    padding: 11px 16px;
+    display: flex; gap: 11px; padding: 11px 16px;
     border-bottom: 1px solid #252527;
-    cursor: pointer;
-    transition: background 0.12s;
+    cursor: pointer; transition: background 0.12s;
   }
-
   .msg:hover { background: rgba(255,255,255,0.02); }
-
   .avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 14px;
+    width: 40px; height: 40px; border-radius: 50%;
+    flex-shrink: 0; display: flex; align-items: center;
+    justify-content: center; font-weight: 700; font-size: 14px;
   }
-
   .msg-body { flex: 1; min-width: 0; }
-
-  .msg-top {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    margin-bottom: 1px;
-  }
-
-  .msg-name {
-    font-size: 13.5px;
-    font-weight: 600;
-    color: var(--text);
-    white-space: nowrap;
-  }
-
-  .msg-time {
-    font-size: 12px;
-    color: var(--text-dim);
-    margin-left: auto;
-    flex-shrink: 0;
-  }
-
-  .msg-college {
-    font-size: 11.5px;
-    color: var(--text-dim);
-    margin-bottom: 4px;
-  }
-
-  .msg-text {
-    font-size: 13.5px;
-    color: #d1d1d6;
-    line-height: 1.5;
-  }
-
+  .msg-top { display: flex; align-items: baseline; gap: 6px; margin-bottom: 1px; }
+  .msg-name { font-size: 13.5px; font-weight: 600; color: var(--text); white-space: nowrap; }
+  .msg-time { font-size: 12px; color: var(--text-dim); margin-left: auto; flex-shrink: 0; }
+  .msg-college { font-size: 11.5px; color: var(--text-dim); margin-bottom: 4px; }
+  .msg-text { font-size: 13.5px; color: #d1d1d6; line-height: 1.5; }
+  .typing-row { display: flex; gap: 11px; padding: 10px 16px; align-items: center; }
+  .typing-dots { display: flex; gap: 4px; align-items: center; }
+  .td { width: 5px; height: 5px; background: var(--text-dim); border-radius: 50%; animation: tbounce 1.2s infinite; }
+  .td:nth-child(2){animation-delay:.2s} .td:nth-child(3){animation-delay:.4s}
+  @keyframes tbounce{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-4px);opacity:1}}
   .input-area {
     background: var(--bg);
-    padding: 10px 14px 12px;
+    padding: 10px 14px 8px;
     border-top: 1px solid var(--border);
   }
-
-  .hint {
-    text-align: center;
-    font-size: 11px;
-    color: var(--text-dim);
-    padding: 0 0 8px;
-  }
-
+  .hint { text-align: center; font-size: 11px; color: var(--text-dim); padding: 0 0 8px; }
   .input-wrap {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    display: flex; align-items: center; gap: 10px;
     background: var(--surface);
     border: 1px solid var(--border-light);
-    border-radius: 24px;
-    padding: 9px 9px 9px 15px;
-    transition: border-color 0.15s;
+    border-radius: 24px; padding: 9px 9px 9px 15px;
+    margin-bottom: 14px; transition: border-color 0.15s;
   }
-
   .input-wrap:focus-within { border-color: rgba(57,255,20,0.4); }
-
-  input {
-    flex: 1;
-    background: none;
-    border: none;
-    outline: none;
-    font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    color: var(--text);
-  }
-
+  input { flex:1; background:none; border:none; outline:none; font-family:'Inter',sans-serif; font-size:14px; color:var(--text); }
   input::placeholder { color: var(--text-dim); }
-
   .send-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: var(--neon);
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    box-shadow: 0 0 14px rgba(57,255,20,0.5);
-    transition: opacity 0.15s;
+    width:34px; height:34px; border-radius:50%; background:var(--neon);
+    border:none; cursor:pointer; display:flex; align-items:center;
+    justify-content:center; flex-shrink:0;
+    box-shadow:0 0 14px rgba(57,255,20,0.5); transition:opacity 0.15s;
   }
-
-  .send-btn:hover { opacity: .85 }
-
-  .c1 { background: #2c2442; color: #a78bfa }
-  .c2 { background: #2a1a1a; color: #f87171 }
-  .c3 { background: #162416; color: #4ade80 }
-  .c4 { background: #2a2210; color: #fbbf24 }
-  .c5 { background: #101e2e; color: #60a5fa }
+  .send-btn:hover{opacity:.85}
+  .c1{background:#2c2442;color:#a78bfa}
+  .c2{background:#2a1a1a;color:#f87171}
+  .c3{background:#162416;color:#4ade80}
+  .c4{background:#2a2210;color:#fbbf24}
+  .c5{background:#101e2e;color:#60a5fa}
       `}</style>
     </>
   )
 }
+

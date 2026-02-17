@@ -231,7 +231,7 @@ export default function GlobalChat() {
     backdrop-filter: blur(80px) saturate(200%) brightness(1.15);
     -webkit-backdrop-filter: blur(80px) saturate(200%) brightness(1.15);
     border-radius: 22px;
-    padding: 20px 16px;
+    padding: 12px 16px;
     overflow: hidden;
     box-shadow: 0 0 0 1px rgba(255,255,255,0.13), 0 4px 6px rgba(0,0,0,0.35), 0 16px 48px rgba(0,0,0,0.6), inset 0 2px 8px rgba(255,255,255,0.18), inset 0 -3px 10px rgba(0,0,0,0.28);
   }
@@ -256,7 +256,7 @@ export default function GlobalChat() {
   }
 
   .ai-headline {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     font-weight: 500;
     color: rgba(235,245,255,0.95);
     line-height: 1.5;

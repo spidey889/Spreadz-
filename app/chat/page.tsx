@@ -41,6 +41,7 @@ export default function GlobalChat() {
 
         <div className="messages">
           <div className="msg">
+            <div className="avatar c1">SR</div>
             <div className="msg-body">
               <div className="msg-top">
                 <span className="msg-name">Sofia Ramirez</span>
@@ -52,6 +53,7 @@ export default function GlobalChat() {
           </div>
 
           <div className="msg">
+            <div className="avatar c2">AL</div>
             <div className="msg-body">
               <div className="msg-top">
                 <span className="msg-name">Ava Lawson</span>
@@ -63,6 +65,7 @@ export default function GlobalChat() {
           </div>
 
           <div className="msg">
+            <div className="avatar c4">MW</div>
             <div className="msg-body">
               <div className="msg-top">
                 <span className="msg-name">Marcus Webb</span>
@@ -74,6 +77,7 @@ export default function GlobalChat() {
           </div>
 
           <div className="msg">
+            <div className="avatar c5">JR</div>
             <div className="msg-body">
               <div className="msg-top">
                 <span className="msg-name">Jake Reynolds</span>
@@ -85,6 +89,7 @@ export default function GlobalChat() {
           </div>
 
           <div className="msg">
+            <div className="avatar c3">NT</div>
             <div className="msg-body">
               <div className="msg-top">
                 <span className="msg-name">Noah Torres</span>
@@ -96,6 +101,7 @@ export default function GlobalChat() {
           </div>
 
           <div className="typing-row">
+            <div className="avatar c1">SC</div>
             <div>
               <div style={{ fontSize: '12px', color: '#636366', marginBottom: '5px' }}>
                 Sofia Chen · Harvard
@@ -167,7 +173,7 @@ export default function GlobalChat() {
     justify-content: space-between;
     padding-top: 8px;
     padding-bottom: 8px;
-    padding-left: 18px;
+    padding-left: 8px;
     padding-right: 18px;
     background: var(--bg);
     border-bottom: 1px solid var(--border);
@@ -372,7 +378,7 @@ export default function GlobalChat() {
     background: var(--surface);
     border: 1px solid var(--border-light);
     border-radius: 24px;
-    padding: 10px 10px 10px 16px;
+    padding: 12px 12px 12px 18px;
     transition: border-color 0.15s;
   }
 
@@ -388,7 +394,7 @@ export default function GlobalChat() {
     color: var(--text);
   }
 
-  input::placeholder { color: var(--text-dim); }
+  input::placeholder { color: rgba(255,255,255,0.5); }
 
   .send-btn {
     width: 36px;

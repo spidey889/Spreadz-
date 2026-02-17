@@ -41,7 +41,6 @@ export default function GlobalChat() {
 
         <div className="messages">
           <div className="msg">
-            <div className="avatar c1">SR</div>
             <div className="msg-body">
               <div className="msg-top">
                 <span className="msg-name">Sofia Ramirez</span>
@@ -53,7 +52,6 @@ export default function GlobalChat() {
           </div>
 
           <div className="msg">
-            <div className="avatar c2">AL</div>
             <div className="msg-body">
               <div className="msg-top">
                 <span className="msg-name">Ava Lawson</span>
@@ -65,7 +63,6 @@ export default function GlobalChat() {
           </div>
 
           <div className="msg">
-            <div className="avatar c4">MW</div>
             <div className="msg-body">
               <div className="msg-top">
                 <span className="msg-name">Marcus Webb</span>
@@ -77,7 +74,6 @@ export default function GlobalChat() {
           </div>
 
           <div className="msg">
-            <div className="avatar c5">JR</div>
             <div className="msg-body">
               <div className="msg-top">
                 <span className="msg-name">Jake Reynolds</span>
@@ -89,7 +85,6 @@ export default function GlobalChat() {
           </div>
 
           <div className="msg">
-            <div className="avatar c3">NT</div>
             <div className="msg-body">
               <div className="msg-top">
                 <span className="msg-name">Noah Torres</span>
@@ -101,7 +96,6 @@ export default function GlobalChat() {
           </div>
 
           <div className="typing-row">
-            <div className="avatar c1">SC</div>
             <div>
               <div style={{ fontSize: '12px', color: '#636366', marginBottom: '5px' }}>
                 Sofia Chen · Harvard
@@ -231,7 +225,7 @@ export default function GlobalChat() {
     backdrop-filter: blur(80px) saturate(200%) brightness(1.15);
     -webkit-backdrop-filter: blur(80px) saturate(200%) brightness(1.15);
     border-radius: 22px;
-    padding: 16px 20px;
+    padding: 20px 16px;
     overflow: hidden;
     box-shadow: 0 0 0 1px rgba(255,255,255,0.13), 0 4px 6px rgba(0,0,0,0.35), 0 16px 48px rgba(0,0,0,0.6), inset 0 2px 8px rgba(255,255,255,0.18), inset 0 -3px 10px rgba(0,0,0,0.28);
   }
@@ -256,7 +250,7 @@ export default function GlobalChat() {
   }
 
   .ai-headline {
-    font-size: 15px;
+    font-size: 1.1rem;
     font-weight: 500;
     color: rgba(235,245,255,0.95);
     line-height: 1.5;
@@ -274,7 +268,7 @@ export default function GlobalChat() {
     display: flex;
     gap: 12px;
     padding: 14px 18px;
-    border-bottom: 1px solid #252527;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
     cursor: pointer;
     transition: background 0.12s;
   }

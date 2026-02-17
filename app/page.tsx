@@ -1,16 +1,9 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import GlobalChat from './chat/page'
 
 export default function Home() {
-  const router = useRouter()
-
-  useEffect(() => {
-    router.push('/chat')
-  }, [router])
-
-  return null
+  return <GlobalChat />
 }
 
 

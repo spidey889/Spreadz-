@@ -383,7 +383,7 @@ export default function GlobalChat() {
 
   .input-area {
     background: var(--bg);
-    padding: 12px 16px 16px;
+    padding: 8px 16px 12px;
     border-top: 1px solid var(--border);
   }
 
@@ -402,7 +402,7 @@ export default function GlobalChat() {
     background: var(--surface);
     border: 1px solid var(--border-light);
     border-radius: 24px;
-    padding: 12px 12px 12px 18px;
+    padding: 6px 12px 6px 16px;
     transition: border-color 0.15s;
   }
 

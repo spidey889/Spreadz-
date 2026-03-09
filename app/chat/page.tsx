@@ -229,19 +229,7 @@ export default function GlobalChat() {
             </div>
           ))}
 
-          <div className="typing-row">
-            <div className="avatar c1">SC</div>
-            <div>
-              <div style={{ fontSize: '12px', color: '#636366', marginBottom: '5px' }}>
-                Sofia Chen · Harvard
-              </div>
-              <div className="typing-dots">
-                <div className="td"></div>
-                <div className="td"></div>
-                <div className="td"></div>
-              </div>
-            </div>
-          </div>
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -500,34 +488,7 @@ export default function GlobalChat() {
     line-height: 1.5;
   }
 
-  .typing-row {
-    display: flex;
-    gap: 12px;
-    padding: 14px 18px;
-    align-items: center;
-  }
 
-  .typing-dots {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-  }
-
-  .td {
-    width: 6px;
-    height: 6px;
-    background: var(--text-dim);
-    border-radius: 50%;
-    animation: tbounce 1.2s infinite;
-  }
-
-  .td:nth-child(2) { animation-delay: .2s; }
-  .td:nth-child(3) { animation-delay: .4s; }
-
-  @keyframes tbounce {
-    0%, 60%, 100% { transform: translateY(0); opacity: .35; }
-    30% { transform: translateY(-4px); opacity: 1; }
-  }
 
   .input-area {
     background: var(--bg);

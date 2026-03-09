@@ -287,7 +287,7 @@ export default function GlobalChat() {
           --accent-green: #00FF88;
         }
 
-        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; }
         body { background: var(--bg); color: var(--text-primary); }
 
         .screen { width: 100%; height: 100dvh; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
@@ -298,9 +298,9 @@ export default function GlobalChat() {
         .settings-btn:hover { color: var(--text-primary); }
 
         .ai-card-wrap { margin: 12px 16px; }
-        .ai-card { background: var(--headline-bg); border-left: 3px solid var(--accent-green); border-radius: 4px; padding: 10px 14px; position: relative; }
+        .ai-card { background: var(--headline-bg); border-left: 3px solid var(--accent-green); border-radius: 4px; padding: 14px 18px; position: relative; }
         .card-label { color: var(--accent-green); font-size: 9px; font-weight: 700; letter-spacing: 2px; margin-bottom: 4px; }
-        .ai-headline { font-size: 13px; color: #E8E8E8; font-weight: 500; line-height: 1.4; }
+        .ai-headline { font-size: 16px; color: #FFFFFF; font-weight: 600; line-height: 1.4; }
 
         .messages { flex: 1; overflow-y: auto; padding: 0 16px; scrollbar-width: none; }
         .messages::-webkit-scrollbar { display: none; }
@@ -316,11 +316,11 @@ export default function GlobalChat() {
         .msg-content.continuation { margin-left: 54px; } /* 38px avatar + 16px gap */
 
         .msg-header { display: flex; align-items: baseline; margin-bottom: 2px; }
-        .msg-username { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-        .msg-university { font-size: 11px; color: var(--text-muted); margin-left: 6px; }
-        .msg-timestamp { font-size: 11px; color: var(--text-muted); margin-left: auto; }
+        .msg-username { font-size: 15px; font-weight: 700; color: #FFFFFF; }
+        .msg-university { font-size: 13px; color: #71767B; margin-left: 6px; }
+        .msg-timestamp { font-size: 13px; color: #71767B; margin-left: auto; }
 
-        .msg-text { font-size: 15px; color: var(--text-msg); line-height: 1.4; margin-top: 2px; word-wrap: break-word; }
+        .msg-text { font-size: 15px; color: #E7E9EA; line-height: 1.5; margin-top: 2px; word-wrap: break-word; }
 
         .input-area { background: var(--bg); padding: 8px 16px 16px; }
         .hint { text-align: center; font-size: 11px; color: var(--text-muted); padding-bottom: 8px; opacity: 0.7; }

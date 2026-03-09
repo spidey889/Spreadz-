@@ -151,20 +151,24 @@ export default function GlobalChat() {
     --text-dim: #636366;
   }
 
-  html, body { height: 100%; }
+  html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
 
   body {
     background: var(--bg);
     font-family: 'Inter', sans-serif;
-    min-height: 100vh;
+    height: 100vh;
+    height: 100dvh;
   }
 
   .screen {
     width: 100%;
-    min-height: 100vh;
+    height: 100vh;
+    height: 100dvh;
     background: var(--bg);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .header {

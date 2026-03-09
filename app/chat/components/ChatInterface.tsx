@@ -115,7 +115,7 @@ export default function ChatInterface() {
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ background: '#1a1a1f' }}>
+    <div className="flex flex-col" style={{ background: '#1a1a1f', height: '100dvh', overflow: 'hidden' }}>
       <div className="w-full max-w-[440px] mx-auto h-full flex flex-col py-2 px-3">
 
         {/* ── Top Bar ── */}

@@ -15,9 +15,13 @@ interface Message {
 
 const AVATAR_COLORS = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
 
-const getAvatarColor = (name: string) => {
-  const sum = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-  return AVATAR_COLORS[sum % AVATAR_COLORS.length]
+const getUserColor = (username: string) => {
+  const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4'];
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) {
+    hash = username.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
 }
 
 const getInitials = (name: string) => {
@@ -205,24 +209,27 @@ export default function GlobalChat() {
           {messages.map((msg, index) => {
             const isFirstInGroup = index === 0 || messages[index - 1].username !== msg.username
             return (
-              <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`} key={msg.id}>
-                {isFirstInGroup ? (
-                  <>
-                    <div className="avatar" style={{ backgroundColor: getAvatarColor(msg.username) }}>{msg.initials}</div>
-                    <div className="msg-content">
-                      <div className="msg-header">
-                        <span className="msg-username">{msg.username}</span>
-                        {msg.university && <span className="msg-university">{msg.university}</span>}
-                        <span className="msg-timestamp">{msg.timestamp}</span>
+              <div key={msg.id}>
+                {isFirstInGroup && index !== 0 && <div className="group-divider" />}
+                <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
+                  {isFirstInGroup ? (
+                    <>
+                      <div className="avatar" style={{ backgroundColor: getUserColor(msg.username) }}>{msg.initials}</div>
+                      <div className="msg-content">
+                        <div className="msg-header">
+                          <span className="msg-username">{msg.username}</span>
+                          {msg.university && <span className="msg-university">{msg.university}</span>}
+                          <span className="msg-timestamp">{msg.timestamp}</span>
+                        </div>
+                        <div className="msg-text">{msg.text}</div>
                       </div>
+                    </>
+                  ) : (
+                    <div className="msg-content continuation">
                       <div className="msg-text">{msg.text}</div>
                     </div>
-                  </>
-                ) : (
-                  <div className="msg-content continuation">
-                    <div className="msg-text">{msg.text}</div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )
           })}
@@ -243,7 +250,7 @@ export default function GlobalChat() {
               onBlur={() => setIsKeyboardOpen(false)}
             />
             <button className="send-btn" aria-label="Send" onClick={() => handleSend()}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="22" y1="2" x2="11" y2="13" />
                 <polygon points="22 2 15 22 11 13 2 9 22 2" />
               </svg>
@@ -301,6 +308,7 @@ export default function GlobalChat() {
         .msg { display: flex; gap: 16px; width: 100%; }
         .group-start { margin-top: 20px; }
         .group-continuation { margin-top: 2px; }
+        .group-divider { height: 1px; width: 100%; background: #1E1F22; margin: 20px 0; }
 
         .avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: white; }
         
@@ -323,7 +331,7 @@ export default function GlobalChat() {
         input { flex: 1; background: none; border: none; outline: none; font-size: 15px; color: var(--text-primary); font-family: inherit; }
         input::placeholder { color: var(--text-muted); }
 
-        .send-btn { background: var(--discord-blurple); color: white; border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s; }
+        .send-btn { background: #5865F2; color: white; border: none; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s; flex-shrink: 0; }
         .send-btn:hover { background: #4752c4; }
         .send-btn:active { transform: scale(0.95); }
 

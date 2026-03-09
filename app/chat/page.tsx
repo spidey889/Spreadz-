@@ -23,6 +23,7 @@ const INITIAL_MESSAGES: Message[] = [
 export default function GlobalChat() {
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES)
   const [inputText, setInputText] = useState('')
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -46,7 +47,7 @@ export default function GlobalChat() {
 
     setMessages(prev => [...prev, newMsg])
     setInputText('')
-    inputRef.current?.focus()
+    inputRef.current?.blur()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -65,7 +66,7 @@ export default function GlobalChat() {
       />
 
       <div className="screen">
-        <div className="header">
+        <div className={`header${isKeyboardOpen ? ' hidden' : ''}`}>
           <div className="logo">
             <img src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" />
           </div>
@@ -87,7 +88,7 @@ export default function GlobalChat() {
           </button>
         </div>
 
-        <div className="ai-card-wrap">
+        <div className={`ai-card-wrap${isKeyboardOpen ? ' hidden' : ''}`}>
           <div className="ai-card">
             <div className="ai-headline">
               &quot;Engineers split on whether AI raises the bar — or kills entry-level jobs&quot;
@@ -127,7 +128,7 @@ export default function GlobalChat() {
         </div>
 
         <div className="input-area">
-          <div className="hint">↕ swipe for new people &amp; topics</div>
+          <div className={`hint${isKeyboardOpen ? ' hidden' : ''}`}>↕ swipe for new people &amp; topics</div>
           <div className="input-wrap">
             <input
               ref={inputRef}
@@ -136,6 +137,8 @@ export default function GlobalChat() {
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={handleKeyDown}
+              onFocus={() => setIsKeyboardOpen(true)}
+              onBlur={() => setIsKeyboardOpen(false)}
             />
             <button className="send-btn" aria-label="Send" onClick={handleSend}>
               <svg
@@ -437,6 +440,8 @@ export default function GlobalChat() {
   .c3 { background: #162416; color: #4ade80; }
   .c4 { background: #2a2210; color: #fbbf24; }
   .c5 { background: #101e2e; color: #60a5fa; }
+
+  .hidden { display: none !important; }
       `}</style>
     </>
   )

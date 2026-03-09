@@ -10,13 +10,23 @@ interface Message {
   university: string
   text: string
   timestamp: string
-  colorClass: string
+  created_at?: string
 }
 
-const COLORS = ['c1', 'c2', 'c3', 'c4', 'c5']
+const AVATAR_COLORS = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
+
+const getAvatarColor = (name: string) => {
+  const sum = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  return AVATAR_COLORS[sum % AVATAR_COLORS.length]
+}
 
 const getInitials = (name: string) => {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+}
+
+const formatTime = (isoString?: string) => {
+  if (!isoString) return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 export default function GlobalChat() {
@@ -41,9 +51,8 @@ export default function GlobalChat() {
   }, [])
 
   useEffect(() => {
-    // 1. Fetch existing messages
     const fetchMessages = async () => {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('messages')
         .select('*')
         .order('created_at', { ascending: true })
@@ -55,15 +64,14 @@ export default function GlobalChat() {
           initials: getInitials(m.username || 'Anonymous'),
           university: m.university || '',
           text: m.content,
-          timestamp: 'now',
-          colorClass: COLORS[Math.abs(m.username?.length || 0) % COLORS.length],
+          timestamp: formatTime(m.created_at),
+          created_at: m.created_at
         })))
       }
     }
 
     fetchMessages()
 
-    // 2. Subscribe to real-time messages with deduplication
     const channel = supabase
       .channel('messages')
       .on(
@@ -72,7 +80,6 @@ export default function GlobalChat() {
         (payload) => {
           const m = payload.new
           setMessages((prev) => {
-            // Deduplicate by id
             if (prev.some(msg => msg.id === m.id)) return prev
 
             const newMessage: Message = {
@@ -81,8 +88,8 @@ export default function GlobalChat() {
               initials: getInitials(m.username || 'Anonymous'),
               university: m.university || '',
               text: m.content,
-              timestamp: 'now',
-              colorClass: COLORS[Math.abs(m.username?.length || 0) % COLORS.length],
+              timestamp: formatTime(m.created_at),
+              created_at: m.created_at
             }
             return [...prev, newMessage]
           })
@@ -112,15 +119,13 @@ export default function GlobalChat() {
     const activeCollege = overrideCollege !== undefined ? overrideCollege : (university || localStorage.getItem('spreadz_college') || '')
     const tempId = `temp-${Date.now()}`
 
-    // Optimistically add to state
     const optimisticMsg: Message = {
       id: tempId,
       username: activeName,
       initials: getInitials(activeName),
       university: activeCollege,
       text,
-      timestamp: 'now',
-      colorClass: COLORS[Math.abs(activeName.length) % COLORS.length],
+      timestamp: formatTime()
     }
     setMessages(prev => [...prev, optimisticMsg])
     setInputText('')
@@ -132,23 +137,21 @@ export default function GlobalChat() {
       .select()
 
     if (error) {
-      console.error('Error sending message:', error)
       setMessages(prev => prev.filter(m => m.id !== tempId))
       return
     }
 
-    // Replace optimistic message with real message from DB to ensure correct ID
     if (data && data[0]) {
-      const realMsg = data[0]
-      setMessages(prev => prev.map(m => m.id === tempId ? {
-        id: realMsg.id,
-        username: realMsg.username || 'Anonymous',
-        initials: getInitials(realMsg.username || 'Anonymous'),
-        university: realMsg.university || '',
-        text: realMsg.content,
-        timestamp: 'now',
-        colorClass: COLORS[Math.abs(realMsg.username?.length || 0) % COLORS.length],
-      } : m))
+      const m = data[0]
+      setMessages(prev => prev.map(msg => msg.id === tempId ? {
+        id: m.id,
+        username: m.username || 'Anonymous',
+        initials: getInitials(m.username || 'Anonymous'),
+        university: m.university || '',
+        text: m.content,
+        timestamp: formatTime(m.created_at),
+        created_at: m.created_at
+      } : msg))
     }
   }
 
@@ -178,28 +181,13 @@ export default function GlobalChat() {
   return (
     <>
       <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
-        rel="stylesheet"
-      />
-
       <div className="screen">
         <div className={`header${isKeyboardOpen ? ' hidden' : ''}`}>
           <div className="logo">
             <img src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" />
           </div>
-
           <button className="settings-btn" aria-label="Settings">
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
@@ -208,28 +196,36 @@ export default function GlobalChat() {
 
         <div className={`ai-card-wrap${isKeyboardOpen ? ' hidden' : ''}`}>
           <div className="ai-card">
-            <div className="ai-headline">
-              &quot;Engineers split on whether AI raises the bar — or kills entry-level jobs&quot;
-            </div>
+            <div className="card-label">LIVE DISCUSSION</div>
+            <div className="ai-headline">Engineers split on whether AI raises the bar — or kills entry-level jobs</div>
           </div>
         </div>
 
         <div className="messages">
-          {messages.map((msg, index) => (
-            <div className="msg" key={msg.id}>
-              <div className={`avatar ${msg.colorClass}`}>{msg.initials}</div>
-              <div className="msg-body">
-                <div className="msg-top">
-                  <span className="msg-name">{msg.username}</span>
-                  <span className="msg-time">{msg.timestamp}</span>
-                </div>
-                {msg.university && <div className="msg-college">{msg.university}</div>}
-                <div className="msg-text">{msg.text}</div>
+          {messages.map((msg, index) => {
+            const isFirstInGroup = index === 0 || messages[index - 1].username !== msg.username
+            return (
+              <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`} key={msg.id}>
+                {isFirstInGroup ? (
+                  <>
+                    <div className="avatar" style={{ backgroundColor: getAvatarColor(msg.username) }}>{msg.initials}</div>
+                    <div className="msg-content">
+                      <div className="msg-header">
+                        <span className="msg-username">{msg.username}</span>
+                        {msg.university && <span className="msg-university">{msg.university}</span>}
+                        <span className="msg-timestamp">{msg.timestamp}</span>
+                      </div>
+                      <div className="msg-text">{msg.text}</div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="msg-content continuation">
+                    <div className="msg-text">{msg.text}</div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
-
-
+            )
+          })}
           <div ref={messagesEndRef} />
         </div>
 
@@ -247,16 +243,7 @@ export default function GlobalChat() {
               onBlur={() => setIsKeyboardOpen(false)}
             />
             <button className="send-btn" aria-label="Send" onClick={() => handleSend()}>
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="22" y1="2" x2="11" y2="13" />
                 <polygon points="22 2 15 22 11 13 2 9 22 2" />
               </svg>
@@ -270,337 +257,85 @@ export default function GlobalChat() {
           <form className="modal" onSubmit={handleProfileSubmit}>
             <h2 className="modal-title">What&apos;s your name?</h2>
             <div className="modal-inputs">
-              <input
-                type="text"
-                placeholder="Your name"
-                value={tempProfileName}
-                onChange={(e) => setTempProfileName(e.target.value)}
-                autoFocus
-                required
-                className="modal-input"
-              />
+              <input type="text" placeholder="Your name" value={tempProfileName} onChange={(e) => setTempProfileName(e.target.value)} autoFocus required className="modal-input" />
               <p className="modal-sub">Your college? (optional)</p>
-              <input
-                type="text"
-                placeholder="e.g. MIT, Stanford..."
-                value={tempProfileCollege}
-                onChange={(e) => setTempProfileCollege(e.target.value)}
-                className="modal-input"
-              />
+              <input type="text" placeholder="e.g. MIT, Stanford..." value={tempProfileCollege} onChange={(e) => setTempProfileCollege(e.target.value)} className="modal-input" />
             </div>
-            <button type="submit" className="join-btn">
-              Join Chat
-            </button>
+            <button type="submit" className="join-btn">Join Chat</button>
           </form>
         </div>
       )}
 
       <style>{`
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #1c1c1e;
-    --surface: #2c2c2e;
-    --border: #3a3a3c;
-    --border-light: #48484a;
-    --text: #f2f2f7;
-    --text-sub: #ababab;
-    --text-dim: #636366;
-  }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+          --bg: #111214;
+          --surface: #1E1F22;
+          --border: #2E2F35;
+          --discord-blurple: #5865F2;
+          --text-primary: #F2F3F5;
+          --text-msg: #DCDDDE;
+          --text-muted: #72767D;
+          --headline-bg: #0D0D0D;
+          --accent-green: #00FF88;
+        }
 
-  html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg); color: var(--text-primary); }
 
-  body {
-    background: var(--bg);
-    font-family: 'Inter', sans-serif;
-    height: 100vh;
-    height: 100dvh;
-  }
+        .screen { width: 100%; height: 100dvh; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
 
-  .screen {
-    width: 100%;
-    height: 100vh;
-    height: 100dvh;
-    background: var(--bg);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
+        .header { display: flex; align-items: center; justify-content: space-between; padding: 4px 18px 4px 8px; background: var(--bg); position: relative; z-index: 10; }
+        .logo-img { height: 90px; margin: -16px 0; object-fit: contain; }
+        .settings-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; transition: color 0.1s; }
+        .settings-btn:hover { color: var(--text-primary); }
 
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-top: 4px;
-    padding-bottom: 4px;
-    padding-left: 8px;
-    padding-right: 18px;
-    background: var(--bg);
-    border-bottom: 1px solid var(--border);
-    overflow: visible;
-    position: relative;
-    z-index: 10;
-  }
+        .ai-card-wrap { margin: 12px 16px; }
+        .ai-card { background: var(--headline-bg); border-left: 3px solid var(--accent-green); border-radius: 4px; padding: 10px 14px; position: relative; }
+        .card-label { color: var(--accent-green); font-size: 9px; font-weight: 700; letter-spacing: 2px; margin-bottom: 4px; }
+        .ai-headline { font-size: 13px; color: #E8E8E8; font-weight: 500; line-height: 1.4; }
 
-  .logo {
-    display: flex;
-    align-items: center;
-    position: relative;
-    z-index: 10;
-  }
+        .messages { flex: 1; overflow-y: auto; padding: 0 16px; scrollbar-width: none; }
+        .messages::-webkit-scrollbar { display: none; }
 
-  .logo-img {
-    height: 90px;
-    width: auto;
-    object-fit: contain;
-    position: relative;
-    z-index: 10;
-    margin: -16px 0;
-  }
+        .msg { display: flex; gap: 16px; width: 100%; }
+        .group-start { margin-top: 20px; }
+        .group-continuation { margin-top: 2px; }
 
-  .settings-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--text-dim);
-    display: flex;
-    align-items: center;
-    padding: 4px;
-    transition: color 0.15s;
-  }
+        .avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: white; }
+        
+        .msg-content { flex: 1; min-width: 0; position: relative; }
+        .msg-content.continuation { margin-left: 54px; } /* 38px avatar + 16px gap */
 
-  .settings-btn:hover { color: var(--text-sub); }
+        .msg-header { display: flex; align-items: baseline; margin-bottom: 2px; }
+        .msg-username { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+        .msg-university { font-size: 11px; color: var(--text-muted); margin-left: 6px; }
+        .msg-timestamp { font-size: 11px; color: var(--text-muted); margin-left: auto; }
 
-  .ai-card-wrap {
-    margin: 12px 14px;
-    position: relative;
-  }
+        .msg-text { font-size: 15px; color: var(--text-msg); line-height: 1.4; margin-top: 2px; word-wrap: break-word; }
 
-  .ai-card-wrap::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at 30% 60%, rgba(57,255,20,0.12) 0%, transparent 65%),
-                radial-gradient(ellipse at 80% 20%, rgba(100,180,255,0.10) 0%, transparent 60%);
-    pointer-events: none;
-  }
+        .input-area { background: var(--bg); padding: 8px 16px 16px; }
+        .hint { text-align: center; font-size: 11px; color: var(--text-muted); padding-bottom: 8px; opacity: 0.7; }
+        
+        .input-wrap { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 4px 4px 4px 16px; transition: box-shadow 0.2s; }
+        .input-wrap:focus-within { box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.15); }
+        
+        input { flex: 1; background: none; border: none; outline: none; font-size: 15px; color: var(--text-primary); font-family: inherit; }
+        input::placeholder { color: var(--text-muted); }
 
-  .ai-card {
-    position: relative;
-    background: linear-gradient(155deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.07) 45%, rgba(255,255,255,0.04) 100%);
-    backdrop-filter: blur(80px) saturate(200%) brightness(1.15);
-    -webkit-backdrop-filter: blur(80px) saturate(200%) brightness(1.15);
-    border-radius: 22px;
-    padding: 12px 16px;
-    overflow: hidden;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.13), 0 4px 6px rgba(0,0,0,0.35), 0 16px 48px rgba(0,0,0,0.6), inset 0 2px 8px rgba(255,255,255,0.18), inset 0 -3px 10px rgba(0,0,0,0.28);
-  }
+        .send-btn { background: var(--discord-blurple); color: white; border: none; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s; }
+        .send-btn:hover { background: #4752c4; }
+        .send-btn:active { transform: scale(0.95); }
 
-  .ai-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 8%;
-    right: 8%;
-    height: 1px;
-    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 20%, rgba(255,255,255,0.95) 50%, rgba(255,255,255,0.55) 80%, transparent 100%);
-  }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+        .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 32px; width: 100%; max-width: 360px; text-align: center; }
+        .modal-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 24px; color: var(--text-primary); }
+        .modal-sub { font-size: 0.9rem; color: var(--text-muted); margin: 12px 0 8px; text-align: left; }
+        .modal-inputs { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+        .modal-input { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: var(--text-primary); font-size: 1rem; outline: none; width: 100%; }
+        .join-btn { background: var(--text-primary); color: var(--bg); border: none; border-radius: 14px; padding: 16px; width: 100%; font-size: 1.1rem; font-weight: 700; cursor: pointer; }
 
-  .ai-card::after {
-    content: '';
-    position: absolute;
-    inset: 1px;
-    border-radius: 21px;
-    background: linear-gradient(170deg, rgba(255,255,255,0.09) 0%, transparent 55%, rgba(0,0,0,0.06) 100%);
-    pointer-events: none;
-  }
-
-  .ai-headline {
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: rgba(235,245,255,0.95);
-    line-height: 1.5;
-  }
-
-  .messages {
-    flex: 1;
-    overflow-y: auto;
-    scrollbar-width: none;
-  }
-
-  .messages::-webkit-scrollbar { display: none; }
-
-  .msg {
-    display: flex;
-    gap: 12px;
-    padding: 14px 18px;
-    border-bottom: 1px solid rgba(255,255,255,0.15);
-    cursor: pointer;
-    transition: background 0.12s;
-  }
-
-  .msg:hover { background: rgba(255,255,255,0.02); }
-
-  .avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 15px;
-  }
-
-  .msg-body { flex: 1; min-width: 0; }
-
-  .msg-top {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 2px;
-  }
-
-  .msg-name {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--text);
-    white-space: nowrap;
-  }
-
-  .msg-time {
-    font-size: 12px;
-    color: var(--text-dim);
-    margin-left: auto;
-    flex-shrink: 0;
-  }
-
-  .msg-college {
-    font-size: 12px;
-    color: var(--text-dim);
-    margin-bottom: 6px;
-  }
-
-  .msg-text {
-    font-size: 14px;
-    color: #d1d1d6;
-    line-height: 1.5;
-  }
-
-
-
-  .input-area {
-    background: var(--bg);
-    padding: 8px 16px 12px;
-    border-top: 1px solid var(--border);
-  }
-
-  .hint {
-    text-align: center;
-    font-size: 11px;
-    color: var(--text-dim);
-    padding: 0 0 10px;
-    opacity: 0.7;
-  }
-
-  .input-wrap {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--surface);
-    border: 1px solid var(--border-light);
-    border-radius: 24px;
-    padding: 6px 12px 6px 16px;
-    transition: border-color 0.15s;
-  }
-
-  .input-wrap:focus-within { border-color: var(--border-light); }
-
-  input {
-    flex: 1;
-    background: none;
-    border: none;
-    outline: none;
-    font-family: 'Inter', sans-serif;
-    font-size: 15px;
-    color: var(--text);
-  }
-
-  input::placeholder { color: rgba(255,255,255,0.5); }
-
-  .send-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    padding: 6px;
-    color: var(--text-dim);
-    transition: color 0.15s;
-  }
-
-  .send-btn:hover { color: var(--text-sub); }
-
-  .c1 { background: #2c2442; color: #a78bfa; }
-  .c2 { background: #2a1a1a; color: #f87171; }
-  .c3 { background: #162416; color: #4ade80; }
-  .c4 { background: #2a2210; color: #fbbf24; }
-  .c5 { background: #101e2e; color: #60a5fa; }
-
-  .hidden { display: none !important; }
-
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.85);
-    backdrop-filter: blur(8px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 20px;
-  }
-  .modal {
-    background: linear-gradient(155deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 28px;
-    padding: 32px;
-    width: 100%;
-    max-width: 360px;
-    box-shadow: 0 24px 48px rgba(0,0,0,0.5);
-    text-align: center;
-  }
-  .modal-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 24px; color: var(--text); }
-  .modal-sub { font-size: 0.9rem; color: var(--text-dim); margin: 12px 0 8px; text-align: left; }
-  .modal-inputs { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
-  .modal-input {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    padding: 14px 18px;
-    color: var(--text);
-    font-size: 1rem;
-    outline: none;
-    transition: border-color 0.2s;
-    width: 100%;
-  }
-  .modal-input:focus { border-color: var(--border-light); }
-  .join-btn {
-    background: var(--text);
-    color: var(--bg);
-    border: none;
-    border-radius: 14px;
-    padding: 16px;
-    width: 100%;
-    font-size: 1.1rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: transform 0.1s;
-  }
-  .join-btn:active { transform: scale(0.98); }
+        .hidden { display: none !important; }
       `}</style>
     </>
   )

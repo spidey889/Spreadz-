@@ -24,6 +24,8 @@ export default function GlobalChat() {
   const [inputText, setInputText] = useState('')
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [username, setUsername] = useState('')
+  const [university, setUniversity] = useState('')
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [tempProfileName, setTempProfileName] = useState('')
   const [tempProfileCollege, setTempProfileCollege] = useState('')
@@ -32,6 +34,10 @@ export default function GlobalChat() {
 
   useEffect(() => {
     setIsMounted(true)
+    const storedName = localStorage.getItem('spreadz_username')
+    const storedCollege = localStorage.getItem('spreadz_college')
+    if (storedName) setUsername(storedName)
+    if (storedCollege) setUniversity(storedCollege)
   }, [])
 
   useEffect(() => {
@@ -93,29 +99,28 @@ export default function GlobalChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const handleSend = async () => {
+  const handleSend = async (overrideName?: string, overrideCollege?: string) => {
     const text = inputText.trim()
     if (!text) return
 
-    const storedName = localStorage.getItem('spreadz_username')
-    if (!storedName) {
+    const activeName = overrideName || username || localStorage.getItem('spreadz_username')
+    if (!activeName) {
       setShowProfileModal(true)
       return
     }
 
-    const storedCollege = localStorage.getItem('spreadz_college') || ''
+    const activeCollege = overrideCollege !== undefined ? overrideCollege : (university || localStorage.getItem('spreadz_college') || '')
     const tempId = `temp-${Date.now()}`
-    const username = storedName
 
     // Optimistically add to state
     const optimisticMsg: Message = {
       id: tempId,
-      username,
-      initials: getInitials(username),
-      university: storedCollege,
+      username: activeName,
+      initials: getInitials(activeName),
+      university: activeCollege,
       text,
       timestamp: 'now',
-      colorClass: COLORS[Math.abs(username.length) % COLORS.length],
+      colorClass: COLORS[Math.abs(activeName.length) % COLORS.length],
     }
     setMessages(prev => [...prev, optimisticMsg])
     setInputText('')
@@ -123,7 +128,7 @@ export default function GlobalChat() {
 
     const { data, error } = await supabase
       .from('messages')
-      .insert({ content: text, username, university: storedCollege })
+      .insert({ content: text, username: activeName, university: activeCollege })
       .select()
 
     if (error) {
@@ -149,11 +154,16 @@ export default function GlobalChat() {
 
   const handleProfileSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
-    if (!tempProfileName.trim()) return
-    localStorage.setItem('spreadz_username', tempProfileName.trim())
-    localStorage.setItem('spreadz_college', tempProfileCollege.trim())
+    const name = tempProfileName.trim()
+    const college = tempProfileCollege.trim()
+    if (!name) return
+
+    localStorage.setItem('spreadz_username', name)
+    localStorage.setItem('spreadz_college', college)
+    setUsername(name)
+    setUniversity(college)
     setShowProfileModal(false)
-    handleSend()
+    handleSend(name, college)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -248,7 +258,7 @@ export default function GlobalChat() {
               onFocus={() => setIsKeyboardOpen(true)}
               onBlur={() => setIsKeyboardOpen(false)}
             />
-            <button className="send-btn" aria-label="Send" onClick={handleSend}>
+            <button className="send-btn" aria-label="Send" onClick={() => handleSend()}>
               <svg
                 width="18"
                 height="18"

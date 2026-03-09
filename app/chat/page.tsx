@@ -1,6 +1,61 @@
 ﻿'use client'
 
+import { useState, useRef, useEffect } from 'react'
+
+interface Message {
+  id: string
+  username: string
+  initials: string
+  university: string
+  text: string
+  timestamp: string
+  colorClass: string
+}
+
+const INITIAL_MESSAGES: Message[] = [
+  { id: '1', username: 'Sofia Ramirez', initials: 'SR', university: 'MIT', text: "AI won't replace devs — it'll replace the ones who don't use it.", timestamp: 'now', colorClass: 'c1' },
+  { id: '2', username: 'Ava Lawson', initials: 'AL', university: 'Stanford University', text: 'Easy to say when you already have a job lol. Fresh grads are cooked.', timestamp: '1m', colorClass: 'c2' },
+  { id: '3', username: 'Marcus Webb', initials: 'MW', university: 'Carnegie Mellon', text: 'Built my whole MVP with AI. No team. The moat is speed + ideas now.', timestamp: '2m', colorClass: 'c4' },
+  { id: '4', username: 'Jake Reynolds', initials: 'JR', university: 'UC Berkeley', text: '"Prompt engineering" as a real skill 💀 it\'s literally just talking.', timestamp: '3m', colorClass: 'c5' },
+  { id: '5', username: 'Noah Torres', initials: 'NT', university: 'Georgia Tech', text: "Systems thinking doesn't go away. AI kills the boring parts.", timestamp: '4m', colorClass: 'c3' },
+]
+
 export default function GlobalChat() {
+  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES)
+  const [inputText, setInputText] = useState('')
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const handleSend = () => {
+    const text = inputText.trim()
+    if (!text) return
+
+    const newMsg: Message = {
+      id: Date.now().toString(),
+      username: 'You',
+      initials: 'YO',
+      university: '',
+      text,
+      timestamp: 'now',
+      colorClass: 'c1',
+    }
+
+    setMessages(prev => [...prev, newMsg])
+    setInputText('')
+    inputRef.current?.focus()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
   return (
     <>
       <link
@@ -34,71 +89,25 @@ export default function GlobalChat() {
         <div className="ai-card-wrap">
           <div className="ai-card">
             <div className="ai-headline">
-              "Engineers split on whether AI raises the bar — or kills entry-level jobs"
+              &quot;Engineers split on whether AI raises the bar — or kills entry-level jobs&quot;
             </div>
           </div>
         </div>
 
         <div className="messages">
-          <div className="msg">
-            <div className="avatar c1">SR</div>
-            <div className="msg-body">
-              <div className="msg-top">
-                <span className="msg-name">Sofia Ramirez</span>
-                <span className="msg-time">now</span>
+          {messages.map((msg, index) => (
+            <div className="msg" key={msg.id}>
+              <div className={`avatar ${msg.colorClass}`}>{msg.initials}</div>
+              <div className="msg-body">
+                <div className="msg-top">
+                  <span className="msg-name">{msg.username}</span>
+                  <span className="msg-time">{msg.timestamp}</span>
+                </div>
+                {msg.university && <div className="msg-college">{msg.university}</div>}
+                <div className="msg-text">{msg.text}</div>
               </div>
-              <div className="msg-college">MIT</div>
-              <div className="msg-text">AI won't replace devs — it'll replace the ones who don't use it.</div>
             </div>
-          </div>
-
-          <div className="msg">
-            <div className="avatar c2">AL</div>
-            <div className="msg-body">
-              <div className="msg-top">
-                <span className="msg-name">Ava Lawson</span>
-                <span className="msg-time">1m</span>
-              </div>
-              <div className="msg-college">Stanford University</div>
-              <div className="msg-text">Easy to say when you already have a job lol. Fresh grads are cooked.</div>
-            </div>
-          </div>
-
-          <div className="msg">
-            <div className="avatar c4">MW</div>
-            <div className="msg-body">
-              <div className="msg-top">
-                <span className="msg-name">Marcus Webb</span>
-                <span className="msg-time">2m</span>
-              </div>
-              <div className="msg-college">Carnegie Mellon</div>
-              <div className="msg-text">Built my whole MVP with AI. No team. The moat is speed + ideas now.</div>
-            </div>
-          </div>
-
-          <div className="msg">
-            <div className="avatar c5">JR</div>
-            <div className="msg-body">
-              <div className="msg-top">
-                <span className="msg-name">Jake Reynolds</span>
-                <span className="msg-time">3m</span>
-              </div>
-              <div className="msg-college">UC Berkeley</div>
-              <div className="msg-text">"Prompt engineering" as a real skill 💀 it's literally just talking.</div>
-            </div>
-          </div>
-
-          <div className="msg">
-            <div className="avatar c3">NT</div>
-            <div className="msg-body">
-              <div className="msg-top">
-                <span className="msg-name">Noah Torres</span>
-                <span className="msg-time">4m</span>
-              </div>
-              <div className="msg-college">Georgia Tech</div>
-              <div className="msg-text">Systems thinking doesn't go away. AI kills the boring parts.</div>
-            </div>
-          </div>
+          ))}
 
           <div className="typing-row">
             <div className="avatar c1">SC</div>
@@ -113,20 +122,28 @@ export default function GlobalChat() {
               </div>
             </div>
           </div>
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="input-area">
-          <div className="hint">↕ swipe for new people & topics</div>
+          <div className="hint">↕ swipe for new people &amp; topics</div>
           <div className="input-wrap">
-            <input type="text" placeholder="What's on your mind?" />
-            <button className="send-btn" aria-label="Send">
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="What's on your mind?"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+            <button className="send-btn" aria-label="Send" onClick={handleSend}>
               <svg
-                width="15"
-                height="15"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#071a03"
-                strokeWidth="2.5"
+                stroke="currentColor"
+                strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
@@ -145,7 +162,6 @@ export default function GlobalChat() {
     --surface: #2c2c2e;
     --border: #3a3a3c;
     --border-light: #48484a;
-    --neon: #39ff14;
     --text: #f2f2f7;
     --text-sub: #ababab;
     --text-dim: #636366;
@@ -386,7 +402,7 @@ export default function GlobalChat() {
     transition: border-color 0.15s;
   }
 
-  .input-wrap:focus-within { border-color: rgba(57,255,20,0.4); }
+  .input-wrap:focus-within { border-color: var(--border-light); }
 
   input {
     flex: 1;
@@ -401,21 +417,19 @@ export default function GlobalChat() {
   input::placeholder { color: rgba(255,255,255,0.5); }
 
   .send-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: var(--neon);
+    background: none;
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    box-shadow: 0 0 14px rgba(57,255,20,0.5);
-    transition: opacity 0.15s;
+    padding: 6px;
+    color: var(--text-dim);
+    transition: color 0.15s;
   }
 
-  .send-btn:hover { opacity: .85; }
+  .send-btn:hover { color: var(--text-sub); }
 
   .c1 { background: #2c2442; color: #a78bfa; }
   .c2 { background: #2a1a1a; color: #f87171; }

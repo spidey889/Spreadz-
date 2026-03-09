@@ -24,6 +24,9 @@ export default function GlobalChat() {
   const [inputText, setInputText] = useState('')
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [tempProfileName, setTempProfileName] = useState('')
+  const [tempProfileCollege, setTempProfileCollege] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -44,7 +47,7 @@ export default function GlobalChat() {
           id: m.id,
           username: m.username || 'Anonymous',
           initials: getInitials(m.username || 'Anonymous'),
-          university: '',
+          university: m.university || '',
           text: m.content,
           timestamp: 'now',
           colorClass: COLORS[Math.abs(m.username?.length || 0) % COLORS.length],
@@ -70,7 +73,7 @@ export default function GlobalChat() {
               id: m.id,
               username: m.username || 'Anonymous',
               initials: getInitials(m.username || 'Anonymous'),
-              university: '',
+              university: m.university || '',
               text: m.content,
               timestamp: 'now',
               colorClass: COLORS[Math.abs(m.username?.length || 0) % COLORS.length],
@@ -94,15 +97,22 @@ export default function GlobalChat() {
     const text = inputText.trim()
     if (!text) return
 
+    const storedName = localStorage.getItem('spreadz_username')
+    if (!storedName) {
+      setShowProfileModal(true)
+      return
+    }
+
+    const storedCollege = localStorage.getItem('spreadz_college') || ''
     const tempId = `temp-${Date.now()}`
-    const username = 'Anonymous'
+    const username = storedName
 
     // Optimistically add to state
     const optimisticMsg: Message = {
       id: tempId,
       username,
       initials: getInitials(username),
-      university: '',
+      university: storedCollege,
       text,
       timestamp: 'now',
       colorClass: COLORS[Math.abs(username.length) % COLORS.length],
@@ -113,12 +123,11 @@ export default function GlobalChat() {
 
     const { data, error } = await supabase
       .from('messages')
-      .insert({ content: text, username })
+      .insert({ content: text, username, university: storedCollege })
       .select()
 
     if (error) {
       console.error('Error sending message:', error)
-      // Optionally remove optimistic message or show error
       setMessages(prev => prev.filter(m => m.id !== tempId))
       return
     }
@@ -130,12 +139,21 @@ export default function GlobalChat() {
         id: realMsg.id,
         username: realMsg.username || 'Anonymous',
         initials: getInitials(realMsg.username || 'Anonymous'),
-        university: '',
+        university: realMsg.university || '',
         text: realMsg.content,
         timestamp: 'now',
         colorClass: COLORS[Math.abs(realMsg.username?.length || 0) % COLORS.length],
       } : m))
     }
+  }
+
+  const handleProfileSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!tempProfileName.trim()) return
+    localStorage.setItem('spreadz_username', tempProfileName.trim())
+    localStorage.setItem('spreadz_college', tempProfileCollege.trim())
+    setShowProfileModal(false)
+    handleSend()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -248,6 +266,36 @@ export default function GlobalChat() {
           </div>
         </div>
       </div>
+
+      {showProfileModal && (
+        <div className="modal-overlay">
+          <form className="modal" onSubmit={handleProfileSubmit}>
+            <h2 className="modal-title">What&apos;s your name?</h2>
+            <div className="modal-inputs">
+              <input
+                type="text"
+                placeholder="Your name"
+                value={tempProfileName}
+                onChange={(e) => setTempProfileName(e.target.value)}
+                autoFocus
+                required
+                className="modal-input"
+              />
+              <p className="modal-sub">Your college? (optional)</p>
+              <input
+                type="text"
+                placeholder="e.g. MIT, Stanford..."
+                value={tempProfileCollege}
+                onChange={(e) => setTempProfileCollege(e.target.value)}
+                className="modal-input"
+              />
+            </div>
+            <button type="submit" className="join-btn">
+              Join Chat
+            </button>
+          </form>
+        </div>
+      )}
 
       <style>{`
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -532,6 +580,56 @@ export default function GlobalChat() {
   .c5 { background: #101e2e; color: #60a5fa; }
 
   .hidden { display: none !important; }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+  .modal {
+    background: linear-gradient(155deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 28px;
+    padding: 32px;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.5);
+    text-align: center;
+  }
+  .modal-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 24px; color: var(--text); }
+  .modal-sub { font-size: 0.9rem; color: var(--text-dim); margin: 12px 0 8px; text-align: left; }
+  .modal-inputs { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+  .modal-input {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 14px 18px;
+    color: var(--text);
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  .modal-input:focus { border-color: var(--border-light); }
+  .join-btn {
+    background: var(--text);
+    color: var(--bg);
+    border: none;
+    border-radius: 14px;
+    padding: 16px;
+    width: 100%;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .join-btn:active { transform: scale(0.98); }
       `}</style>
     </>
   )

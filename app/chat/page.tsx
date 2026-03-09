@@ -195,8 +195,8 @@ export default function GlobalChat() {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-top: 8px;
-    padding-bottom: 8px;
+    padding-top: 4px;
+    padding-bottom: 4px;
     padding-left: 8px;
     padding-right: 18px;
     background: var(--bg);

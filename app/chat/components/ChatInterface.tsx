@@ -50,16 +50,20 @@ const INITIAL_MESSAGES: Omit<Message, 'id' | 'color'>[] = [
 ]
 
 export default function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>(() =>
-    INITIAL_MESSAGES.map((m, i) => ({
+  const [messages, setMessages] = useState<Message[]>([])
+  const [inputText, setInputText] = useState('')
+  const [isMounted, setIsMounted] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setIsMounted(true)
+    setMessages(INITIAL_MESSAGES.map((m, i) => ({
       ...m,
       id: `init-${i}`,
       color: getColor(m.username),
-    }))
-  )
-  const [inputText, setInputText] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+    })))
+  }, [])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -113,6 +117,8 @@ export default function ChatInterface() {
     const diffDays = Math.floor(diffHours / 24)
     return `${diffDays}d`
   }
+
+  if (!isMounted) return null
 
   return (
     <div className="flex flex-col" style={{ background: '#1a1a1f', height: '100dvh', overflow: 'hidden' }}>

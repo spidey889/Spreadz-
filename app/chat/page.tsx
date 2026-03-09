@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 
 interface Message {
   id: string
@@ -12,42 +13,129 @@ interface Message {
   colorClass: string
 }
 
-const INITIAL_MESSAGES: Message[] = [
-  { id: '1', username: 'Sofia Ramirez', initials: 'SR', university: 'MIT', text: "AI won't replace devs — it'll replace the ones who don't use it.", timestamp: 'now', colorClass: 'c1' },
-  { id: '2', username: 'Ava Lawson', initials: 'AL', university: 'Stanford University', text: 'Easy to say when you already have a job lol. Fresh grads are cooked.', timestamp: '1m', colorClass: 'c2' },
-  { id: '3', username: 'Marcus Webb', initials: 'MW', university: 'Carnegie Mellon', text: 'Built my whole MVP with AI. No team. The moat is speed + ideas now.', timestamp: '2m', colorClass: 'c4' },
-  { id: '4', username: 'Jake Reynolds', initials: 'JR', university: 'UC Berkeley', text: '"Prompt engineering" as a real skill 💀 it\'s literally just talking.', timestamp: '3m', colorClass: 'c5' },
-  { id: '5', username: 'Noah Torres', initials: 'NT', university: 'Georgia Tech', text: "Systems thinking doesn't go away. AI kills the boring parts.", timestamp: '4m', colorClass: 'c3' },
-]
+const COLORS = ['c1', 'c2', 'c3', 'c4', 'c5']
+
+const getInitials = (name: string) => {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+}
 
 export default function GlobalChat() {
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES)
+  const [messages, setMessages] = useState<Message[]>([])
   const [inputText, setInputText] = useState('')
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    // 1. Fetch existing messages
+    const fetchMessages = async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: true })
+
+      if (data) {
+        setMessages(data.map((m: any) => ({
+          id: m.id,
+          username: m.username || 'Anonymous',
+          initials: getInitials(m.username || 'Anonymous'),
+          university: '',
+          text: m.content,
+          timestamp: 'now',
+          colorClass: COLORS[Math.abs(m.username?.length || 0) % COLORS.length],
+        })))
+      }
+    }
+
+    fetchMessages()
+
+    // 2. Subscribe to real-time messages with deduplication
+    const channel = supabase
+      .channel('messages')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const m = payload.new
+          setMessages((prev) => {
+            // Deduplicate by id
+            if (prev.some(msg => msg.id === m.id)) return prev
+
+            const newMessage: Message = {
+              id: m.id,
+              username: m.username || 'Anonymous',
+              initials: getInitials(m.username || 'Anonymous'),
+              university: '',
+              text: m.content,
+              timestamp: 'now',
+              colorClass: COLORS[Math.abs(m.username?.length || 0) % COLORS.length],
+            }
+            return [...prev, newMessage]
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const text = inputText.trim()
     if (!text) return
 
-    const newMsg: Message = {
-      id: Date.now().toString(),
-      username: 'You',
-      initials: 'YO',
+    const tempId = `temp-${Date.now()}`
+    const username = 'Anonymous'
+
+    // Optimistically add to state
+    const optimisticMsg: Message = {
+      id: tempId,
+      username,
+      initials: getInitials(username),
       university: '',
       text,
       timestamp: 'now',
-      colorClass: 'c1',
+      colorClass: COLORS[Math.abs(username.length) % COLORS.length],
     }
-
-    setMessages(prev => [...prev, newMsg])
+    setMessages(prev => [...prev, optimisticMsg])
     setInputText('')
     inputRef.current?.blur()
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({ content: text, username })
+      .select()
+
+    if (error) {
+      console.error('Error sending message:', error)
+      // Optionally remove optimistic message or show error
+      setMessages(prev => prev.filter(m => m.id !== tempId))
+      return
+    }
+
+    // Replace optimistic message with real message from DB to ensure correct ID
+    if (data && data[0]) {
+      const realMsg = data[0]
+      setMessages(prev => prev.map(m => m.id === tempId ? {
+        id: realMsg.id,
+        username: realMsg.username || 'Anonymous',
+        initials: getInitials(realMsg.username || 'Anonymous'),
+        university: '',
+        text: realMsg.content,
+        timestamp: 'now',
+        colorClass: COLORS[Math.abs(realMsg.username?.length || 0) % COLORS.length],
+      } : m))
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -56,6 +144,8 @@ export default function GlobalChat() {
       handleSend()
     }
   }
+
+  if (!isMounted) return null
 
   return (
     <>

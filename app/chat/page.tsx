@@ -2,6 +2,18 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import {
+  trackRoomEnter,
+  trackRoomLeave,
+  trackMessageSent,
+  trackTypedNotSent,
+  rankRooms,
+  flushToSupabase,
+  getScrollCount,
+  hasSelectedInterests,
+  saveInterests,
+  getInterests,
+} from '@/lib/friday'
 
 interface Room {
   id: string
@@ -40,6 +52,8 @@ const formatTime = (isoString?: string) => {
   return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+const INTEREST_OPTIONS = ['Tech & AI', 'Sports', 'Politics', 'Entertainment', 'Business', 'Science', 'Gaming', 'Campus Life']
+
 export default function GlobalChat() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [roomMessages, setRoomMessages] = useState<Record<string, Message[]>>({})
@@ -52,6 +66,9 @@ export default function GlobalChat() {
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [tempProfileName, setTempProfileName] = useState('')
   const [tempProfileCollege, setTempProfileCollege] = useState('')
+  const [showInterestModal, setShowInterestModal] = useState(false)
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([])
+  const [interestDismissed, setInterestDismissed] = useState(false)
 
   const roomRefs = useRef<(HTMLDivElement | null)[]>([])
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -60,6 +77,8 @@ export default function GlobalChat() {
   const containerRef = useRef<HTMLDivElement>(null)
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string } | null>(null)
+  const prevRoomIndexRef = useRef<number>(0)
+  const inputHadContentRef = useRef<Record<string, boolean>>({})
 
   // Load user profile
   useEffect(() => {
@@ -70,7 +89,7 @@ export default function GlobalChat() {
     if (storedCollege) setUniversity(storedCollege)
   }, [])
 
-  // Fetch rooms on mount
+  // Fetch rooms on mount, rank with FRIDAY (one-time, on app open)
   useEffect(() => {
     const fetchRooms = async () => {
       const { data } = await supabase
@@ -79,10 +98,33 @@ export default function GlobalChat() {
         .order('created_at', { ascending: true })
 
       if (data && data.length > 0) {
-        setRooms(data)
+        try {
+          const ranked = await rankRooms(data)
+          setRooms(ranked)
+        } catch {
+          setRooms(data)
+        }
+        trackRoomEnter(data[0]?.id || '')
       }
     }
     fetchRooms()
+  }, [])
+
+  // FRIDAY: flush to Supabase on beforeunload + every 60s
+  useEffect(() => {
+    const handleUnload = () => { flushToSupabase() }
+    window.addEventListener('beforeunload', handleUnload)
+    const intervalId = setInterval(() => { flushToSupabase() }, 60000)
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload)
+      clearInterval(intervalId)
+    }
+  }, [])
+
+  // FRIDAY: load saved interests on mount
+  useEffect(() => {
+    const saved = getInterests()
+    if (saved.length > 0) setSelectedInterests(saved)
   }, [])
 
   // Ensure we start on room 0
@@ -224,7 +266,7 @@ export default function GlobalChat() {
     }
   }, [rooms, fetchMessagesForRoom, subscribeToRoom])
 
-  // Detect room changes via IntersectionObserver
+  // Detect room changes via IntersectionObserver + FRIDAY tracking
   useEffect(() => {
     if (rooms.length === 0) return
 
@@ -234,9 +276,20 @@ export default function GlobalChat() {
           if (entry.isIntersecting) {
             const idx = Number(entry.target.getAttribute('data-room-index'))
             if (!isNaN(idx) && idx !== currentRoomIndex) {
+              // FRIDAY: synchronous memory-only tracking
+              const prevRoom = rooms[prevRoomIndexRef.current]
+              if (prevRoom) trackRoomLeave(prevRoom.id)
+              trackRoomEnter(rooms[idx].id)
+              prevRoomIndexRef.current = idx
+
               setCurrentRoomIndex(idx)
               fetchMessagesForRoom(rooms[idx], idx)
               subscribeToRoom(rooms[idx], idx)
+
+              // Show interest modal after first scroll if no interests saved
+              if (getScrollCount() >= 2 && !hasSelectedInterests() && !interestDismissed) {
+                setShowInterestModal(true)
+              }
             }
           }
         }
@@ -252,7 +305,7 @@ export default function GlobalChat() {
     })
 
     return () => observer.disconnect()
-  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom])
+  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed])
 
   // Auto-scroll to bottom when new messages arrive in the current room
   useEffect(() => {
@@ -293,6 +346,10 @@ export default function GlobalChat() {
       [roomId]: [...(prev[roomId] || []), optimisticMsg]
     }))
     setInputTexts(prev => ({ ...prev, [roomId]: '' }))
+    inputHadContentRef.current[roomId] = false
+
+    // FRIDAY: synchronous memory-only tracking
+    trackMessageSent(roomId)
 
     const { data, error } = await supabase
       .from('messages')
@@ -430,10 +487,21 @@ export default function GlobalChat() {
                     type="text"
                     placeholder="What's on your mind?"
                     value={inputText}
-                    onChange={(e) => setInputTexts(prev => ({ ...prev, [room.id]: e.target.value }))}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setInputTexts(prev => ({ ...prev, [room.id]: val }))
+                      if (val.trim()) inputHadContentRef.current[room.id] = true
+                    }}
                     onKeyDown={(e) => handleKeyDown(e, room.id)}
                     onFocus={() => setIsKeyboardOpen(true)}
-                    onBlur={() => setIsKeyboardOpen(false)}
+                    onBlur={() => {
+                      setIsKeyboardOpen(false)
+                      const currentText = (inputTexts[room.id] || '').trim()
+                      if (inputHadContentRef.current[room.id] && currentText.length > 0) {
+                        trackTypedNotSent(room.id)
+                      }
+                      inputHadContentRef.current[room.id] = false
+                    }}
                   />
                   <button className="send-btn" aria-label="Send" onClick={() => handleSend(room.id)}>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -459,6 +527,44 @@ export default function GlobalChat() {
             </div>
             <button type="submit" className="join-btn">Join Chat</button>
           </form>
+        </div>
+      )}
+
+      {/* FRIDAY Interest Selection Bottom Sheet */}
+      {showInterestModal && (
+        <div className="interest-overlay" onClick={() => { setShowInterestModal(false); setInterestDismissed(true) }}>
+          <div className="interest-sheet" onClick={(e) => e.stopPropagation()}>
+            <h2 className="interest-title">What are you into?</h2>
+            <p className="interest-subtitle">We&apos;ll show you better rooms</p>
+            <div className="interest-chips">
+              {INTEREST_OPTIONS.map((interest) => (
+                <button
+                  key={interest}
+                  className={`interest-chip${selectedInterests.includes(interest) ? ' selected' : ''}`}
+                  onClick={() => {
+                    setSelectedInterests(prev =>
+                      prev.includes(interest)
+                        ? prev.filter(i => i !== interest)
+                        : [...prev, interest]
+                    )
+                  }}
+                >
+                  {interest}
+                </button>
+              ))}
+            </div>
+            <button
+              className="interest-done-btn"
+              disabled={selectedInterests.length === 0}
+              onClick={() => {
+                saveInterests(selectedInterests)
+                setShowInterestModal(false)
+                setInterestDismissed(true)
+              }}
+            >
+              Done
+            </button>
+          </div>
         </div>
       )}
 
@@ -531,6 +637,16 @@ export default function GlobalChat() {
         .join-btn { background: var(--text-primary); color: var(--bg); border: none; border-radius: 14px; padding: 16px; width: 100%; font-size: 1.1rem; font-weight: 700; cursor: pointer; }
 
         .hidden { display: none !important; }
+
+        .interest-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
+        .interest-sheet { background: #1a1a1a; border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 440px; }
+        .interest-title { font-size: 18px; font-weight: 700; color: #fff; margin: 0 0 4px; }
+        .interest-subtitle { font-size: 13px; color: #71767B; margin: 0 0 20px; }
+        .interest-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .interest-chip { background: #111; border: 1px solid #333; color: #999; padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+        .interest-chip.selected { background: #5865F2; border-color: #5865F2; color: #fff; }
+        .interest-done-btn { margin-top: 20px; width: 100%; background: #5865F2; color: white; border: none; border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.15s; }
+        .interest-done-btn:disabled { opacity: 0.4; cursor: default; }
       `}</style>
     </>
   )

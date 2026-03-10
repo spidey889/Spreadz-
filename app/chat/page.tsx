@@ -375,7 +375,7 @@ export default function GlobalChat() {
     if (!currentRoom) return
     const msgs = roomMessages[currentRoom.id]
     if (msgs && msgs.length > 0) {
-      messageEndRefs.current[currentRoomIndex]?.scrollIntoView({ behavior: 'smooth' })
+      messageEndRefs.current[currentRoomIndex]?.scrollIntoView({ behavior: 'instant' as ScrollBehavior })
     }
   }, [roomMessages, currentRoomIndex, rooms])
 
@@ -527,42 +527,44 @@ export default function GlobalChat() {
               </div>
 
               {/* Messages */}
-              <div className="room-messages">
-                {messages.map((msg, msgIndex) => {
-                  const isVisible = visibleMessageIds.has(msg.id)
-                  if (!isVisible) return null
+              <div style={{ overflowY: 'auto', height: '100%' }}>
+                <div className="room-messages" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', minHeight: '100%' }}>
+                  {messages.map((msg, msgIndex) => {
+                    const isVisible = visibleMessageIds.has(msg.id)
+                    if (!isVisible) return null
 
-                  // To calculate grouping correctly we should only look at visible messages
-                  const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id))
-                  const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
-                  const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
+                    // To calculate grouping correctly we should only look at visible messages
+                    const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id))
+                    const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
+                    const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
 
-                  return (
-                    <div key={msg.id} className="msg-reveal">
-                      {isFirstInGroup && visibleIndex !== 0 && <div className="group-divider" />}
-                      <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
-                        {isFirstInGroup ? (
-                          <>
-                            <div className="avatar" style={{ backgroundColor: getUserColor(msg.username) }}>{msg.initials}</div>
-                            <div className="msg-content">
-                              <div className="msg-header">
-                                <span className="msg-username">{msg.username}</span>
-                                {msg.university && <span className="msg-university">{msg.university}</span>}
-                                <span className="msg-timestamp">{msg.timestamp}</span>
+                    return (
+                      <div key={msg.id} className="msg-reveal">
+                        {isFirstInGroup && visibleIndex !== 0 && <div className="group-divider" />}
+                        <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
+                          {isFirstInGroup ? (
+                            <>
+                              <div className="avatar" style={{ backgroundColor: getUserColor(msg.username) }}>{msg.initials}</div>
+                              <div className="msg-content">
+                                <div className="msg-header">
+                                  <span className="msg-username">{msg.username}</span>
+                                  {msg.university && <span className="msg-university">{msg.university}</span>}
+                                  <span className="msg-timestamp">{msg.timestamp}</span>
+                                </div>
+                                <div className="msg-text">{msg.text}</div>
                               </div>
+                            </>
+                          ) : (
+                            <div className="msg-content continuation">
                               <div className="msg-text">{msg.text}</div>
                             </div>
-                          </>
-                        ) : (
-                          <div className="msg-content continuation">
-                            <div className="msg-text">{msg.text}</div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
-                <div ref={(el) => { messageEndRefs.current[index] = el }} />
+                    )
+                  })}
+                  <div ref={(el) => { messageEndRefs.current[index] = el }} />
+                </div>
               </div>
 
               {/* Input area */}

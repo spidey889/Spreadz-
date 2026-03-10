@@ -380,6 +380,12 @@ export default function GlobalChat() {
   }, [roomMessages, currentRoomIndex, rooms])
 
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string) => {
+    if (containerRef.current) {
+      const currentScroll = containerRef.current.scrollTop
+      setTimeout(() => {
+        containerRef.current?.scrollTo({ top: currentScroll, behavior: 'instant' as ScrollBehavior })
+      }, 0)
+    }
     const text = (inputTexts[roomId] || '').trim()
     if (!text) return
 
@@ -592,7 +598,7 @@ export default function GlobalChat() {
                       inputHadContentRef.current[room.id] = false
                     }}
                   />
-                  <button className="send-btn" aria-label="Send" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSend(room.id); }}>
+                  <button className="send-btn" aria-label="Send" onClick={(e) => { e.preventDefault(); e.stopPropagation(); const btn = e.currentTarget as HTMLButtonElement; btn.blur(); handleSend(room.id); }}>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="22" y1="2" x2="11" y2="13" />
                       <polygon points="22 2 15 22 11 13 2 9 22 2" />

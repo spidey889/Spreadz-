@@ -1,7 +1,13 @@
 ﻿'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+
+interface Room {
+  id: string
+  headline: string
+  created_at: string
+}
 
 interface Message {
   id: string
@@ -11,17 +17,18 @@ interface Message {
   text: string
   timestamp: string
   created_at?: string
+  room_id?: string | null
 }
 
 const AVATAR_COLORS = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
 
 const getUserColor = (username: string) => {
-  const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4'];
-  let hash = 0;
+  const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
+  let hash = 0
   for (let i = 0; i < username.length; i++) {
-    hash = username.charCodeAt(i) + ((hash << 5) - hash);
+    hash = username.charCodeAt(i) + ((hash << 5) - hash)
   }
-  return colors[Math.abs(hash) % colors.length];
+  return colors[Math.abs(hash) % colors.length]
 }
 
 const getInitials = (name: string) => {
@@ -34,8 +41,10 @@ const formatTime = (isoString?: string) => {
 }
 
 export default function GlobalChat() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [inputText, setInputText] = useState('')
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [roomMessages, setRoomMessages] = useState<Record<string, Message[]>>({})
+  const [inputTexts, setInputTexts] = useState<Record<string, string>>({})
+  const [currentRoomIndex, setCurrentRoomIndex] = useState(0)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [username, setUsername] = useState('')
@@ -43,9 +52,16 @@ export default function GlobalChat() {
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [tempProfileName, setTempProfileName] = useState('')
   const [tempProfileCollege, setTempProfileCollege] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
+  const roomRefs = useRef<(HTMLDivElement | null)[]>([])
+  const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const channelRef = useRef<any>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const fetchedRoomsRef = useRef<Set<string>>(new Set())
+  const pendingSendRef = useRef<{ roomId: string } | null>(null)
+
+  // Load user profile
   useEffect(() => {
     setIsMounted(true)
     const storedName = localStorage.getItem('spreadz_username')
@@ -54,68 +70,208 @@ export default function GlobalChat() {
     if (storedCollege) setUniversity(storedCollege)
   }, [])
 
+  // Fetch rooms on mount
   useEffect(() => {
-    const fetchMessages = async () => {
+    const fetchRooms = async () => {
       const { data } = await supabase
-        .from('messages')
+        .from('rooms')
         .select('*')
         .order('created_at', { ascending: true })
 
-      if (data) {
-        setMessages(data.map((m: any) => ({
-          id: m.id,
-          username: m.username || 'Anonymous',
-          initials: getInitials(m.username || 'Anonymous'),
-          university: m.university || '',
-          text: m.content,
-          timestamp: formatTime(m.created_at),
-          created_at: m.created_at
-        })))
+      if (data && data.length > 0) {
+        setRooms(data)
       }
     }
+    fetchRooms()
+  }, [])
 
-    fetchMessages()
+  // Ensure we start on room 0
+  useEffect(() => {
+    if (rooms.length > 0 && containerRef.current) {
+      containerRef.current.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
+    }
+  }, [rooms])
+
+  // Fetch messages for a specific room
+  const fetchMessagesForRoom = useCallback(async (room: Room, roomIndex: number) => {
+    if (fetchedRoomsRef.current.has(room.id)) return
+    fetchedRoomsRef.current.add(room.id)
+
+    let query = supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: true })
+
+    if (roomIndex === 0) {
+      // First room: include messages with this room_id OR null room_id
+      query = query.or(`room_id.eq.${room.id},room_id.is.null`)
+    } else {
+      query = query.eq('room_id', room.id)
+    }
+
+    const { data } = await query
+
+    if (data) {
+      const msgs = data.map((m: any) => ({
+        id: m.id,
+        username: m.username || 'Anonymous',
+        initials: getInitials(m.username || 'Anonymous'),
+        university: m.university || '',
+        text: m.content,
+        timestamp: formatTime(m.created_at),
+        created_at: m.created_at,
+        room_id: m.room_id,
+      }))
+      setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
+    }
+  }, [])
+
+  // Subscribe to realtime for a room
+  const subscribeToRoom = useCallback((room: Room, roomIndex: number) => {
+    // Unsubscribe from previous channel
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current)
+      channelRef.current = null
+    }
+
+    const filterValue = roomIndex === 0
+      ? `room_id=eq.${room.id}`
+      : `room_id=eq.${room.id}`
 
     const channel = supabase
-      .channel('messages')
+      .channel(`room-${room.id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: filterValue },
         (payload) => {
           const m = payload.new
-          setMessages((prev) => {
-            if (prev.some(msg => msg.id === m.id)) return prev
-
-            const newMessage: Message = {
-              id: m.id,
-              username: m.username || 'Anonymous',
-              initials: getInitials(m.username || 'Anonymous'),
-              university: m.university || '',
-              text: m.content,
-              timestamp: formatTime(m.created_at),
-              created_at: m.created_at
-            }
-            return [...prev, newMessage]
+          const newMessage: Message = {
+            id: m.id,
+            username: m.username || 'Anonymous',
+            initials: getInitials(m.username || 'Anonymous'),
+            university: m.university || '',
+            text: m.content,
+            timestamp: formatTime(m.created_at),
+            created_at: m.created_at,
+            room_id: m.room_id,
+          }
+          setRoomMessages(prev => {
+            const existing = prev[room.id] || []
+            if (existing.some(msg => msg.id === m.id)) return prev
+            return { ...prev, [room.id]: [...existing, newMessage] }
           })
         }
       )
       .subscribe()
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    channelRef.current = channel
   }, [])
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  // Also subscribe to null room_id inserts for room index 0
+  const nullChannelRef = useRef<any>(null)
 
-  const handleSend = async (overrideName?: string, overrideCollege?: string) => {
-    const text = inputText.trim()
+  useEffect(() => {
+    if (rooms.length === 0) return
+    const firstRoom = rooms[0]
+
+    // Subscribe to messages with null room_id (for room 0 fallback)
+    const nullChannel = supabase
+      .channel('room-null-messages')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const m = payload.new
+          if (m.room_id !== null) return // Only care about null room_id
+          const newMessage: Message = {
+            id: m.id,
+            username: m.username || 'Anonymous',
+            initials: getInitials(m.username || 'Anonymous'),
+            university: m.university || '',
+            text: m.content,
+            timestamp: formatTime(m.created_at),
+            created_at: m.created_at,
+            room_id: m.room_id,
+          }
+          setRoomMessages(prev => {
+            const existing = prev[firstRoom.id] || []
+            if (existing.some(msg => msg.id === m.id)) return prev
+            return { ...prev, [firstRoom.id]: [...existing, newMessage] }
+          })
+        }
+      )
+      .subscribe()
+
+    nullChannelRef.current = nullChannel
+
+    return () => {
+      if (nullChannelRef.current) {
+        supabase.removeChannel(nullChannelRef.current)
+      }
+    }
+  }, [rooms])
+
+  // When rooms load, fetch + subscribe for room index 0
+  useEffect(() => {
+    if (rooms.length === 0) return
+    fetchMessagesForRoom(rooms[0], 0)
+    subscribeToRoom(rooms[0], 0)
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current)
+      }
+    }
+  }, [rooms, fetchMessagesForRoom, subscribeToRoom])
+
+  // Detect room changes via IntersectionObserver
+  useEffect(() => {
+    if (rooms.length === 0) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const idx = Number(entry.target.getAttribute('data-room-index'))
+            if (!isNaN(idx) && idx !== currentRoomIndex) {
+              setCurrentRoomIndex(idx)
+              fetchMessagesForRoom(rooms[idx], idx)
+              subscribeToRoom(rooms[idx], idx)
+            }
+          }
+        }
+      },
+      {
+        root: containerRef.current,
+        threshold: 0.6,
+      }
+    )
+
+    roomRefs.current.forEach((ref) => {
+      if (ref) observer.observe(ref)
+    })
+
+    return () => observer.disconnect()
+  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom])
+
+  // Auto-scroll to bottom when new messages arrive in the current room
+  useEffect(() => {
+    if (rooms.length === 0) return
+    const currentRoom = rooms[currentRoomIndex]
+    if (!currentRoom) return
+    const msgs = roomMessages[currentRoom.id]
+    if (msgs && msgs.length > 0) {
+      messageEndRefs.current[currentRoomIndex]?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [roomMessages, currentRoomIndex, rooms])
+
+  const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string) => {
+    const text = (inputTexts[roomId] || '').trim()
     if (!text) return
 
     const activeName = overrideName || username || localStorage.getItem('spreadz_username')
     if (!activeName) {
+      pendingSendRef.current = { roomId }
       setShowProfileModal(true)
       return
     }
@@ -129,33 +285,43 @@ export default function GlobalChat() {
       initials: getInitials(activeName),
       university: activeCollege,
       text,
-      timestamp: formatTime()
+      timestamp: formatTime(),
+      room_id: roomId,
     }
-    setMessages(prev => [...prev, optimisticMsg])
-    setInputText('')
-    inputRef.current?.blur()
+    setRoomMessages(prev => ({
+      ...prev,
+      [roomId]: [...(prev[roomId] || []), optimisticMsg]
+    }))
+    setInputTexts(prev => ({ ...prev, [roomId]: '' }))
 
     const { data, error } = await supabase
       .from('messages')
-      .insert({ content: text, username: activeName, university: activeCollege })
+      .insert({ content: text, username: activeName, university: activeCollege, room_id: roomId })
       .select()
 
     if (error) {
-      setMessages(prev => prev.filter(m => m.id !== tempId))
+      setRoomMessages(prev => ({
+        ...prev,
+        [roomId]: (prev[roomId] || []).filter(m => m.id !== tempId)
+      }))
       return
     }
 
     if (data && data[0]) {
       const m = data[0]
-      setMessages(prev => prev.map(msg => msg.id === tempId ? {
-        id: m.id,
-        username: m.username || 'Anonymous',
-        initials: getInitials(m.username || 'Anonymous'),
-        university: m.university || '',
-        text: m.content,
-        timestamp: formatTime(m.created_at),
-        created_at: m.created_at
-      } : msg))
+      setRoomMessages(prev => ({
+        ...prev,
+        [roomId]: (prev[roomId] || []).map(msg => msg.id === tempId ? {
+          id: m.id,
+          username: m.username || 'Anonymous',
+          initials: getInitials(m.username || 'Anonymous'),
+          university: m.university || '',
+          text: m.content,
+          timestamp: formatTime(m.created_at),
+          created_at: m.created_at,
+          room_id: m.room_id,
+        } : msg)
+      }))
     }
   }
 
@@ -170,13 +336,17 @@ export default function GlobalChat() {
     setUsername(name)
     setUniversity(college)
     setShowProfileModal(false)
-    handleSend(name, college)
+
+    if (pendingSendRef.current) {
+      handleSend(pendingSendRef.current.roomId, name, college)
+      pendingSendRef.current = null
+    }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, roomId: string) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSend()
+      handleSend(roomId)
     }
   }
 
@@ -185,78 +355,97 @@ export default function GlobalChat() {
   return (
     <>
       <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
-      <div className="screen">
-        <div className={`header${isKeyboardOpen ? ' hidden' : ''}`}>
-          <div className="logo">
-            <img src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" />
-          </div>
-          <button className="settings-btn" aria-label="Settings">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-          </button>
-        </div>
+      <div className="rooms-container" ref={containerRef}>
+        {rooms.map((room, index) => {
+          const messages = roomMessages[room.id] || []
+          const inputText = inputTexts[room.id] || ''
 
-        <div className={`ai-card-wrap${isKeyboardOpen ? ' hidden' : ''}`}>
-          <div className="ai-card">
-            <div className="card-label">LIVE DISCUSSION</div>
-            <div className="ai-headline">Engineers split on whether AI raises the bar — or kills entry-level jobs</div>
-          </div>
-        </div>
+          return (
+            <div
+              key={room.id}
+              className="room-panel"
+              ref={(el) => { roomRefs.current[index] = el }}
+              data-room-index={index}
+              style={{ background: 'var(--bg)' }}
+            >
+              {/* Header */}
+              <div className={`header${isKeyboardOpen ? ' hidden' : ''}`}>
+                <div className="logo">
+                  <img src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" />
+                </div>
+                <button className="settings-btn" aria-label="Settings">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                </button>
+              </div>
 
-        <div className="messages">
-          {messages.map((msg, index) => {
-            const isFirstInGroup = index === 0 || messages[index - 1].username !== msg.username
-            return (
-              <div key={msg.id}>
-                {isFirstInGroup && index !== 0 && <div className="group-divider" />}
-                <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
-                  {isFirstInGroup ? (
-                    <>
-                      <div className="avatar" style={{ backgroundColor: getUserColor(msg.username) }}>{msg.initials}</div>
-                      <div className="msg-content">
-                        <div className="msg-header">
-                          <span className="msg-username">{msg.username}</span>
-                          {msg.university && <span className="msg-university">{msg.university}</span>}
-                          <span className="msg-timestamp">{msg.timestamp}</span>
-                        </div>
-                        <div className="msg-text">{msg.text}</div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="msg-content continuation">
-                      <div className="msg-text">{msg.text}</div>
-                    </div>
-                  )}
+              {/* Headline card */}
+              <div className={`ai-card-wrap${isKeyboardOpen ? ' hidden' : ''}`}>
+                <div className="ai-card">
+                  <div className="card-label">LIVE DISCUSSION</div>
+                  <div className="ai-headline">{room.headline}</div>
                 </div>
               </div>
-            )
-          })}
-          <div ref={messagesEndRef} />
-        </div>
 
-        <div className="input-area">
-          <div className={`hint${isKeyboardOpen ? ' hidden' : ''}`}>↕ swipe for new people &amp; topics</div>
-          <div className="input-wrap">
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="What's on your mind?"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onFocus={() => setIsKeyboardOpen(true)}
-              onBlur={() => setIsKeyboardOpen(false)}
-            />
-            <button className="send-btn" aria-label="Send" onClick={() => handleSend()}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
-            </button>
-          </div>
-        </div>
+              {/* Messages */}
+              <div className="room-messages">
+                {messages.map((msg, msgIndex) => {
+                  const isFirstInGroup = msgIndex === 0 || messages[msgIndex - 1].username !== msg.username
+                  return (
+                    <div key={msg.id}>
+                      {isFirstInGroup && msgIndex !== 0 && <div className="group-divider" />}
+                      <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
+                        {isFirstInGroup ? (
+                          <>
+                            <div className="avatar" style={{ backgroundColor: getUserColor(msg.username) }}>{msg.initials}</div>
+                            <div className="msg-content">
+                              <div className="msg-header">
+                                <span className="msg-username">{msg.username}</span>
+                                {msg.university && <span className="msg-university">{msg.university}</span>}
+                                <span className="msg-timestamp">{msg.timestamp}</span>
+                              </div>
+                              <div className="msg-text">{msg.text}</div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="msg-content continuation">
+                            <div className="msg-text">{msg.text}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+                <div ref={(el) => { messageEndRefs.current[index] = el }} />
+              </div>
+
+              {/* Input area */}
+              <div className="input-area">
+                <div className={`hint${isKeyboardOpen ? ' hidden' : ''}`}>↕ swipe for new people &amp; topics</div>
+                <div className="input-wrap">
+                  <input
+                    ref={(el) => { inputRefs.current[index] = el }}
+                    type="text"
+                    placeholder="What's on your mind?"
+                    value={inputText}
+                    onChange={(e) => setInputTexts(prev => ({ ...prev, [room.id]: e.target.value }))}
+                    onKeyDown={(e) => handleKeyDown(e, room.id)}
+                    onFocus={() => setIsKeyboardOpen(true)}
+                    onBlur={() => setIsKeyboardOpen(false)}
+                  />
+                  <button className="send-btn" aria-label="Send" onClick={() => handleSend(room.id)}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13" />
+                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       {showProfileModal && (
@@ -290,14 +479,12 @@ export default function GlobalChat() {
         html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; }
         body { background: var(--bg); color: var(--text-primary); }
 
-        .screen { width: 100%; height: 100dvh; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
-
-        .header { display: flex; align-items: center; justify-content: space-between; padding: 4px 18px 4px 8px; background: var(--bg); position: relative; z-index: 10; }
+        .header { display: flex; align-items: center; justify-content: space-between; padding: 4px 18px 4px 8px; background: var(--bg); position: relative; z-index: 10; flex-shrink: 0; }
         .logo-img { height: 90px; margin: -16px 0; object-fit: contain; }
         .settings-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; transition: color 0.1s; }
         .settings-btn:hover { color: var(--text-primary); }
 
-        .ai-card-wrap { margin: 12px 16px; }
+        .ai-card-wrap { margin: 12px 16px; flex-shrink: 0; }
         .ai-card { background: var(--headline-bg); border-left: 3px solid var(--accent-green); border-radius: 4px; padding: 14px 18px; position: relative; }
         .card-label { color: var(--accent-green); font-size: 9px; font-weight: 700; letter-spacing: 2px; margin-bottom: 4px; }
         .ai-headline { font-size: 16px; color: #FFFFFF; font-weight: 600; line-height: 1.4; }
@@ -305,7 +492,7 @@ export default function GlobalChat() {
         .messages { flex: 1; overflow-y: auto; padding: 0 16px; scrollbar-width: none; }
         .messages::-webkit-scrollbar { display: none; }
 
-        .msg { display: flex; gap: 16px; width: 100%; }
+        .msg { display: flex; gap: 16px; width: 100%; padding: 0 16px; }
         .group-start { margin-top: 20px; }
         .group-continuation { margin-top: 2px; }
         .group-divider { height: 1px; width: 100%; background: #1E1F22; margin: 20px 0; }
@@ -313,7 +500,7 @@ export default function GlobalChat() {
         .avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: white; }
         
         .msg-content { flex: 1; min-width: 0; position: relative; }
-        .msg-content.continuation { margin-left: 54px; } /* 38px avatar + 16px gap */
+        .msg-content.continuation { margin-left: 54px; }
 
         .msg-header { display: flex; align-items: baseline; margin-bottom: 2px; }
         .msg-username { font-size: 15px; font-weight: 700; color: #FFFFFF; }
@@ -322,7 +509,7 @@ export default function GlobalChat() {
 
         .msg-text { font-size: 15px; color: #E7E9EA; line-height: 1.5; margin-top: 2px; word-wrap: break-word; }
 
-        .input-area { background: var(--bg); padding: 8px 16px 16px; }
+        .input-area { background: var(--bg); padding: 8px 16px 16px; flex-shrink: 0; }
         .hint { text-align: center; font-size: 11px; color: var(--text-muted); padding-bottom: 8px; opacity: 0.7; }
         
         .input-wrap { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 4px 4px 4px 16px; transition: box-shadow 0.2s; }

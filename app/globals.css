@@ -7,9 +7,9 @@
 html,
 body {
   height: 100%;
-  overflow: hidden;
   margin: 0;
   padding: 0;
+  overflow: hidden;
 }
 
 body {
@@ -53,4 +53,40 @@ body {
 .chat-scroll::-webkit-scrollbar-thumb {
   background: #2a2a30;
   border-radius: 4px;
+}
+
+/* Snap scroll container for rooms */
+.rooms-container {
+  height: 100dvh;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rooms-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Each room panel */
+.room-panel {
+  height: 100dvh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Inner messages scroll — overscroll-behavior prevents room switching */
+.room-messages {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  min-height: 0;
+}
+
+.room-messages::-webkit-scrollbar {
+  display: none;
 }

@@ -140,12 +140,14 @@ export default function GlobalChat() {
     if (saved.length > 0) setSelectedInterests(saved)
   }, [])
 
+  const hasScrolledToTopRef = useRef(false)
   // Always force scroll to room 1 when rooms open
   useEffect(() => {
-    if (rooms.length > 0) {
+    if (rooms.length > 0 && !hasScrolledToTopRef.current) {
+      hasScrolledToTopRef.current = true
       setTimeout(() => {
         containerRef.current?.scrollTo({ top: 0, behavior: 'instant' })
-      }, 300)
+      }, 500)
     }
   }, [rooms])
 
@@ -368,16 +370,6 @@ export default function GlobalChat() {
     return () => observer.disconnect()
   }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed])
 
-  // Auto-scroll to bottom when new messages arrive in the current room
-  useEffect(() => {
-    if (rooms.length === 0) return
-    const currentRoom = rooms[currentRoomIndex]
-    if (!currentRoom) return
-    const msgs = roomMessages[currentRoom.id]
-    if (msgs && msgs.length > 0) {
-      messageEndRefs.current[currentRoomIndex]?.scrollIntoView({ behavior: 'instant' as ScrollBehavior })
-    }
-  }, [roomMessages, currentRoomIndex, rooms])
 
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string) => {
     if (containerRef.current) {
@@ -679,6 +671,9 @@ export default function GlobalChat() {
 
         html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; }
         body { background: var(--bg); color: var(--text-primary); }
+
+        .rooms-container { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; }
+        .room-panel { height: 100dvh; display: flex; flex-direction: column; scroll-snap-align: start; overflow: hidden; }
 
         .header { display: flex; align-items: center; justify-content: space-between; padding: 4px 18px 4px 8px; background: var(--bg); position: relative; z-index: 10; flex-shrink: 0; }
         .logo-img { height: 90px; margin: -16px 0; object-fit: contain; }

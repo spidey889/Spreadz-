@@ -70,8 +70,7 @@ export default function GlobalChat() {
   const [showInterestModal, setShowInterestModal] = useState(false)
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [interestDismissed, setInterestDismissed] = useState(false)
-  const [revealedMessages, setRevealedMessages] = useState<Set<string>>(new Set())
-  const hasScrolledToStartRef = useRef(false)
+  const [visibleMessageIds, setVisibleMessageIds] = useState<Set<string>>(new Set())
 
   const roomRefs = useRef<(HTMLDivElement | null)[]>([])
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -106,17 +105,19 @@ export default function GlobalChat() {
         trackRoomEnter(data[0]?.id || '')
 
         // TEMPORARY: disabled FRIDAY rankRooms entirely to isolate random room start bug
-        // setTimeout(async () => {
-        //   if (prevRoomIndexRef.current === 0) {
-        //     try {
-        //       const ranked = await rankRooms(data)
-        //       setRooms(ranked)
-        //       if (ranked[0]?.id) trackRoomEnter(ranked[0].id)
-        //     } catch (err) {
-        //       console.error('[FRIDAY] Background ranking error:', err)
-        //     }
-        //   }
-        // }, 2000)
+        /*
+        setTimeout(async () => {
+          if (prevRoomIndexRef.current === 0) {
+            try {
+              const ranked = await rankRooms(data)
+              setRooms(ranked)
+              if (ranked[0]?.id) trackRoomEnter(ranked[0].id)
+            } catch (err) {
+              console.error('[FRIDAY] Background ranking error:', err)
+            }
+          }
+        }, 2000)
+        */
       }
     }
     fetchRooms()
@@ -139,15 +140,29 @@ export default function GlobalChat() {
     if (saved.length > 0) setSelectedInterests(saved)
   }, [])
 
-  // Always force scroll to room 0 on first load with 500ms delay
+  // Always force scroll to room 1 when rooms open
   useEffect(() => {
-    if (rooms.length > 0 && containerRef.current && !hasScrolledToStartRef.current) {
-      hasScrolledToStartRef.current = true
+    if (rooms.length > 0) {
       setTimeout(() => {
         containerRef.current?.scrollTo({ top: 0, behavior: 'instant' })
-      }, 500)
+      }, 300)
     }
   }, [rooms])
+
+  // Helper: trigger reveals for a room
+  const triggerRevealsForRoom = useCallback((roomId: string) => {
+    const msgs = roomMessages[roomId] || []
+    msgs.forEach((m, idx) => {
+      const delay = idx < 2 ? 0 : (m.reveal_delay || 0)
+      setTimeout(() => {
+        setVisibleMessageIds(prev => {
+          const next = new Set(prev)
+          next.add(m.id)
+          return next
+        })
+      }, delay)
+    })
+  }, [roomMessages])
 
   // Fetch messages for a specific room
   const fetchMessagesForRoom = useCallback(async (room: Room, roomIndex: number) => {
@@ -182,16 +197,16 @@ export default function GlobalChat() {
       }))
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
 
-      // trigger reveals immediately when messages are fetched
-      msgs.forEach(m => {
-        const delay = m.reveal_delay || 0
+      // trigger reveals immediately when messages are first fetched
+      msgs.forEach((m, idx) => {
+        const delay = idx < 2 ? 0 : (m.reveal_delay || 0)
         setTimeout(() => {
-          setRevealedMessages(prev => {
+          setVisibleMessageIds(prev => {
             const next = new Set(prev)
             next.add(m.id)
             return next
           })
-        }, delay === 0 ? 10 : delay) // Always async to allow initial opacity:0 CSS to take hold
+        }, delay)
       })
     }
   }, [])
@@ -229,7 +244,7 @@ export default function GlobalChat() {
 
           // Trigger reveal for realtime message
           setTimeout(() => {
-            setRevealedMessages(prev => {
+            setVisibleMessageIds(prev => {
               const next = new Set(prev)
               next.add(m.id)
               return next
@@ -277,7 +292,7 @@ export default function GlobalChat() {
 
           // Trigger reveal for realtime message (null room_id)
           setTimeout(() => {
-            setRevealedMessages(prev => {
+            setVisibleMessageIds(prev => {
               const next = new Set(prev)
               next.add(m.id)
               return next
@@ -334,10 +349,12 @@ export default function GlobalChat() {
               fetchMessagesForRoom(rooms[idx], idx)
               subscribeToRoom(rooms[idx], idx)
 
-              // Show interest modal after first scroll if no interests saved
-              if (getScrollCount() >= 2 && !hasSelectedInterests() && !interestDismissed) {
-                setShowInterestModal(true)
-              }
+              // Reset visibleMessageIds to empty Set when switching rooms
+              setVisibleMessageIds(new Set())
+              // Trigger reveals for the newly active room (replaces IntersectionObserver logic with re-trigger)
+              setTimeout(() => {
+                triggerRevealsForRoom(rooms[idx].id)
+              }, 50)
             }
           }
         }
@@ -388,7 +405,7 @@ export default function GlobalChat() {
     }
 
     // Reveal immediately for user's own message
-    setRevealedMessages(prev => {
+    setVisibleMessageIds(prev => {
       const next = new Set(prev)
       next.add(tempId)
       return next
@@ -435,7 +452,7 @@ export default function GlobalChat() {
       }))
 
       // Ensure the server-returned success message is also revealed
-      setRevealedMessages(prev => {
+      setVisibleMessageIds(prev => {
         const next = new Set(prev)
         next.add(m.id)
         return next
@@ -510,12 +527,17 @@ export default function GlobalChat() {
               {/* Messages */}
               <div className="room-messages">
                 {messages.map((msg, msgIndex) => {
-                  const isFirstInGroup = msgIndex === 0 || messages[msgIndex - 1].username !== msg.username
-                  const isRevealed = revealedMessages.has(msg.id)
+                  const isVisible = visibleMessageIds.has(msg.id)
+                  if (!isVisible) return null
+
+                  // To calculate grouping correctly we should only look at visible messages
+                  const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id))
+                  const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
+                  const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
 
                   return (
-                    <div key={msg.id} style={{ opacity: isRevealed ? 1 : 0, transition: 'opacity 0.2s ease' }}>
-                      {isFirstInGroup && msgIndex !== 0 && <div className="group-divider" />}
+                    <div key={msg.id} className="msg-reveal">
+                      {isFirstInGroup && visibleIndex !== 0 && <div className="group-divider" />}
                       <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
                         {isFirstInGroup ? (
                           <>
@@ -657,6 +679,14 @@ export default function GlobalChat() {
         .ai-card { background: var(--headline-bg); border-left: 3px solid var(--accent-green); border-radius: 4px; padding: 14px 18px; position: relative; }
         .card-label { color: var(--accent-green); font-size: 9px; font-weight: 700; letter-spacing: 2px; margin-bottom: 4px; }
         .ai-headline { font-size: 16px; color: #FFFFFF; font-weight: 600; line-height: 1.4; }
+
+        @keyframes slideUpFade {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .msg-reveal {
+          animation: slideUpFade 0.5s ease-out forwards;
+        }
 
         .messages { flex: 1; overflow-y: auto; padding: 0 16px; scrollbar-width: none; }
         .messages::-webkit-scrollbar { display: none; }

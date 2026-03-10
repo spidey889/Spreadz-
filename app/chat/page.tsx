@@ -71,7 +71,7 @@ export default function GlobalChat() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [interestDismissed, setInterestDismissed] = useState(false)
   const [revealedMessages, setRevealedMessages] = useState<Set<string>>(new Set())
-  const revealTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const hasScrolledToStartRef = useRef(false)
 
   const roomRefs = useRef<(HTMLDivElement | null)[]>([])
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -101,24 +101,22 @@ export default function GlobalChat() {
         .order('created_at', { ascending: true })
 
       if (data && data.length > 0) {
-        // First, set rooms in default order immediately
+        // Set rooms in default order immediately
         setRooms(data)
         trackRoomEnter(data[0]?.id || '')
 
-        // Then, rank rooms in background after 2s delay
-        setTimeout(async () => {
-          // Only reorder if user is still on room 0 (hasn't scrolled yet)
-          if (prevRoomIndexRef.current === 0) {
-            try {
-              const ranked = await rankRooms(data)
-              setRooms(ranked)
-              // Re-track entering the (new) first room after ranking
-              if (ranked[0]?.id) trackRoomEnter(ranked[0].id)
-            } catch (err) {
-              console.error('[FRIDAY] Background ranking error:', err)
-            }
-          }
-        }, 2000)
+        // TEMPORARY: disabled FRIDAY rankRooms entirely to isolate random room start bug
+        // setTimeout(async () => {
+        //   if (prevRoomIndexRef.current === 0) {
+        //     try {
+        //       const ranked = await rankRooms(data)
+        //       setRooms(ranked)
+        //       if (ranked[0]?.id) trackRoomEnter(ranked[0].id)
+        //     } catch (err) {
+        //       console.error('[FRIDAY] Background ranking error:', err)
+        //     }
+        //   }
+        // }, 2000)
       }
     }
     fetchRooms()
@@ -141,13 +139,13 @@ export default function GlobalChat() {
     if (saved.length > 0) setSelectedInterests(saved)
   }, [])
 
-  // Always force scroll to room 0 when rooms change (initial load or after ranking)
+  // Always force scroll to room 0 on first load with 500ms delay
   useEffect(() => {
-    if (rooms.length > 0 && containerRef.current) {
-      // Use requestAnimationFrame to ensure DOM has rendered the new rooms
-      requestAnimationFrame(() => {
-        containerRef.current?.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
-      })
+    if (rooms.length > 0 && containerRef.current && !hasScrolledToStartRef.current) {
+      hasScrolledToStartRef.current = true
+      setTimeout(() => {
+        containerRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+      }, 500)
     }
   }, [rooms])
 
@@ -183,6 +181,18 @@ export default function GlobalChat() {
         reveal_delay: m.reveal_delay || 0,
       }))
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
+
+      // trigger reveals immediately when messages are fetched
+      msgs.forEach(m => {
+        const delay = m.reveal_delay || 0
+        setTimeout(() => {
+          setRevealedMessages(prev => {
+            const next = new Set(prev)
+            next.add(m.id)
+            return next
+          })
+        }, delay === 0 ? 10 : delay) // Always async to allow initial opacity:0 CSS to take hold
+      })
     }
   }, [])
 
@@ -308,43 +318,6 @@ export default function GlobalChat() {
   useEffect(() => {
     if (rooms.length === 0) return
 
-    // Helper: trigger reveal timeouts for a room's messages
-    const triggerReveals = (roomId: string) => {
-      // Clear any pending reveal timers from the previous room
-      revealTimersRef.current.forEach(t => clearTimeout(t))
-      revealTimersRef.current = []
-
-      const msgs = roomMessages[roomId] || []
-      msgs.forEach(m => {
-        const delay = m.reveal_delay || 0
-        if (delay === 0) {
-          // Reveal immediately (but still async to let opacity:0 render first)
-          const t = setTimeout(() => {
-            setRevealedMessages(prev => {
-              const next = new Set(prev)
-              next.add(m.id)
-              return next
-            })
-          }, 10)
-          revealTimersRef.current.push(t)
-        } else {
-          const t = setTimeout(() => {
-            setRevealedMessages(prev => {
-              const next = new Set(prev)
-              next.add(m.id)
-              return next
-            })
-          }, delay)
-          revealTimersRef.current.push(t)
-        }
-      })
-    }
-
-    // Trigger reveals for the initial room (room 0) when messages load
-    if (rooms[0]) {
-      triggerReveals(rooms[0].id)
-    }
-
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -361,13 +334,6 @@ export default function GlobalChat() {
               fetchMessagesForRoom(rooms[idx], idx)
               subscribeToRoom(rooms[idx], idx)
 
-              // Clear old reveals and trigger new ones for the entered room
-              setRevealedMessages(new Set())
-              // Small delay to let messages render at opacity:0 first, then trigger reveals
-              setTimeout(() => {
-                triggerReveals(rooms[idx].id)
-              }, 50)
-
               // Show interest modal after first scroll if no interests saved
               if (getScrollCount() >= 2 && !hasSelectedInterests() && !interestDismissed) {
                 setShowInterestModal(true)
@@ -382,15 +348,8 @@ export default function GlobalChat() {
       }
     )
 
-    roomRefs.current.forEach((ref) => {
-      if (ref) observer.observe(ref)
-    })
-
-    return () => {
-      observer.disconnect()
-      revealTimersRef.current.forEach(t => clearTimeout(t))
-    }
-  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed, roomMessages])
+    return () => observer.disconnect()
+  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed])
 
   // Auto-scroll to bottom when new messages arrive in the current room
   useEffect(() => {

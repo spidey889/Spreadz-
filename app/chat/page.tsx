@@ -462,6 +462,7 @@ export default function GlobalChat() {
 
   const handleProfileSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
+    e?.stopPropagation()
     const name = tempProfileName.trim()
     const college = tempProfileCollege.trim()
     if (!name) return
@@ -481,6 +482,7 @@ export default function GlobalChat() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, roomId: string) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
+      e.stopPropagation()
       handleSend(roomId)
     }
   }
@@ -588,7 +590,7 @@ export default function GlobalChat() {
                       inputHadContentRef.current[room.id] = false
                     }}
                   />
-                  <button className="send-btn" aria-label="Send" onClick={() => handleSend(room.id)}>
+                  <button className="send-btn" aria-label="Send" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSend(room.id); }}>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="22" y1="2" x2="11" y2="13" />
                       <polygon points="22 2 15 22 11 13 2 9 22 2" />

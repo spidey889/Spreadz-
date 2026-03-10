@@ -71,6 +71,7 @@ export default function GlobalChat() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [interestDismissed, setInterestDismissed] = useState(false)
   const [revealedMessages, setRevealedMessages] = useState<Set<string>>(new Set())
+  const revealTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const roomRefs = useRef<(HTMLDivElement | null)[]>([])
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -104,11 +105,6 @@ export default function GlobalChat() {
         setRooms(data)
         trackRoomEnter(data[0]?.id || '')
 
-        // Always force scroll to top on load
-        setTimeout(() => {
-          document.querySelector('.rooms-container')?.scrollTo({ top: 0, behavior: 'instant' })
-        }, 100)
-
         // Then, rank rooms in background after 2s delay
         setTimeout(async () => {
           // Only reorder if user is still on room 0 (hasn't scrolled yet)
@@ -118,11 +114,6 @@ export default function GlobalChat() {
               setRooms(ranked)
               // Re-track entering the (new) first room after ranking
               if (ranked[0]?.id) trackRoomEnter(ranked[0].id)
-
-              // Ensure we stay at top after ranking
-              setTimeout(() => {
-                document.querySelector('.rooms-container')?.scrollTo({ top: 0, behavior: 'instant' })
-              }, 50)
             } catch (err) {
               console.error('[FRIDAY] Background ranking error:', err)
             }
@@ -150,10 +141,13 @@ export default function GlobalChat() {
     if (saved.length > 0) setSelectedInterests(saved)
   }, [])
 
-  // Ensure we start on room 0
+  // Always force scroll to room 0 when rooms change (initial load or after ranking)
   useEffect(() => {
     if (rooms.length > 0 && containerRef.current) {
-      containerRef.current.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
+      // Use requestAnimationFrame to ensure DOM has rendered the new rooms
+      requestAnimationFrame(() => {
+        containerRef.current?.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
+      })
     }
   }, [rooms])
 
@@ -189,17 +183,6 @@ export default function GlobalChat() {
         reveal_delay: m.reveal_delay || 0,
       }))
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
-
-      // Staggered reveal for newly loaded messages
-      msgs.forEach(m => {
-        setTimeout(() => {
-          setRevealedMessages(prev => {
-            const next = new Set(prev)
-            next.add(m.id)
-            return next
-          })
-        }, m.reveal_delay || 0)
-      })
     }
   }, [])
 
@@ -325,6 +308,43 @@ export default function GlobalChat() {
   useEffect(() => {
     if (rooms.length === 0) return
 
+    // Helper: trigger reveal timeouts for a room's messages
+    const triggerReveals = (roomId: string) => {
+      // Clear any pending reveal timers from the previous room
+      revealTimersRef.current.forEach(t => clearTimeout(t))
+      revealTimersRef.current = []
+
+      const msgs = roomMessages[roomId] || []
+      msgs.forEach(m => {
+        const delay = m.reveal_delay || 0
+        if (delay === 0) {
+          // Reveal immediately (but still async to let opacity:0 render first)
+          const t = setTimeout(() => {
+            setRevealedMessages(prev => {
+              const next = new Set(prev)
+              next.add(m.id)
+              return next
+            })
+          }, 10)
+          revealTimersRef.current.push(t)
+        } else {
+          const t = setTimeout(() => {
+            setRevealedMessages(prev => {
+              const next = new Set(prev)
+              next.add(m.id)
+              return next
+            })
+          }, delay)
+          revealTimersRef.current.push(t)
+        }
+      })
+    }
+
+    // Trigger reveals for the initial room (room 0) when messages load
+    if (rooms[0]) {
+      triggerReveals(rooms[0].id)
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -340,6 +360,13 @@ export default function GlobalChat() {
               setCurrentRoomIndex(idx)
               fetchMessagesForRoom(rooms[idx], idx)
               subscribeToRoom(rooms[idx], idx)
+
+              // Clear old reveals and trigger new ones for the entered room
+              setRevealedMessages(new Set())
+              // Small delay to let messages render at opacity:0 first, then trigger reveals
+              setTimeout(() => {
+                triggerReveals(rooms[idx].id)
+              }, 50)
 
               // Show interest modal after first scroll if no interests saved
               if (getScrollCount() >= 2 && !hasSelectedInterests() && !interestDismissed) {
@@ -359,8 +386,11 @@ export default function GlobalChat() {
       if (ref) observer.observe(ref)
     })
 
-    return () => observer.disconnect()
-  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed])
+    return () => {
+      observer.disconnect()
+      revealTimersRef.current.forEach(t => clearTimeout(t))
+    }
+  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed, roomMessages])
 
   // Auto-scroll to bottom when new messages arrive in the current room
   useEffect(() => {

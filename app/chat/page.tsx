@@ -30,6 +30,7 @@ interface Message {
   timestamp: string
   created_at?: string
   room_id?: string | null
+  reveal_delay?: number
 }
 
 const AVATAR_COLORS = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
@@ -69,6 +70,7 @@ export default function GlobalChat() {
   const [showInterestModal, setShowInterestModal] = useState(false)
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [interestDismissed, setInterestDismissed] = useState(false)
+  const [revealedMessages, setRevealedMessages] = useState<Set<string>>(new Set())
 
   const roomRefs = useRef<(HTMLDivElement | null)[]>([])
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -89,7 +91,7 @@ export default function GlobalChat() {
     if (storedCollege) setUniversity(storedCollege)
   }, [])
 
-  // Fetch rooms on mount, rank with FRIDAY (one-time, on app open)
+  // Fetch rooms on mount
   useEffect(() => {
     const fetchRooms = async () => {
       const { data } = await supabase
@@ -98,13 +100,34 @@ export default function GlobalChat() {
         .order('created_at', { ascending: true })
 
       if (data && data.length > 0) {
-        try {
-          const ranked = await rankRooms(data)
-          setRooms(ranked)
-        } catch {
-          setRooms(data)
-        }
+        // First, set rooms in default order immediately
+        setRooms(data)
         trackRoomEnter(data[0]?.id || '')
+
+        // Always force scroll to top on load
+        setTimeout(() => {
+          document.querySelector('.rooms-container')?.scrollTo({ top: 0, behavior: 'instant' })
+        }, 100)
+
+        // Then, rank rooms in background after 2s delay
+        setTimeout(async () => {
+          // Only reorder if user is still on room 0 (hasn't scrolled yet)
+          if (prevRoomIndexRef.current === 0) {
+            try {
+              const ranked = await rankRooms(data)
+              setRooms(ranked)
+              // Re-track entering the (new) first room after ranking
+              if (ranked[0]?.id) trackRoomEnter(ranked[0].id)
+
+              // Ensure we stay at top after ranking
+              setTimeout(() => {
+                document.querySelector('.rooms-container')?.scrollTo({ top: 0, behavior: 'instant' })
+              }, 50)
+            } catch (err) {
+              console.error('[FRIDAY] Background ranking error:', err)
+            }
+          }
+        }, 2000)
       }
     }
     fetchRooms()
@@ -163,8 +186,20 @@ export default function GlobalChat() {
         timestamp: formatTime(m.created_at),
         created_at: m.created_at,
         room_id: m.room_id,
+        reveal_delay: m.reveal_delay || 0,
       }))
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
+
+      // Staggered reveal for newly loaded messages
+      msgs.forEach(m => {
+        setTimeout(() => {
+          setRevealedMessages(prev => {
+            const next = new Set(prev)
+            next.add(m.id)
+            return next
+          })
+        }, m.reveal_delay || 0)
+      })
     }
   }, [])
 
@@ -196,7 +231,17 @@ export default function GlobalChat() {
             timestamp: formatTime(m.created_at),
             created_at: m.created_at,
             room_id: m.room_id,
+            reveal_delay: m.reveal_delay || 0,
           }
+
+          // Trigger reveal for realtime message
+          setTimeout(() => {
+            setRevealedMessages(prev => {
+              const next = new Set(prev)
+              next.add(m.id)
+              return next
+            })
+          }, m.reveal_delay || 0)
           setRoomMessages(prev => {
             const existing = prev[room.id] || []
             if (existing.some(msg => msg.id === m.id)) return prev
@@ -234,7 +279,17 @@ export default function GlobalChat() {
             timestamp: formatTime(m.created_at),
             created_at: m.created_at,
             room_id: m.room_id,
+            reveal_delay: m.reveal_delay || 0,
           }
+
+          // Trigger reveal for realtime message (null room_id)
+          setTimeout(() => {
+            setRevealedMessages(prev => {
+              const next = new Set(prev)
+              next.add(m.id)
+              return next
+            })
+          }, m.reveal_delay || 0)
           setRoomMessages(prev => {
             const existing = prev[firstRoom.id] || []
             if (existing.some(msg => msg.id === m.id)) return prev
@@ -340,7 +395,16 @@ export default function GlobalChat() {
       text,
       timestamp: formatTime(),
       room_id: roomId,
+      reveal_delay: 0,
     }
+
+    // Reveal immediately for user's own message
+    setRevealedMessages(prev => {
+      const next = new Set(prev)
+      next.add(tempId)
+      return next
+    })
+
     setRoomMessages(prev => ({
       ...prev,
       [roomId]: [...(prev[roomId] || []), optimisticMsg]
@@ -377,8 +441,16 @@ export default function GlobalChat() {
           timestamp: formatTime(m.created_at),
           created_at: m.created_at,
           room_id: m.room_id,
+          reveal_delay: 0,
         } : msg)
       }))
+
+      // Ensure the server-returned success message is also revealed
+      setRevealedMessages(prev => {
+        const next = new Set(prev)
+        next.add(m.id)
+        return next
+      })
     }
   }
 
@@ -450,8 +522,10 @@ export default function GlobalChat() {
               <div className="room-messages">
                 {messages.map((msg, msgIndex) => {
                   const isFirstInGroup = msgIndex === 0 || messages[msgIndex - 1].username !== msg.username
+                  const isRevealed = revealedMessages.has(msg.id)
+
                   return (
-                    <div key={msg.id}>
+                    <div key={msg.id} style={{ opacity: isRevealed ? 1 : 0, transition: 'opacity 0.2s ease' }}>
                       {isFirstInGroup && msgIndex !== 0 && <div className="group-divider" />}
                       <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
                         {isFirstInGroup ? (

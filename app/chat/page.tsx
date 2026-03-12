@@ -567,7 +567,7 @@ export default function GlobalChat() {
                     const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
 
                     return (
-                      <div key={msg.id} className="msg-reveal" onClick={() => { setReportStatus('idle'); setReportTarget(msg) }}>
+                      <div key={msg.id} className="msg-reveal" onClick={() => { setReportStatus('idle'); setReportTarget(prev => prev?.id === msg.id ? null : msg) }}>
                         {isFirstInGroup && visibleIndex !== 0 && <div className="group-divider" />}
                         <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
                           {isFirstInGroup ? (
@@ -580,11 +580,29 @@ export default function GlobalChat() {
                                   <span className="msg-timestamp">{msg.timestamp}</span>
                                 </div>
                                 <div className="msg-text">{msg.text}</div>
+                              {reportTarget?.id === msg.id && (
+                                <button
+                                  className="report-toggle"
+                                  onClick={(e) => { e.stopPropagation(); handleReport() }}
+                                  disabled={reportStatus === 'submitting'}
+                                >
+                                  Report
+                                </button>
+                              )}
                               </div>
                             </>
                           ) : (
                             <div className="msg-content continuation">
                               <div className="msg-text">{msg.text}</div>
+                              {reportTarget?.id === msg.id && (
+                                <button
+                                  className="report-toggle"
+                                  onClick={(e) => { e.stopPropagation(); handleReport() }}
+                                  disabled={reportStatus === 'submitting'}
+                                >
+                                  Report
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -684,31 +702,6 @@ export default function GlobalChat() {
           </div>
         </div>
       )}
-
-      {reportTarget && (
-        <div className="modal-overlay" onClick={() => { setReportTarget(null); setReportStatus('idle') }}>
-          <div className="modal report-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Report this message?</h2>
-            <p className="modal-sub">From {reportTarget.username}</p>
-            <div className="modal-inputs">
-              <button
-                className="join-btn"
-                onClick={handleReport}
-                disabled={reportStatus === 'submitting' || reportStatus === 'success'}
-              >
-                {reportStatus === 'submitting'
-                  ? 'Reporting...'
-                  : reportStatus === 'success'
-                    ? 'Reported'
-                    : 'Report'}
-              </button>
-              {reportStatus === 'error' && (
-                <p className="modal-sub">Something went wrong. Try again.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -767,6 +760,22 @@ export default function GlobalChat() {
 
         .msg-text { font-size: 15px; color: #E7E9EA; line-height: 1.5; margin-top: 2px; word-wrap: break-word; }
 
+        .report-toggle {
+          position: absolute;
+          top: 8px;
+          right: 10px;
+          font-size: 11px;
+          padding: 4px 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(0, 0, 0, 0.25);
+          color: #E7E9EA;
+          cursor: pointer;
+          transition: opacity 0.15s, transform 0.15s;
+        }
+        .report-toggle:disabled { opacity: 0.5; cursor: default; }
+        .report-toggle:hover { transform: translateY(-1px); }
+
         .input-area { background: var(--bg); padding: 8px 16px 16px; flex-shrink: 0; }
         .hint { text-align: center; font-size: 11px; color: var(--text-muted); padding-bottom: 8px; opacity: 0.7; }
         
@@ -787,22 +796,7 @@ export default function GlobalChat() {
         .modal-inputs { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
         .modal-input { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: var(--text-primary); font-size: 1rem; outline: none; width: 100%; }
         .join-btn { background: var(--text-primary); color: var(--bg); border: none; border-radius: 14px; padding: 16px; width: 100%; font-size: 1.1rem; font-weight: 700; cursor: pointer; }
-        .report-modal-overlay {
-          background: rgba(8, 10, 14, 0.7);
-          backdrop-filter: blur(10px) saturate(120%);
-        }
-        .report-modal {
-          background: rgba(26, 28, 34, 0.75);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
-        }
-        .report-modal .join-btn {
-          background: linear-gradient(135deg, #ff7a7a, #ff4d6d);
-          color: #12070a;
-          box-shadow: 0 12px 24px rgba(255, 77, 109, 0.35);
-        }
-
-        .hidden { display: none !important; }
+.hidden { display: none !important; }
         .interest-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
         .interest-sheet { background: #1a1a1a; border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 440px; }
         .interest-title { font-size: 18px; font-weight: 700; color: #fff; margin: 0 0 4px; }
@@ -816,6 +810,14 @@ export default function GlobalChat() {
     </>
   )
 }
+
+
+
+
+
+
+
+
 
 
 

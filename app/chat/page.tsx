@@ -357,12 +357,6 @@ export default function GlobalChat() {
 
 
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string) => {
-    if (containerRef.current) {
-      const currentScroll = containerRef.current.scrollTop
-      setTimeout(() => {
-        containerRef.current?.scrollTo({ top: currentScroll, behavior: 'instant' as ScrollBehavior })
-      }, 0)
-    }
     const text = (inputTexts[roomId] || '').trim()
     if (!text) return
 
@@ -694,6 +688,7 @@ export default function GlobalChat() {
     </>
   )
 }
+
 
 
 

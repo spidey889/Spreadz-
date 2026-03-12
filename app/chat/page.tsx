@@ -482,8 +482,11 @@ export default function GlobalChat() {
       return
     }
 
-    setReportTarget(null)
-    setReportStatus('idle')
+    setReportStatus('success')
+    setTimeout(() => {
+      setReportTarget(null)
+      setReportStatus('idle')
+    }, 1000)
   }
   const handleProfileSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -577,32 +580,28 @@ export default function GlobalChat() {
                                   <span className="msg-timestamp">{msg.timestamp}</span>
                                 </div>
                                 <div className="msg-text">{msg.text}</div>
-                                {reportTarget?.id === msg.id && (
-                                  <div className="report-menu" onClick={(e) => e.stopPropagation()}>
-                                    <button
-                                      className="report-action"
-                                      onClick={(e) => { e.stopPropagation(); handleReport() }}
-                                      disabled={reportStatus === 'submitting'}
-                                    >
-                                      Report
-                                    </button>
-                                  </div>
-                                )}
+                              {reportTarget?.id === msg.id && (
+                                <button
+                                  className="report-toggle"
+                                  onClick={(e) => { e.stopPropagation(); handleReport() }}
+                                  disabled={reportStatus === 'submitting'}
+                                >
+                                  Report
+                                </button>
+                              )}
                               </div>
                             </>
                           ) : (
                             <div className="msg-content continuation">
                               <div className="msg-text">{msg.text}</div>
                               {reportTarget?.id === msg.id && (
-                                <div className="report-menu" onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    className="report-action"
-                                    onClick={(e) => { e.stopPropagation(); handleReport() }}
-                                    disabled={reportStatus === 'submitting'}
-                                  >
-                                    Report
-                                  </button>
-                                </div>
+                                <button
+                                  className="report-toggle"
+                                  onClick={(e) => { e.stopPropagation(); handleReport() }}
+                                  disabled={reportStatus === 'submitting'}
+                                >
+                                  Report
+                                </button>
                               )}
                             </div>
                           )}
@@ -760,35 +759,23 @@ export default function GlobalChat() {
         .msg-timestamp { font-size: 13px; color: #71767B; margin-left: auto; }
 
         .msg-text { font-size: 15px; color: #E7E9EA; line-height: 1.5; margin-top: 2px; word-wrap: break-word; }
-        .report-menu {
+
+        .report-toggle {
           position: absolute;
-          top: -6px;
-          right: 8px;
-          transform: translateY(-100%);
-          background: #ffffff;
-          border: 1px solid #e7e7ea;
-          border-radius: 12px;
-          padding: 6px;
-          min-width: 140px;
-          box-shadow: 0 14px 30px rgba(0, 0, 0, 0.25);
-          z-index: 5;
-        }
-        .report-action {
-          width: 100%;
-          background: #ff3b30;
-          color: #ffffff;
-          border: none;
-          border-radius: 8px;
-          padding: 10px 12px;
-          font-size: 13px;
-          text-transform: uppercase;
-          font-weight: 700;
-          letter-spacing: 0.3px;
+          top: 8px;
+          right: 10px;
+          font-size: 11px;
+          padding: 4px 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(0, 0, 0, 0.25);
+          color: #E7E9EA;
           cursor: pointer;
-          transition: transform 0.12s ease, box-shadow 0.12s ease;
+          transition: opacity 0.15s, transform 0.15s;
         }
-        .report-action:disabled { opacity: 0.6; cursor: default; }
-        .report-action:hover { transform: translateY(-1px); box-shadow: 0 8px 16px rgba(255, 59, 48, 0.3); }
+        .report-toggle:disabled { opacity: 0.5; cursor: default; }
+        .report-toggle:hover { transform: translateY(-1px); }
+
         .input-area { background: var(--bg); padding: 8px 16px 16px; flex-shrink: 0; }
         .hint { text-align: center; font-size: 11px; color: var(--text-muted); padding-bottom: 8px; opacity: 0.7; }
         
@@ -823,17 +810,6 @@ export default function GlobalChat() {
     </>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 

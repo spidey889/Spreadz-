@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -13,7 +13,6 @@ import {
   hasSelectedInterests,
   saveInterests,
   getInterests,
-  getUserId,
 } from '@/lib/friday'
 
 interface Room {
@@ -72,8 +71,6 @@ export default function GlobalChat() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [interestDismissed, setInterestDismissed] = useState(false)
   const [visibleMessageIds, setVisibleMessageIds] = useState<Set<string>>(new Set())
-  const [reportTarget, setReportTarget] = useState<Message | null>(null)
-  const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
 
   const roomRefs = useRef<(HTMLDivElement | null)[]>([])
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -461,33 +458,6 @@ export default function GlobalChat() {
     }
   }
 
-  const handleReport = async () => {
-    if (!reportTarget) return
-    setReportStatus('submitting')
-    const reporterId = getUserId()
-
-    const { error } = await supabase
-      .from('message_reports')
-      .insert({
-        message_id: reportTarget.id,
-        room_id: reportTarget.room_id ?? null,
-        reported_username: reportTarget.username,
-        reported_university: reportTarget.university,
-        message_text: reportTarget.text,
-        reporter_id: reporterId,
-      })
-
-    if (error) {
-      setReportStatus('error')
-      return
-    }
-
-    setReportStatus('success')
-    setTimeout(() => {
-      setReportTarget(null)
-      setReportStatus('idle')
-    }, 1000)
-  }
   const handleProfileSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
     e?.stopPropagation()
@@ -567,7 +537,7 @@ export default function GlobalChat() {
                     const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
 
                     return (
-                      <div key={msg.id} className="msg-reveal" onClick={() => { setReportStatus('idle'); setReportTarget(msg) }}>
+                      <div key={msg.id} className="msg-reveal">
                         {isFirstInGroup && visibleIndex !== 0 && <div className="group-divider" />}
                         <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
                           {isFirstInGroup ? (
@@ -597,7 +567,7 @@ export default function GlobalChat() {
 
               {/* Input area */}
               <div className="input-area">
-                <div className={`hint${isKeyboardOpen ? ' hidden' : ''}`}>? swipe for new people &amp; topics</div>
+                <div className={`hint${isKeyboardOpen ? ' hidden' : ''}`}>↕ swipe for new people &amp; topics</div>
                 <div className="input-wrap">
                   <input
                     ref={(el) => { inputRefs.current[index] = el }}
@@ -685,30 +655,6 @@ export default function GlobalChat() {
         </div>
       )}
 
-      {reportTarget && (
-        <div className="modal-overlay" onClick={() => { setReportTarget(null); setReportStatus('idle') }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Report this message?</h2>
-            <p className="modal-sub">From {reportTarget.username}</p>
-            <div className="modal-inputs">
-              <button
-                className="join-btn"
-                onClick={handleReport}
-                disabled={reportStatus === 'submitting' || reportStatus === 'success'}
-              >
-                {reportStatus === 'submitting'
-                  ? 'Reporting...'
-                  : reportStatus === 'success'
-                    ? 'Reported'
-                    : 'Report'}
-              </button>
-              {reportStatus === 'error' && (
-                <p className="modal-sub">Something went wrong. Try again.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -803,11 +749,3 @@ export default function GlobalChat() {
     </>
   )
 }
-
-
-
-
-
-
-
-

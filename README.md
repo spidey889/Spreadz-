@@ -1,10 +1,24 @@
-# Spreadz v0.2
+# Spreadz
 
-This is the Global Chat UI built in Next.js 14 with TypeScript and Tailwind CSS.
+Real-time global chat where strangers discuss trending topics together.
+Swipe to find new people and fresh discussions — no commitment, no friend requests.
 
-## Features
+## What's built
+- Live messaging with Supabase real-time
+- TikTok-style room swiping
+- Discussion headlines per room
+- User profiles with college tags
+- FRIDAY personalization engine running in background
+- Mobile-first, clean UI
 
-- Mobile-first chat UI
-- Local state messages only
-- Black background, WhatsApp-style chat bubbles
-- No backend, no auth, no database
+## Tech stack
+- Next.js 14 + TypeScript
+- Supabase
+- Tailwind CSS
+- Vercel
+
+## Run locally
+1. Clone the repo
+2. Create `.env.local` with your Supabase URL and anon key
+3. `npm install`
+4. `npm run dev`

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -370,6 +370,12 @@ export default function GlobalChat() {
     return () => observer.disconnect()
   }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed])
 
+  useEffect(() => {
+    if (messageEndRefs.current[currentRoomIndex]) {
+      messageEndRefs.current[currentRoomIndex]?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [roomMessages, currentRoomIndex])
+
 
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string) => {
     if (containerRef.current) {
@@ -567,7 +573,7 @@ export default function GlobalChat() {
 
               {/* Input area */}
               <div className="input-area">
-                <div className={`hint${isKeyboardOpen ? ' hidden' : ''}`}>↕ swipe for new people &amp; topics</div>
+                <div className={`hint${isKeyboardOpen ? ' hidden' : ''}`}>? swipe for new people &amp; topics</div>
                 <div className="input-wrap">
                   <input
                     ref={(el) => { inputRefs.current[index] = el }}
@@ -749,3 +755,14 @@ export default function GlobalChat() {
     </>
   )
 }
+
+
+
+
+
+
+
+
+
+
+

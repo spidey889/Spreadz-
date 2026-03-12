@@ -350,8 +350,10 @@ export default function GlobalChat() {
   }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed])
 
   useEffect(() => {
-    if (messageEndRefs.current[currentRoomIndex]) {
-      messageEndRefs.current[currentRoomIndex]?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    const endEl = messageEndRefs.current[currentRoomIndex]
+    const scrollEl = endEl?.parentElement
+    if (scrollEl) {
+      scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' })
     }
   }, [roomMessages, currentRoomIndex, visibleMessageIds])
 
@@ -688,6 +690,7 @@ export default function GlobalChat() {
     </>
   )
 }
+
 
 
 

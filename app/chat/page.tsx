@@ -7,10 +7,7 @@ import {
   trackRoomLeave,
   trackMessageSent,
   trackTypedNotSent,
-  rankRooms,
   flushToSupabase,
-  getScrollCount,
-  hasSelectedInterests,
   saveInterests,
   getInterests,
 } from '@/lib/friday'
@@ -32,8 +29,6 @@ interface Message {
   room_id?: string | null
   reveal_delay?: number
 }
-
-const AVATAR_COLORS = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
 
 const getUserColor = (username: string) => {
   const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
@@ -67,14 +62,11 @@ export default function GlobalChat() {
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [tempProfileName, setTempProfileName] = useState('')
   const [tempProfileCollege, setTempProfileCollege] = useState('')
-  const [showInterestModal, setShowInterestModal] = useState(false)
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [interestDismissed, setInterestDismissed] = useState(false)
   const [visibleMessageIds, setVisibleMessageIds] = useState<Set<string>>(new Set())
 
-  const roomRefs = useRef<(HTMLDivElement | null)[]>([])
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
   const channelRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
@@ -104,20 +96,7 @@ export default function GlobalChat() {
         setRooms(data)
         trackRoomEnter(data[0]?.id || '')
 
-        // TEMPORARY: disabled FRIDAY rankRooms entirely to isolate random room start bug
-        /*
-        setTimeout(async () => {
-          if (prevRoomIndexRef.current === 0) {
-            try {
-              const ranked = await rankRooms(data)
-              setRooms(ranked)
-              if (ranked[0]?.id) trackRoomEnter(ranked[0].id)
-            } catch (err) {
-              console.error('[FRIDAY] Background ranking error:', err)
-            }
-          }
-        }, 2000)
-        */
+
       }
     }
     fetchRooms()
@@ -505,7 +484,6 @@ export default function GlobalChat() {
             <div
               key={room.id}
               className="room-panel"
-              ref={(el) => { roomRefs.current[index] = el }}
               data-room-index={index}
               style={{ background: 'var(--bg)' }}
             >
@@ -574,7 +552,6 @@ export default function GlobalChat() {
                 <div className={`hint${isKeyboardOpen ? ' hidden' : ''}`}>? swipe for new people &amp; topics</div>
                 <div className="input-wrap">
                   <input
-                    ref={(el) => { inputRefs.current[index] = el }}
                     type="text"
                     placeholder="What's on your mind?"
                     value={inputText}
@@ -621,43 +598,7 @@ export default function GlobalChat() {
         </div>
       )}
 
-      {/* FRIDAY Interest Selection Bottom Sheet */}
-      {showInterestModal && (
-        <div className="interest-overlay" onClick={() => { setShowInterestModal(false); setInterestDismissed(true) }}>
-          <div className="interest-sheet" onClick={(e) => e.stopPropagation()}>
-            <h2 className="interest-title">What are you into?</h2>
-            <p className="interest-subtitle">We&apos;ll show you better rooms</p>
-            <div className="interest-chips">
-              {INTEREST_OPTIONS.map((interest) => (
-                <button
-                  key={interest}
-                  className={`interest-chip${selectedInterests.includes(interest) ? ' selected' : ''}`}
-                  onClick={() => {
-                    setSelectedInterests(prev =>
-                      prev.includes(interest)
-                        ? prev.filter(i => i !== interest)
-                        : [...prev, interest]
-                    )
-                  }}
-                >
-                  {interest}
-                </button>
-              ))}
-            </div>
-            <button
-              className="interest-done-btn"
-              disabled={selectedInterests.length === 0}
-              onClick={() => {
-                saveInterests(selectedInterests)
-                setShowInterestModal(false)
-                setInterestDismissed(true)
-              }}
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      )}
+
 
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -753,6 +694,9 @@ export default function GlobalChat() {
     </>
   )
 }
+
+
+
 
 
 

@@ -71,9 +71,7 @@ export function getInterests(): string[] {
     } catch { return [] }
 }
 
-export function hasSelectedInterests(): boolean {
-    return getInterests().length > 0
-}
+
 
 // ── Room Tracking (pure memory, zero Supabase) ────────────────────────────────
 
@@ -116,9 +114,7 @@ export function trackTypedNotSent(roomId: string): void {
     sessionData[roomId].typedNotSent++
 }
 
-export function getScrollCount(): number {
-    return scrollCount
-}
+
 
 // ── Batch Flush — only called on beforeunload or every 60s ─────────────────────
 
@@ -287,3 +283,4 @@ export async function rankRooms(rooms: Room[]): Promise<Room[]> {
         return rooms
     }
 }
+

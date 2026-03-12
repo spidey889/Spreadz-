@@ -687,7 +687,7 @@ export default function GlobalChat() {
 
       {reportTarget && (
         <div className="modal-overlay" onClick={() => { setReportTarget(null); setReportStatus('idle') }}>
-          <div className="modal report-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">Report this message?</h2>
             <p className="modal-sub">From {reportTarget.username}</p>
             <div className="modal-inputs">
@@ -787,22 +787,9 @@ export default function GlobalChat() {
         .modal-inputs { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
         .modal-input { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: var(--text-primary); font-size: 1rem; outline: none; width: 100%; }
         .join-btn { background: var(--text-primary); color: var(--bg); border: none; border-radius: 14px; padding: 16px; width: 100%; font-size: 1.1rem; font-weight: 700; cursor: pointer; }
-        .report-modal-overlay {
-          background: rgba(8, 10, 14, 0.7);
-          backdrop-filter: blur(10px) saturate(120%);
-        }
-        .report-modal {
-          background: rgba(26, 28, 34, 0.75);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
-        }
-        .report-modal .join-btn {
-          background: linear-gradient(135deg, #ff7a7a, #ff4d6d);
-          color: #12070a;
-          box-shadow: 0 12px 24px rgba(255, 77, 109, 0.35);
-        }
 
         .hidden { display: none !important; }
+
         .interest-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
         .interest-sheet { background: #1a1a1a; border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 440px; }
         .interest-title { font-size: 18px; font-weight: 700; color: #fff; margin: 0 0 4px; }
@@ -816,8 +803,6 @@ export default function GlobalChat() {
     </>
   )
 }
-
-
 
 
 

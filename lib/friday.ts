@@ -27,8 +27,6 @@ const sessionData: Record<string, {
 }> = {}
 
 const visitedThisSession = new Set<string>()
-let scrollCount = 0
-
 // ── Interest Keyword Map ───────────────────────────────────────────────────────
 
 const INTEREST_KEYWORDS: Record<string, string[]> = {
@@ -86,7 +84,6 @@ export function trackRoomEnter(roomId: string): void {
         sessionData[roomId].returnVisits++
     }
     visitedThisSession.add(roomId)
-    scrollCount++
 }
 
 /** Called when user leaves a room — pure memory, zero Supabase. */
@@ -283,4 +280,5 @@ export async function rankRooms(rooms: Room[]): Promise<Room[]> {
         return rooms
     }
 }
+
 

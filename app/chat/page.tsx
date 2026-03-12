@@ -372,9 +372,9 @@ export default function GlobalChat() {
 
   useEffect(() => {
     if (messageEndRefs.current[currentRoomIndex]) {
-      messageEndRefs.current[currentRoomIndex]?.scrollIntoView({ behavior: 'smooth' })
+      messageEndRefs.current[currentRoomIndex]?.scrollIntoView({ behavior: 'smooth', block: 'end' })
     }
-  }, [roomMessages, currentRoomIndex])
+  }, [roomMessages, currentRoomIndex, visibleMessageIds])
 
 
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string) => {
@@ -531,9 +531,8 @@ export default function GlobalChat() {
               </div>
 
               {/* Messages */}
-              <div style={{ overflowY: 'auto', height: '100%' }}>
-                <div className="room-messages" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', minHeight: '100%' }}>
-                  {messages.map((msg, msgIndex) => {
+              <div className="room-messages" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+                {messages.map((msg, msgIndex) => {
                     const isVisible = visibleMessageIds.has(msg.id)
                     if (!isVisible) return null
 
@@ -568,7 +567,6 @@ export default function GlobalChat() {
                     )
                   })}
                   <div ref={(el) => { messageEndRefs.current[index] = el }} />
-                </div>
               </div>
 
               {/* Input area */}
@@ -755,6 +753,10 @@ export default function GlobalChat() {
     </>
   )
 }
+
+
+
+
 
 
 

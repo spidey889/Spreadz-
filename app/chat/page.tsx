@@ -67,7 +67,8 @@ export default function GlobalChat() {
   const [interestDismissed, setInterestDismissed] = useState(false)
   const [visibleMessageIds, setVisibleMessageIds] = useState<Set<string>>(new Set())
   const [reportSheetMessage, setReportSheetMessage] = useState<Message | null>(null)
-  const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'done'>('idle')
+  const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
+  const [sheetClosing, setSheetClosing] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
 
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -372,9 +373,20 @@ export default function GlobalChat() {
   const startLongPress = (msg: Message) => {
     clearLongPress()
     longPressTimerRef.current = window.setTimeout(() => {
+      setSheetClosing(false)
       setReportSheetMessage(msg)
       setReportStatus('idle')
     }, 450)
+  }
+
+  const closeSheet = () => {
+    if (sheetClosing) return
+    setSheetClosing(true)
+    window.setTimeout(() => {
+      setReportSheetMessage(null)
+      setReportStatus('idle')
+      setSheetClosing(false)
+    }, 280)
   }
 
   const handleReport = async () => {
@@ -385,21 +397,21 @@ export default function GlobalChat() {
         reporter_id: getUserId(),
         reported_id: reportSheetMessage.username,
         reported_message: reportSheetMessage.text,
+        created_at: new Date().toISOString(),
       }
     ])
 
     if (error) {
       console.error('[Report] insert failed:', error)
-      setReportStatus('idle')
-      setReportSheetMessage(null)
+      setReportStatus('error')
+      setTimeout(() => {
+        setReportStatus('idle')
+      }, 1400)
       return
     }
 
     setReportStatus('done')
-    setTimeout(() => {
-      setReportSheetMessage(null)
-      setReportStatus('idle')
-    }, 700)
+    closeSheet()
   }
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string) => {
     const text = (inputTexts[roomId] || '').trim()
@@ -548,7 +560,7 @@ export default function GlobalChat() {
               </div>
 
               {/* Messages */}
-              <div className="room-messages" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <div className="room-messages" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}>
                 {messages.map((msg, msgIndex) => {
                     const isVisible = visibleMessageIds.has(msg.id)
                     if (!isVisible) return null
@@ -648,8 +660,8 @@ export default function GlobalChat() {
 
 
       {reportSheetMessage && (
-        <div className="sheet-overlay" onClick={() => { setReportSheetMessage(null); setReportStatus('idle') }}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className={`sheet-overlay${sheetClosing ? ' closing' : ''}`} onClick={closeSheet}>
+          <div className={`sheet${sheetClosing ? ' closing' : ''}`} onClick={(e) => e.stopPropagation()}>
             <button
               className="sheet-report-btn"
               onClick={handleReport}
@@ -664,6 +676,7 @@ export default function GlobalChat() {
               <span>Report</span>
             </button>
             {reportStatus === 'done' && <div className="sheet-confirm">Reported</div>}
+            {reportStatus === 'error' && <div className="sheet-confirm error">Report failed</div>}
           </div>
         </div>
       )}
@@ -704,6 +717,13 @@ export default function GlobalChat() {
         }
         .msg-reveal {
           animation: slideUpFade 0.5s ease-out forwards;
+          user-select: none;
+          -webkit-user-select: none;
+          -webkit-touch-callout: none;
+          touch-action: manipulation;
+        }
+
+        .room-messages {
           user-select: none;
           -webkit-user-select: none;
           -webkit-touch-callout: none;
@@ -752,8 +772,7 @@ export default function GlobalChat() {
         @keyframes sheetUp {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
-        }
-        .sheet-overlay {
+        }        .sheet-overlay {
           position: fixed;
           inset: 0;
           background: rgba(0, 0, 0, 0.45);
@@ -763,8 +782,10 @@ export default function GlobalChat() {
           justify-content: center;
           z-index: 1100;
           padding: 12px;
+          opacity: 1;
+          transition: opacity 280ms ease;
         }
-        .sheet {
+        .sheet-overlay.closing { opacity: 0; }        .sheet {
           width: 100%;
           max-width: 520px;
           background: var(--surface);
@@ -773,9 +794,16 @@ export default function GlobalChat() {
           padding: 16px 16px 20px;
           box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.45);
           animation: sheetUp 0.18s ease-out;
+          transform: translateY(0);
+          opacity: 1;
+          transition: transform 280ms ease, opacity 280ms ease;
           user-select: none;
           -webkit-user-select: none;
           -webkit-touch-callout: none;
+        }
+        .sheet.closing {
+          transform: translateY(12px);
+          opacity: 0;
         }
         .sheet-report-btn {
           width: 100%;
@@ -798,6 +826,7 @@ export default function GlobalChat() {
         .sheet-report-btn:disabled { opacity: 0.6; cursor: default; }
         .ban-icon { color: #ff5a5a; display: inline-flex; }
         .sheet-confirm { margin-top: 10px; text-align: center; font-size: 13px; color: #7bd389; }
+        .sheet-confirm.error { color: #ff8a8a; }
 
         .hidden { display: none !important; }
         .interest-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
@@ -813,6 +842,15 @@ export default function GlobalChat() {
     </>
   )
 }
+
+
+
+
+
+
+
+
+
 
 
 

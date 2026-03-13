@@ -10,6 +10,7 @@ import {
   flushToSupabase,
   saveInterests,
   getInterests,
+  getUserId,
 } from '@/lib/friday'
 
 interface Room {
@@ -382,7 +383,8 @@ export default function GlobalChat() {
     const { error } = await supabase.from('reports').insert({
       reported_message_id: reportSheetMessage.id,
       reported_username: reportSheetMessage.username,
-      reason: 'reported',
+      reported_message: reportSheetMessage.text,
+      reporter_id: getUserId(),
       created_at: new Date().toISOString(),
     })
 
@@ -809,6 +811,7 @@ export default function GlobalChat() {
     </>
   )
 }
+
 
 
 

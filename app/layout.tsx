@@ -4,6 +4,8 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'SpreadZ',
   description: 'Global live chat',
+  manifest: '/manifest.json',
+  themeColor: '#0a0a0a',
 }
 
 export default function RootLayout({

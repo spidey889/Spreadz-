@@ -700,6 +700,9 @@ export default function GlobalChat() {
         }
         .msg-reveal {
           animation: slideUpFade 0.5s ease-out forwards;
+          user-select: none;
+          -webkit-user-select: none;
+          -webkit-touch-callout: none;
         }
 
         .messages { flex: 1; overflow-y: auto; padding: 0 16px; scrollbar-width: none; }
@@ -777,12 +780,23 @@ export default function GlobalChat() {
           border-radius: 14px;
           padding: 14px 16px;
           color: #ff5a5a;
-          font-weight: 600;
-          font-size: 16px;
+          font-size: 15px;
+          font-weight: 700;
+          font-family: inherit;
           cursor: pointer;
         }
         .sheet-report-btn:disabled { opacity: 0.6; cursor: default; }
-        .ban-icon { color: #ff5a5a; display: inline-flex; }
+        .ban-icon {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: #ff4d4f;
+          color: #ffffff;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
         .sheet-confirm { margin-top: 10px; text-align: center; font-size: 13px; color: #7bd389; }
 
         .hidden { display: none !important; }
@@ -799,6 +813,10 @@ export default function GlobalChat() {
     </>
   )
 }
+
+
+
+
 
 
 

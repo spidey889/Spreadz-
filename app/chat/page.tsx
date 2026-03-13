@@ -69,6 +69,7 @@ export default function GlobalChat() {
   const [reportSheetMessage, setReportSheetMessage] = useState<Message | null>(null)
   const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
   const [sheetClosing, setSheetClosing] = useState(false)
+  const [friendsSheetOpen, setFriendsSheetOpen] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
 
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -545,7 +546,7 @@ export default function GlobalChat() {
                 <div className="logo">
                   <img src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" />
                 </div>
-                <button className="settings-btn" aria-label="Menu">
+                <button className="settings-btn" aria-label="Menu" onClick={() => setFriendsSheetOpen(true)}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="4" y1="5" x2="20" y2="5" />
                     <line x1="4" y1="12" x2="20" y2="12" />
@@ -666,6 +667,20 @@ export default function GlobalChat() {
         <div className={`sheet-overlay${sheetClosing ? ' closing' : ''}`} onClick={closeSheet}>
           <div className={`sheet${sheetClosing ? ' closing' : ''}`} onClick={(e) => e.stopPropagation()}>
             <button
+              className="sheet-friend-btn"
+              onClick={closeSheet}
+            >
+              <span className="friend-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <circle cx="9" cy="10" r="1" fill="currentColor" />
+                  <circle cx="15" cy="10" r="1" fill="currentColor" />
+                  <path d="M8.5 14c1.1 1.2 2.4 1.8 3.5 1.8s2.4-.6 3.5-1.8" />
+                </svg>
+              </span>
+              <span>Add Friend</span>
+            </button>
+            <button
               className="sheet-report-btn"
               onClick={handleReport}
               disabled={reportStatus === 'submitting' || reportStatus === 'done'}
@@ -684,6 +699,22 @@ export default function GlobalChat() {
         </div>
       )}
 
+      {friendsSheetOpen && (
+        <div className="friends-overlay" onClick={() => setFriendsSheetOpen(false)}>
+          <div className="friends-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="friends-header">
+              <div className="friends-title">My Friends</div>
+              <button className="friends-close" aria-label="Close" onClick={() => setFriendsSheetOpen(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="friends-empty">No friends yet {'\uD83D\uDC40'}</div>
+          </div>
+        </div>
+      )}
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -826,12 +857,75 @@ export default function GlobalChat() {
           -webkit-user-select: none;
           -webkit-touch-callout: none;
         }
-        .sheet-report-btn:disabled { opacity: 0.6; cursor: default; }
+        .sheet-friend-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background: #1c1f24;
+          border: 1px solid #224f35;
+          border-radius: 14px;
+          padding: 14px 16px;
+          color: #22c55e;
+          font-size: 15px;
+          font-weight: 700;
+          font-family: inherit;
+          cursor: pointer;
+          margin-bottom: 10px;
+          user-select: none;
+          -webkit-user-select: none;
+          -webkit-touch-callout: none;
+        }
+        .friend-icon { color: #22c55e; display: inline-flex; }        .sheet-report-btn:disabled { opacity: 0.6; cursor: default; }
         .ban-icon { color: #ff5a5a; display: inline-flex; }
         .sheet-confirm { margin-top: 10px; text-align: center; font-size: 13px; color: #7bd389; }
         .sheet-confirm.error { color: #ff8a8a; }
 
-        .hidden { display: none !important; }
+        .friends-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          z-index: 1050;
+          padding: 12px;
+        }
+        .friends-sheet {
+          width: 100%;
+          max-width: 520px;
+          height: 40vh;
+          background: #1a1a1a;
+          border-radius: 20px 20px 0 0;
+          padding: 16px 16px 20px;
+          box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.45);
+          animation: sheetUp 0.18s ease-out;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .friends-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .friends-title {
+          color: #ffffff;
+          font-size: 16px;
+          font-weight: 700;
+        }
+        .friends-close {
+          background: none;
+          border: none;
+          color: #bdbdbd;
+          padding: 4px;
+          cursor: pointer;
+        }
+        .friends-empty {
+          color: #9aa0a6;
+          font-size: 14px;
+        }        .hidden { display: none !important; }
         .interest-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
         .interest-sheet { background: #1a1a1a; border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 440px; }
         .interest-title { font-size: 18px; font-weight: 700; color: #fff; margin: 0 0 4px; }
@@ -845,6 +939,15 @@ export default function GlobalChat() {
     </>
   )
 }
+
+
+
+
+
+
+
+
+
 
 
 

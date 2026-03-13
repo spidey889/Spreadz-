@@ -562,6 +562,7 @@ export default function GlobalChat() {
                         onMouseDown={() => startLongPress(msg)}
                         onMouseUp={clearLongPress}
                         onMouseLeave={clearLongPress}
+                        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
                       >
                         {isFirstInGroup && visibleIndex !== 0 && <div className="group-divider" />}
                         <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
@@ -798,6 +799,7 @@ export default function GlobalChat() {
     </>
   )
 }
+
 
 
 

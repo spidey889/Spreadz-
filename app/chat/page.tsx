@@ -546,10 +546,10 @@ export default function GlobalChat() {
                   <img src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" />
                 </div>
                 <button className="settings-btn" aria-label="Menu">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="4" y1="6" x2="20" y2="6" />
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="4" y1="5" x2="20" y2="5" />
                     <line x1="4" y1="12" x2="20" y2="12" />
-                    <line x1="4" y1="18" x2="20" y2="18" />
+                    <line x1="4" y1="19" x2="20" y2="19" />
                   </svg>
                 </button>
               </div>
@@ -706,7 +706,7 @@ export default function GlobalChat() {
 
         .header { display: flex; align-items: center; justify-content: space-between; padding: 4px 18px 4px 8px; background: var(--bg); position: relative; z-index: 10; flex-shrink: 0; }
         .logo-img { height: 90px; margin: -16px 0; object-fit: contain; }
-        .settings-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 4px; transition: color 0.1s; }
+        .settings-btn { background: none; border: none; cursor: pointer; color: var(--text-primary); padding: 4px; transition: color 0.1s; }
         .settings-btn:hover { color: var(--text-primary); }
 
         .ai-card-wrap { margin: 12px 16px; flex-shrink: 0; }
@@ -845,6 +845,7 @@ export default function GlobalChat() {
     </>
   )
 }
+
 
 
 

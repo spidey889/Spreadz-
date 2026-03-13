@@ -562,7 +562,7 @@ export default function GlobalChat() {
                         onMouseDown={() => startLongPress(msg)}
                         onMouseUp={clearLongPress}
                         onMouseLeave={clearLongPress}
-                        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
+                        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
                       >
                         {isFirstInGroup && visibleIndex !== 0 && <div className="group-divider" />}
                         <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
@@ -708,14 +708,14 @@ export default function GlobalChat() {
         .messages { flex: 1; overflow-y: auto; padding: 0 16px; scrollbar-width: none; }
         .messages::-webkit-scrollbar { display: none; }
 
-        .msg { display: flex; gap: 16px; width: 100%; padding: 0 16px; }
+        .msg { display: flex; gap: 16px; width: 100%; padding: 0 16px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         .group-start { margin-top: 20px; }
         .group-continuation { margin-top: 2px; }
         .group-divider { height: 1px; width: 100%; background: #1E1F22; margin: 20px 0; }
 
         .avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: white; }
         
-        .msg-content { flex: 1; min-width: 0; position: relative; }
+        .msg-content { flex: 1; min-width: 0; position: relative; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         .msg-content.continuation { margin-left: 54px; }
 
         .msg-header { display: flex; align-items: baseline; margin-bottom: 2px; }
@@ -723,7 +723,7 @@ export default function GlobalChat() {
         .msg-university { font-size: 13px; color: #71767B; margin-left: 6px; }
         .msg-timestamp { font-size: 13px; color: #71767B; margin-left: auto; }
 
-        .msg-text { font-size: 15px; color: #E7E9EA; line-height: 1.5; margin-top: 2px; word-wrap: break-word; }
+        .msg-text { font-size: 15px; color: #E7E9EA; line-height: 1.5; margin-top: 2px; word-wrap: break-word; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 
         .input-area { background: var(--bg); padding: 8px 16px 16px; flex-shrink: 0; }
         .hint { text-align: center; font-size: 11px; color: var(--text-muted); padding-bottom: 8px; opacity: 0.7; }
@@ -769,6 +769,9 @@ export default function GlobalChat() {
           padding: 16px 16px 20px;
           box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.45);
           animation: sheetUp 0.18s ease-out;
+          user-select: none;
+          -webkit-user-select: none;
+          -webkit-touch-callout: none;
         }
         .sheet-report-btn {
           width: 100%;
@@ -784,19 +787,12 @@ export default function GlobalChat() {
           font-weight: 700;
           font-family: inherit;
           cursor: pointer;
+          user-select: none;
+          -webkit-user-select: none;
+          -webkit-touch-callout: none;
         }
         .sheet-report-btn:disabled { opacity: 0.6; cursor: default; }
-        .ban-icon {
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          background: #ff4d4f;
-          color: #ffffff;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
+        .ban-icon { color: #ff5a5a; display: inline-flex; }
         .sheet-confirm { margin-top: 10px; text-align: center; font-size: 13px; color: #7bd389; }
 
         .hidden { display: none !important; }
@@ -813,6 +809,15 @@ export default function GlobalChat() {
     </>
   )
 }
+
+
+
+
+
+
+
+
+
 
 
 

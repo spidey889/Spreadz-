@@ -380,14 +380,18 @@ export default function GlobalChat() {
   const handleReport = async () => {
     if (!reportSheetMessage) return
     setReportStatus('submitting')
-    const { error } = await supabase.from('reports').insert({
-      reporter_id: getUserId(),
-      reported_id: reportSheetMessage.username,
-      reported_message: reportSheetMessage.text,
-    })
+    const { error } = await supabase.from('reports').insert([
+      {
+        reporter_id: getUserId(),
+        reported_id: reportSheetMessage.username,
+        reported_message: reportSheetMessage.text,
+      }
+    ])
 
     if (error) {
+      console.error('[Report] insert failed:', error)
       setReportStatus('idle')
+      setReportSheetMessage(null)
       return
     }
 
@@ -809,6 +813,7 @@ export default function GlobalChat() {
     </>
   )
 }
+
 
 
 

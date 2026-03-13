@@ -381,11 +381,9 @@ export default function GlobalChat() {
     if (!reportSheetMessage) return
     setReportStatus('submitting')
     const { error } = await supabase.from('reports').insert({
-      reported_message_id: reportSheetMessage.id,
-      reported_username: reportSheetMessage.username,
-      reported_message: reportSheetMessage.text,
       reporter_id: getUserId(),
-      created_at: new Date().toISOString(),
+      reported_id: reportSheetMessage.username,
+      reported_message: reportSheetMessage.text,
     })
 
     if (error) {
@@ -811,6 +809,7 @@ export default function GlobalChat() {
     </>
   )
 }
+
 
 
 

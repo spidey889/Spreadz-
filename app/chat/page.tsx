@@ -65,6 +65,9 @@ export default function GlobalChat() {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [interestDismissed, setInterestDismissed] = useState(false)
   const [visibleMessageIds, setVisibleMessageIds] = useState<Set<string>>(new Set())
+  const [reportSheetMessage, setReportSheetMessage] = useState<Message | null>(null)
+  const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'done'>('idle')
+  const longPressTimerRef = useRef<number | null>(null)
 
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
@@ -358,6 +361,42 @@ export default function GlobalChat() {
   }, [roomMessages, currentRoomIndex, visibleMessageIds])
 
 
+  const clearLongPress = () => {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }
+
+  const startLongPress = (msg: Message) => {
+    clearLongPress()
+    longPressTimerRef.current = window.setTimeout(() => {
+      setReportSheetMessage(msg)
+      setReportStatus('idle')
+    }, 450)
+  }
+
+  const handleReport = async () => {
+    if (!reportSheetMessage) return
+    setReportStatus('submitting')
+    const { error } = await supabase.from('reports').insert({
+      reported_message_id: reportSheetMessage.id,
+      reported_username: reportSheetMessage.username,
+      reason: 'reported',
+      created_at: new Date().toISOString(),
+    })
+
+    if (error) {
+      setReportStatus('idle')
+      return
+    }
+
+    setReportStatus('done')
+    setTimeout(() => {
+      setReportSheetMessage(null)
+      setReportStatus('idle')
+    }, 700)
+  }
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string) => {
     const text = (inputTexts[roomId] || '').trim()
     if (!text) return
@@ -516,7 +555,14 @@ export default function GlobalChat() {
                     const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
 
                     return (
-                      <div key={msg.id} className="msg-reveal">
+                      <div key={msg.id} className="msg-reveal"
+                        onTouchStart={() => startLongPress(msg)}
+                        onTouchEnd={clearLongPress}
+                        onTouchMove={clearLongPress}
+                        onMouseDown={() => startLongPress(msg)}
+                        onMouseUp={clearLongPress}
+                        onMouseLeave={clearLongPress}
+                      >
                         {isFirstInGroup && visibleIndex !== 0 && <div className="group-divider" />}
                         <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
                           {isFirstInGroup ? (
@@ -596,6 +642,27 @@ export default function GlobalChat() {
 
 
 
+      {reportSheetMessage && (
+        <div className="sheet-overlay" onClick={() => { setReportSheetMessage(null); setReportStatus('idle') }}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="sheet-report-btn"
+              onClick={handleReport}
+              disabled={reportStatus === 'submitting' || reportStatus === 'done'}
+            >
+              <span className="ban-icon" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="8" />
+                  <line x1="7" y1="17" x2="17" y2="7" />
+                </svg>
+              </span>
+              <span>Report</span>
+            </button>
+            {reportStatus === 'done' && <div className="sheet-confirm">Reported</div>}
+          </div>
+        </div>
+      )}
+
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -674,9 +741,50 @@ export default function GlobalChat() {
         .modal-inputs { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
         .modal-input { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: var(--text-primary); font-size: 1rem; outline: none; width: 100%; }
         .join-btn { background: var(--text-primary); color: var(--bg); border: none; border-radius: 14px; padding: 16px; width: 100%; font-size: 1.1rem; font-weight: 700; cursor: pointer; }
+        @keyframes sheetUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .sheet-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.45);
+          backdrop-filter: blur(6px);
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          z-index: 1100;
+          padding: 12px;
+        }
+        .sheet {
+          width: 100%;
+          max-width: 520px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 20px 20px 0 0;
+          padding: 16px 16px 20px;
+          box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.45);
+          animation: sheetUp 0.18s ease-out;
+        }
+        .sheet-report-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background: #1c1f24;
+          border: 1px solid #2b2f37;
+          border-radius: 14px;
+          padding: 14px 16px;
+          color: #ff5a5a;
+          font-weight: 600;
+          font-size: 16px;
+          cursor: pointer;
+        }
+        .sheet-report-btn:disabled { opacity: 0.6; cursor: default; }
+        .ban-icon { color: #ff5a5a; display: inline-flex; }
+        .sheet-confirm { margin-top: 10px; text-align: center; font-size: 13px; color: #7bd389; }
 
         .hidden { display: none !important; }
-
         .interest-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
         .interest-sheet { background: #1a1a1a; border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 440px; }
         .interest-title { font-size: 18px; font-weight: 700; color: #fff; margin: 0 0 4px; }
@@ -690,6 +798,11 @@ export default function GlobalChat() {
     </>
   )
 }
+
+
+
+
+
 
 
 

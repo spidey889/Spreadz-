@@ -392,38 +392,19 @@ export default function GlobalChat() {
   const handleReport = async () => {
     if (!reportSheetMessage) return
     setReportStatus('submitting')
-    const basePayload = {
-      reporter_id: getUserId(),
-      reported_message: reportSheetMessage.text,
-      created_at: new Date().toISOString(),
-    }
-    const username = reportSheetMessage.username
-    const messageId = reportSheetMessage.id
-
-    const payloads = [
-      { ...basePayload, reported_id: username, reported_message_id: messageId, reported_username: username },
-      { ...basePayload, reported_username: username, reported_message_id: messageId },
-      { ...basePayload, reported_id: username, reported_message_id: messageId },
-      { ...basePayload, reported_id: username },
-      { ...basePayload, reported_username: username },
-      { ...basePayload },
-    ]
-
-    let finalError: any = null
-    for (const payload of payloads) {
-      const { error } = await supabase.from('reports').insert([payload])
-      if (!error) {
-        finalError = null
-        break
+    const roomId = reportSheetMessage.room_id ?? rooms[currentRoomIndex]?.id ?? null
+    const { error } = await supabase.from('reports').insert([
+      {
+        reporter_id: getUserId(),
+        reported_id: reportSheetMessage.username,
+        reported_message: reportSheetMessage.text,
+        room_id: roomId,
+        created_at: new Date().toISOString(),
       }
-      finalError = error
-      const msg = (error as any)?.message?.toLowerCase?.() || ''
-      const isColumnError = msg.includes('schema cache') || (msg.includes('column') && msg.includes('reports'))
-      if (!isColumnError) break
-    }
+    ])
 
-    if (finalError) {
-      console.error('[Report] insert failed:', finalError)
+    if (error) {
+      console.error('[Report] insert failed:', error)
       setReportStatus('error')
       setTimeout(() => {
         setReportStatus('idle')
@@ -863,6 +844,7 @@ export default function GlobalChat() {
     </>
   )
 }
+
 
 
 

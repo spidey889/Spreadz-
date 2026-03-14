@@ -27,7 +27,7 @@ interface Message {
   timestamp: string
   created_at?: string
   room_id?: string | null
-  user_id?: string | null
+  user_uuid?: string | null
   reveal_delay?: number
 }
 
@@ -50,7 +50,7 @@ const formatTime = (isoString?: string) => {
 }
 
 const INTEREST_OPTIONS = ['Tech & AI', 'Sports', 'Politics', 'Entertainment', 'Business', 'Science', 'Gaming', 'Campus Life']
-const USER_ID_STORAGE_KEY = 'spreadz_user_uuid'
+const USER_UUID_STORAGE_KEY = 'spreadz_user_uuid'
 const USERNAME_STORAGE_KEY = 'spreadz_username'
 const COLLEGE_STORAGE_KEY = 'spreadz_college'
 const FRIENDS_STORAGE_KEY = 'spreadz_friends'
@@ -91,10 +91,10 @@ export default function GlobalChat() {
     setIsMounted(true)
     const storedName = localStorage.getItem(USERNAME_STORAGE_KEY)
     const storedCollege = localStorage.getItem(COLLEGE_STORAGE_KEY)
-    let storedUserId = localStorage.getItem(USER_ID_STORAGE_KEY)
+    let storedUserId = localStorage.getItem(USER_UUID_STORAGE_KEY)
     if (!storedUserId) {
       storedUserId = crypto.randomUUID()
-      localStorage.setItem(USER_ID_STORAGE_KEY, storedUserId)
+      localStorage.setItem(USER_UUID_STORAGE_KEY, storedUserId)
     }
     userIdRef.current = storedUserId || ''
     const storedFriends = localStorage.getItem(FRIENDS_STORAGE_KEY)
@@ -110,8 +110,8 @@ export default function GlobalChat() {
     if (storedCollege) setUniversity(storedCollege)
     if (storedUserId) {
       supabase.from('users').upsert(
-        { id: storedUserId, created_at: new Date().toISOString() },
-        { onConflict: 'id' }
+        { uuid: storedUserId, created_at: new Date().toISOString() },
+        { onConflict: 'uuid' }
       ).then(({ error }) => {
         if (error) console.error('[Users] upsert failed:', error)
       })
@@ -209,7 +209,7 @@ export default function GlobalChat() {
         timestamp: formatTime(m.created_at),
         created_at: m.created_at,
         room_id: m.room_id,
-        user_id: m.user_id ?? null,
+        user_uuid: m.user_uuid ?? null,
         reveal_delay: m.reveal_delay || 0,
       }))
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
@@ -256,7 +256,7 @@ export default function GlobalChat() {
             timestamp: formatTime(m.created_at),
             created_at: m.created_at,
             room_id: m.room_id,
-            user_id: m.user_id ?? null,
+            user_uuid: m.user_uuid ?? null,
             reveal_delay: m.reveal_delay || 0,
           }
 
@@ -305,7 +305,7 @@ export default function GlobalChat() {
             timestamp: formatTime(m.created_at),
             created_at: m.created_at,
             room_id: m.room_id,
-            user_id: m.user_id ?? null,
+            user_uuid: m.user_uuid ?? null,
             reveal_delay: m.reveal_delay || 0,
           }
 
@@ -397,10 +397,10 @@ export default function GlobalChat() {
 
   const getCurrentUserId = () => {
     if (userIdRef.current) return userIdRef.current
-    let storedUserId = localStorage.getItem(USER_ID_STORAGE_KEY)
+    let storedUserId = localStorage.getItem(USER_UUID_STORAGE_KEY)
     if (!storedUserId) {
       storedUserId = crypto.randomUUID()
-      localStorage.setItem(USER_ID_STORAGE_KEY, storedUserId)
+      localStorage.setItem(USER_UUID_STORAGE_KEY, storedUserId)
     }
     userIdRef.current = storedUserId
     return storedUserId
@@ -437,7 +437,7 @@ export default function GlobalChat() {
     if (!reportSheetMessage) return
     setReportStatus('submitting')
     const roomId = reportSheetMessage.room_id ?? rooms[currentRoomIndex]?.id ?? null
-    const reportedId = reportSheetMessage.user_id || reportSheetMessage.username
+    const reportedId = reportSheetMessage.user_uuid || reportSheetMessage.username
     const { error } = await supabase.from('reports').insert([
       {
         reporter_id: getCurrentUserId(),
@@ -463,7 +463,7 @@ export default function GlobalChat() {
 
   const handleAddFriend = async () => {
     if (!reportSheetMessage) return
-    const friendId = reportSheetMessage.user_id
+    const friendId = reportSheetMessage.user_uuid
     const friendName = reportSheetMessage.username || 'Anonymous'
     if (!friendId) {
       closeSheet()
@@ -479,8 +479,8 @@ export default function GlobalChat() {
       return
     }
     const { error } = await supabase.from('friends').insert({
-      user_id: userId,
-      friend_id: friendId,
+      user_uuid: userId,
+      friend_uuid: friendId,
       created_at: new Date().toISOString(),
     })
 
@@ -524,7 +524,7 @@ export default function GlobalChat() {
       text,
       timestamp: formatTime(),
       room_id: roomId,
-      user_id: userId,
+      user_uuid: userId,
       reveal_delay: 0,
     }
 
@@ -547,7 +547,7 @@ export default function GlobalChat() {
 
     const { data, error } = await supabase
       .from('messages')
-      .insert({ content: text, username: activeName, university: activeCollege, room_id: roomId, user_id: userId })
+      .insert({ content: text, username: activeName, university: activeCollege, room_id: roomId, user_uuid: userId })
       .select()
 
     if (error) {
@@ -571,7 +571,7 @@ export default function GlobalChat() {
           timestamp: formatTime(m.created_at),
           created_at: m.created_at,
           room_id: m.room_id,
-          user_id: m.user_id ?? userId,
+          user_uuid: m.user_uuid ?? userId,
           reveal_delay: 0,
         } : msg)
       }))
@@ -601,8 +601,8 @@ export default function GlobalChat() {
     setTempProfileCollege('')
     const userId = getCurrentUserId()
     const { error } = await supabase.from('users').upsert(
-      { id: userId, username: name, college: college || null, updated_at: new Date().toISOString() },
-      { onConflict: 'id' }
+      { uuid: userId, display_name: name, college: college || null, updated_at: new Date().toISOString() },
+      { onConflict: 'uuid' }
     )
     if (error) console.error('[Users] update failed:', error)
 

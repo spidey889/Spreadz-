@@ -997,7 +997,15 @@ export default function GlobalChat() {
                 setFriendsSheetOpen(true)
               }}
             >
-              My Friends
+              <span className="menu-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
+                  <path d="M8 13a3 3 0 1 0-3-3 3 3 0 0 0 3 3Z" />
+                  <path d="M8 14c-3.314 0-6 1.79-6 4v1" />
+                  <path d="M16 13c-2.761 0-5 1.79-5 4v2" />
+                </svg>
+              </span>
+              <span className="menu-label">My Friends</span>
             </button>
           </div>
         </div>
@@ -1285,33 +1293,56 @@ export default function GlobalChat() {
         .menu-overlay {
           position: fixed;
           inset: 0;
-          background: transparent;
+          background: rgba(0, 0, 0, 0.18);
+          backdrop-filter: blur(2px);
           z-index: 1035;
+        }
+        @keyframes menuPop {
+          from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
         .menu-panel {
           position: absolute;
-          top: 64px;
-          right: 16px;
-          background: #1a1a1a;
-          border: 1px solid #2a2a2a;
-          border-radius: 12px;
-          min-width: 160px;
+          top: 62px;
+          right: 14px;
+          background: rgba(26, 26, 26, 0.92);
+          border: 1px solid rgba(0, 255, 136, 0.2);
+          border-radius: 14px;
+          min-width: 170px;
           padding: 6px;
-          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
+          box-shadow: 0 14px 28px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 255, 136, 0.08) inset;
+          animation: menuPop 0.16s ease-out;
+        }
+        .menu-panel::before {
+          content: '';
+          position: absolute;
+          top: -6px;
+          right: 18px;
+          width: 12px;
+          height: 12px;
+          background: rgba(26, 26, 26, 0.92);
+          border-left: 1px solid rgba(0, 255, 136, 0.2);
+          border-top: 1px solid rgba(0, 255, 136, 0.2);
+          transform: rotate(45deg);
         }
         .menu-item {
           width: 100%;
-          background: transparent;
+          background: linear-gradient(135deg, rgba(0, 255, 136, 0.08), rgba(0, 0, 0, 0));
           border: none;
-          color: #f2f3f5;
+          color: #f5f6f8;
           font-size: 14px;
           font-weight: 600;
           text-align: left;
           padding: 10px 12px;
-          border-radius: 8px;
+          border-radius: 10px;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
-        .menu-item:hover { background: #242424; }
+        .menu-item:hover { background: rgba(0, 255, 136, 0.12); }
+        .menu-icon { color: #00ff88; display: inline-flex; }
+        .menu-label { letter-spacing: 0.2px; }
         @keyframes friendSlideIn {
           from { opacity: 0; transform: translate(-50%, 12px); }
           to { opacity: 1; transform: translate(-50%, 0); }

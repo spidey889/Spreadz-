@@ -44,12 +44,10 @@ const INTEREST_KEYWORDS: Record<string, string[]> = {
 
 export function getUserId(): string {
     if (typeof window === 'undefined') return 'server'
-    const username = localStorage.getItem('spreadz_username')
-    if (username) return username
-    let id = localStorage.getItem('spreadz_user_id')
+    let id = localStorage.getItem('spreadz_user_uuid')
     if (!id) {
         id = crypto.randomUUID()
-        localStorage.setItem('spreadz_user_id', id)
+        localStorage.setItem('spreadz_user_uuid', id)
     }
     return id
 }

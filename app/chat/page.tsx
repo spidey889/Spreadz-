@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
@@ -97,6 +97,32 @@ export default function GlobalChat() {
   const pendingSendRef = useRef<{ roomId: string } | null>(null)
   const prevRoomIndexRef = useRef<number>(0)
   const inputHadContentRef = useRef<Record<string, boolean>>({})
+
+  const buildMessageFromRow = useCallback((m: any, fallbackUserId?: string): Message => {
+    const resolvedName = m.username || 'Anonymous'
+    return {
+      id: m.id,
+      username: resolvedName,
+      initials: getInitials(resolvedName),
+      university: m.university || '',
+      text: m.content,
+      timestamp: formatTime(m.created_at),
+      created_at: m.created_at,
+      room_id: m.room_id,
+      user_uuid: m.user_uuid ?? fallbackUserId ?? null,
+      reveal_delay: m.reveal_delay || 0,
+    }
+  }, [])
+
+  const scheduleReveal = useCallback((messageId: string, delay: number) => {
+    setTimeout(() => {
+      setVisibleMessageIds(prev => {
+        const next = new Set(prev)
+        next.add(messageId)
+        return next
+      })
+    }, delay)
+  }, [])
 
   // Load user profile
   useEffect(() => {
@@ -249,15 +275,9 @@ export default function GlobalChat() {
     const msgs = roomMessages[roomId] || []
     msgs.forEach((m, idx) => {
       const delay = idx < 2 ? 0 : (m.reveal_delay || 0)
-      setTimeout(() => {
-        setVisibleMessageIds(prev => {
-          const next = new Set(prev)
-          next.add(m.id)
-          return next
-        })
-      }, delay)
+      scheduleReveal(m.id, delay)
     })
-  }, [roomMessages])
+  }, [roomMessages, scheduleReveal])
 
   // Fetch messages for a specific room
   const fetchMessagesForRoom = useCallback(async (room: Room, roomIndex: number) => {
@@ -279,33 +299,16 @@ export default function GlobalChat() {
     const { data } = await query
 
     if (data) {
-      const msgs = data.map((m: any) => ({
-        id: m.id,
-        username: m.username || 'Anonymous',
-        initials: getInitials(m.username || 'Anonymous'),
-        university: m.university || '',
-        text: m.content,
-        timestamp: formatTime(m.created_at),
-        created_at: m.created_at,
-        room_id: m.room_id,
-        user_uuid: m.user_uuid ?? null,
-        reveal_delay: m.reveal_delay || 0,
-      }))
+      const msgs = data.map((m: any) => buildMessageFromRow(m))
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
 
       // trigger reveals immediately when messages are first fetched
       msgs.forEach((m, idx) => {
         const delay = idx < 2 ? 0 : (m.reveal_delay || 0)
-        setTimeout(() => {
-          setVisibleMessageIds(prev => {
-            const next = new Set(prev)
-            next.add(m.id)
-            return next
-          })
-        }, delay)
+        scheduleReveal(m.id, delay)
       })
     }
-  }, [])
+  }, [buildMessageFromRow, scheduleReveal])
 
   // Subscribe to realtime for a room
   const subscribeToRoom = useCallback((room: Room, roomIndex: number) => {
@@ -326,27 +329,10 @@ export default function GlobalChat() {
         { event: 'INSERT', schema: 'public', table: 'messages', filter: filterValue },
         (payload) => {
           const m = payload.new
-          const newMessage: Message = {
-            id: m.id,
-            username: m.username || 'Anonymous',
-            initials: getInitials(m.username || 'Anonymous'),
-            university: m.university || '',
-            text: m.content,
-            timestamp: formatTime(m.created_at),
-            created_at: m.created_at,
-            room_id: m.room_id,
-            user_uuid: m.user_uuid ?? null,
-            reveal_delay: m.reveal_delay || 0,
-          }
+          const newMessage = buildMessageFromRow(m)
 
           // Trigger reveal for realtime message
-          setTimeout(() => {
-            setVisibleMessageIds(prev => {
-              const next = new Set(prev)
-              next.add(m.id)
-              return next
-            })
-          }, m.reveal_delay || 0)
+          scheduleReveal(newMessage.id, newMessage.reveal_delay || 0)
           setRoomMessages(prev => {
             const existing = prev[room.id] || []
             if (existing.some(msg => msg.id === m.id)) return prev
@@ -357,7 +343,7 @@ export default function GlobalChat() {
       .subscribe()
 
     channelRef.current = channel
-  }, [])
+  }, [buildMessageFromRow, scheduleReveal])
 
   // Also subscribe to null room_id inserts for room index 0
   const nullChannelRef = useRef<any>(null)
@@ -375,27 +361,10 @@ export default function GlobalChat() {
         (payload) => {
           const m = payload.new
           if (m.room_id !== null) return // Only care about null room_id
-          const newMessage: Message = {
-            id: m.id,
-            username: m.username || 'Anonymous',
-            initials: getInitials(m.username || 'Anonymous'),
-            university: m.university || '',
-            text: m.content,
-            timestamp: formatTime(m.created_at),
-            created_at: m.created_at,
-            room_id: m.room_id,
-            user_uuid: m.user_uuid ?? null,
-            reveal_delay: m.reveal_delay || 0,
-          }
+          const newMessage = buildMessageFromRow(m)
 
           // Trigger reveal for realtime message (null room_id)
-          setTimeout(() => {
-            setVisibleMessageIds(prev => {
-              const next = new Set(prev)
-              next.add(m.id)
-              return next
-            })
-          }, m.reveal_delay || 0)
+          scheduleReveal(newMessage.id, newMessage.reveal_delay || 0)
           setRoomMessages(prev => {
             const existing = prev[firstRoom.id] || []
             if (existing.some(msg => msg.id === m.id)) return prev
@@ -412,7 +381,7 @@ export default function GlobalChat() {
         supabase.removeChannel(nullChannelRef.current)
       }
     }
-  }, [rooms])
+  }, [rooms, buildMessageFromRow, scheduleReveal])
 
   // When rooms load, fetch + subscribe for room index 0
   useEffect(() => {
@@ -736,11 +705,7 @@ export default function GlobalChat() {
     }
 
     // Reveal immediately for user's own message
-    setVisibleMessageIds(prev => {
-      const next = new Set(prev)
-      next.add(tempId)
-      return next
-    })
+    scheduleReveal(tempId, 0)
 
     setRoomMessages(prev => ({
       ...prev,
@@ -767,28 +732,14 @@ export default function GlobalChat() {
 
     if (data && data[0]) {
       const m = data[0]
+      const serverMessage = buildMessageFromRow(m, userId)
       setRoomMessages(prev => ({
         ...prev,
-        [roomId]: (prev[roomId] || []).map(msg => msg.id === tempId ? {
-          id: m.id,
-          username: m.username || 'Anonymous',
-          initials: getInitials(m.username || 'Anonymous'),
-          university: m.university || '',
-          text: m.content,
-          timestamp: formatTime(m.created_at),
-          created_at: m.created_at,
-          room_id: m.room_id,
-          user_uuid: m.user_uuid ?? userId,
-          reveal_delay: 0,
-        } : msg)
+        [roomId]: (prev[roomId] || []).map(msg => msg.id === tempId ? serverMessage : msg)
       }))
 
       // Ensure the server-returned success message is also revealed
-      setVisibleMessageIds(prev => {
-        const next = new Set(prev)
-        next.add(m.id)
-        return next
-      })
+      scheduleReveal(serverMessage.id, 0)
     }
   }
 
@@ -1089,386 +1040,11 @@ export default function GlobalChat() {
           </div>
         </div>
       )}
-      <style>{`
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        :root {
-          --bg: #111214;
-          --surface: #1E1F22;
-          --border: #2E2F35;
-          --discord-blurple: #5865F2;
-          --text-primary: #F2F3F5;
-          --text-msg: #DCDDDE;
-          --text-muted: #72767D;
-          --headline-bg: #0D0D0D;
-          --accent-green: #00FF88;
-        }
-
-        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; }
-        body { background: var(--bg); color: var(--text-primary); }
-
-        .rooms-container { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; }
-        .room-panel { height: 100dvh; display: flex; flex-direction: column; scroll-snap-align: start; overflow: hidden; }
-
-        .header { display: flex; align-items: center; justify-content: space-between; padding: 4px 18px 4px 8px; background: var(--bg); position: relative; z-index: 10; flex-shrink: 0; }
-        .logo-img { height: 90px; margin: -16px 0; object-fit: contain; }
-        .settings-btn { background: none; border: none; cursor: pointer; color: var(--text-primary); padding: 4px; transition: color 0.1s; }
-        .settings-btn:hover { color: var(--text-primary); }
-
-        .ai-card-wrap { margin: 12px 16px; flex-shrink: 0; }
-        .ai-card { background: var(--headline-bg); border-left: 3px solid var(--accent-green); border-radius: 4px; padding: 14px 18px; position: relative; }
-        .card-label { color: var(--accent-green); font-size: 9px; font-weight: 700; letter-spacing: 2px; margin-bottom: 4px; }
-        .ai-headline { font-size: 16px; color: #FFFFFF; font-weight: 600; line-height: 1.4; }
-
-        @keyframes slideUpFade {
-          from { opacity: 0; transform: translateY(12px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .msg-reveal {
-          animation: slideUpFade 0.5s ease-out forwards;
-          user-select: none;
-          -webkit-user-select: none;
-          -webkit-touch-callout: none;
-          touch-action: manipulation;
-        }
-
-        .room-messages {
-          user-select: none;
-          -webkit-user-select: none;
-          -webkit-touch-callout: none;
-        }
-
-        .messages { flex: 1; overflow-y: auto; padding: 0 16px; scrollbar-width: none; }
-        .messages::-webkit-scrollbar { display: none; }
-
-        .msg { display: flex; gap: 16px; width: 100%; padding: 0 16px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-        .group-start { margin-top: 20px; }
-        .group-continuation { margin-top: 2px; }
-        .group-divider { height: 1px; width: 100%; background: #1E1F22; margin: 20px 0; }
-
-        .avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: white; }
-        
-        .msg-content { flex: 1; min-width: 0; position: relative; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-        .msg-content.continuation { margin-left: 54px; }
-
-        .msg-header { display: flex; align-items: baseline; margin-bottom: 2px; }
-        .msg-username { font-size: 15px; font-weight: 700; color: #FFFFFF; }
-        .msg-university { font-size: 13px; color: #71767B; margin-left: 6px; }
-        .msg-timestamp { font-size: 13px; color: #71767B; margin-left: auto; }
-
-        .msg-text { font-size: 15px; color: #E7E9EA; line-height: 1.5; margin-top: 2px; word-wrap: break-word; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-
-        .input-area { background: var(--bg); padding: 8px 16px 16px; flex-shrink: 0; }
-        .hint { text-align: center; font-size: 11px; color: var(--text-muted); padding-bottom: 8px; opacity: 0.7; }
-        
-        .input-wrap { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 4px 4px 4px 16px; transition: box-shadow 0.2s; }
-        .input-wrap:focus-within { box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.15); }
-        
-        input { flex: 1; background: none; border: none; outline: none; font-size: 15px; color: var(--text-primary); font-family: inherit; }
-        input::placeholder { color: var(--text-muted); }
-
-        .send-btn { background: #5865F2; color: white; border: none; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s; flex-shrink: 0; }
-        .send-btn:hover { background: #4752c4; }
-        .send-btn:active { transform: scale(0.95); }
-
-        .profile-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.6);
-          backdrop-filter: blur(6px);
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-          z-index: 1200;
-          padding: 12px;
-        }
-        .profile-sheet {
-          width: 100%;
-          max-width: 520px;
-          background: #1a1a1a;
-          border-radius: 22px 22px 0 0;
-          padding: 14px 20px 22px;
-          box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.45);
-          animation: sheetUp 0.18s ease-out;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .profile-title { font-size: 19px; font-weight: 800; color: #ffffff; }
-        .profile-sub { font-size: 13px; color: #9aa0a6; margin-top: -6px; }
-        .profile-field { display: flex; flex-direction: column; gap: 6px; }
-        .profile-label { font-size: 12px; color: #9aa0a6; }
-        .profile-input {
-          background: #111;
-          border: 1px solid #2a2a2a;
-          border-radius: 12px;
-          padding: 12px 14px;
-          color: var(--text-primary);
-          font-size: 15px;
-          outline: none;
-          width: 100%;
-          font-family: inherit;
-        }
-        .profile-input::placeholder { color: #6b7076; }
-        .profile-submit {
-          margin-top: 6px;
-          background: #f2f3f5;
-          color: #0f1012;
-          border: none;
-          border-radius: 14px;
-          padding: 14px;
-          width: 100%;
-          font-size: 15px;
-          font-weight: 700;
-          cursor: pointer;
-        }
-        @keyframes sheetUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .sheet-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.45);
-          backdrop-filter: blur(6px);
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-          z-index: 1100;
-          padding: 12px;
-          opacity: 1;
-          transition: opacity 280ms ease;
-        }
-        .sheet-overlay.closing { opacity: 0; }
-        .sheet {
-          width: 100%;
-          max-width: 520px;
-          background: #1a1a1a;
-          border-radius: 20px 20px 0 0;
-          padding: 10px 18px 14px;
-          box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.45);
-          animation: sheetUp 0.18s ease-out;
-          transform: translateY(0);
-          opacity: 1;
-          transition: transform 280ms ease, opacity 280ms ease;
-          user-select: none;
-          -webkit-user-select: none;
-          -webkit-touch-callout: none;
-        }
-        .sheet.closing {
-          transform: translateY(12px);
-          opacity: 0;
-        }
-        .sheet-handle {
-          width: 44px;
-          height: 4px;
-          border-radius: 999px;
-          background: #3a3a3a;
-          margin: 2px auto 10px;
-        }
-        .sheet-item {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 14px 4px;
-          background: transparent;
-          border: none;
-          color: #f2f3f5;
-          font-size: 15px;
-          font-weight: 600;
-          text-align: left;
-          cursor: pointer;
-        }
-        .sheet-item:disabled { opacity: 0.6; cursor: default; }
-        .sheet-item-report { color: #ff5a5a; }
-        .sheet-divider {
-          height: 1px;
-          width: 100%;
-          background: rgba(255, 255, 255, 0.08);
-          margin: 2px 0;
-        }
-        .sheet-icon { display: inline-flex; color: inherit; }
-        .sheet-confirm { margin-top: 10px; text-align: center; font-size: 13px; color: #7bd389; }
-        .sheet-confirm.error { color: #ff8a8a; }
-        .menu-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.18);
-          backdrop-filter: blur(2px);
-          z-index: 1035;
-        }
-        @keyframes menuPop {
-          from { opacity: 0; transform: translateY(-6px) scale(0.98); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .menu-panel {
-          position: absolute;
-          top: 62px;
-          right: 14px;
-          background: #202226;
-          border: 1px solid #2b2f36;
-          border-radius: 12px;
-          min-width: 170px;
-          padding: 6px;
-          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
-          animation: menuPop 0.16s ease-out;
-        }
-        .menu-item {
-          width: 100%;
-          background: transparent;
-          border: none;
-          color: #e6e8eb;
-          font-size: 14px;
-          font-weight: 600;
-          text-align: left;
-          padding: 10px 12px;
-          border-radius: 8px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .menu-item:hover { background: #2a2d33; }
-        .menu-icon { color: #9aa0a6; display: inline-flex; }
-        .menu-label { letter-spacing: 0.15px; }
-        @keyframes friendSlideIn {
-          from { opacity: 0; transform: translate(-50%, 12px); }
-          to { opacity: 1; transform: translate(-50%, 0); }
-        }
-        .friend-request-popup {
-          position: fixed;
-          left: 50%;
-          bottom: 96px;
-          transform: translateX(-50%);
-          width: min(92vw, 420px);
-          background: #1a1a1a;
-          border: 1px solid #2a2a2a;
-          border-radius: 16px;
-          padding: 14px 16px;
-          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
-          z-index: 1040;
-          animation: friendSlideIn 0.22s ease-out;
-        }
-        .friend-request-text {
-          color: #f2f3f5;
-          font-size: 14px;
-          margin-bottom: 10px;
-        }
-        .friend-request-name { font-weight: 700; }
-        .friend-request-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 8px;
-        }
-        .friend-request-btn {
-          background: #2a2a2a;
-          color: #f2f3f5;
-          border: none;
-          border-radius: 10px;
-          padding: 8px 12px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-        }
-        .friend-request-btn.accept { background: #22c55e; color: #0b1a0f; }
-        .friend-request-btn.decline { background: #3a3a3a; color: #e5e7eb; }
-
-        .friends-overlay {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.55);
-          backdrop-filter: blur(6px);
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-          z-index: 1050;
-          padding: 12px;
-        }
-        .friends-sheet {
-          width: 100%;
-          max-width: 520px;
-          height: 40vh;
-          background: #1a1a1a;
-          border-radius: 22px 22px 0 0;
-          padding: 14px 20px 24px;
-          box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.45);
-          animation: sheetUp 0.18s ease-out;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        .friends-handle {
-          width: 44px;
-          height: 4px;
-          border-radius: 999px;
-          background: #3a3a3a;
-          margin: 2px auto 6px;
-        }
-        .friends-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        .friends-title {
-          color: #ffffff;
-          font-size: 19px;
-          font-weight: 800;
-          letter-spacing: 0.2px;
-        }
-        .friends-close {
-          background: none;
-          border: none;
-          color: #8b9096;
-          padding: 4px;
-          cursor: pointer;
-        }
-        .friends-empty {
-          color: #9aa0a6;
-          font-size: 15px;
-          padding-top: 6px;
-        }
-        .friends-list {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          padding-top: 4px;
-          overflow-y: auto;
-        }
-        .friends-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .friends-avatar {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 700;
-          font-size: 12px;
-          color: #ffffff;
-        }
-        .friends-name {
-          color: #f2f3f5;
-          font-size: 15px;
-          font-weight: 600;
-        }
-        .hidden { display: none !important; }
-        .interest-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
-        .interest-sheet { background: #1a1a1a; border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 440px; }
-        .interest-title { font-size: 18px; font-weight: 700; color: #fff; margin: 0 0 4px; }
-        .interest-subtitle { font-size: 13px; color: #71767B; margin: 0 0 20px; }
-        .interest-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-        .interest-chip { background: #111; border: 1px solid #333; color: #999; padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; transition: all 0.15s; font-family: inherit; }
-        .interest-chip.selected { background: #5865F2; border-color: #5865F2; color: #fff; }
-        .interest-done-btn { margin-top: 20px; width: 100%; background: #5865F2; color: white; border: none; border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.15s; }
-        .interest-done-btn:disabled { opacity: 0.4; cursor: default; }
-      `}</style>
+      
     </>
   )
 }
+
 
 
 

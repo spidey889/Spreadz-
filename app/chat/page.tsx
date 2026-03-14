@@ -108,14 +108,16 @@ export default function GlobalChat() {
     }
     userIdRef.current = storedUserId || ''
     const storedFriends = localStorage.getItem(FRIENDS_STORAGE_KEY)
+    let localFriends: { id: string; username: string }[] = []
     if (storedFriends) {
       try {
         const parsed = JSON.parse(storedFriends) as { id: string; username: string }[]
-        if (Array.isArray(parsed)) setFriends(parsed)
+        if (Array.isArray(parsed)) localFriends = parsed
       } catch {
         // Ignore corrupted local storage
       }
     }
+    if (localFriends.length > 0) setFriends(localFriends)
     if (storedName) setUsername(storedName)
     if (storedCollege) setUniversity(storedCollege)
     if (storedUserId) {
@@ -125,6 +127,44 @@ export default function GlobalChat() {
       ).then(({ error }) => {
         if (error) console.error('[Users] upsert failed:', error)
       })
+      supabase
+        .from('friends')
+        .select('friend_uuid')
+        .eq('user_uuid', storedUserId)
+        .then(async ({ data, error }) => {
+          if (error) {
+            console.error('[Friends] fetch failed:', error)
+            return
+          }
+          const friendUuids = (data || []).map(row => row.friend_uuid).filter(Boolean)
+          if (friendUuids.length === 0) return
+          const { data: profiles, error: profileError } = await supabase
+            .from('users')
+            .select('uuid, display_name')
+            .in('uuid', friendUuids)
+          if (profileError) {
+            console.error('[Friends] profiles fetch failed:', profileError)
+          }
+          const remoteFriends = friendUuids.map(friendUuid => {
+            const profile = profiles?.find(p => p.uuid === friendUuid)
+            return {
+              id: friendUuid,
+              username: profile?.display_name || 'Anonymous',
+            }
+          })
+          const mergedMap = new Map<string, { id: string; username: string }>()
+          localFriends.forEach(friend => mergedMap.set(friend.id, friend))
+          remoteFriends.forEach(friend => {
+            if (!mergedMap.has(friend.id)) {
+              mergedMap.set(friend.id, friend)
+            } else if (friend.username && friend.username !== 'Anonymous') {
+              mergedMap.set(friend.id, friend)
+            }
+          })
+          const merged = Array.from(mergedMap.values())
+          setFriends(merged)
+          localStorage.setItem(FRIENDS_STORAGE_KEY, JSON.stringify(merged))
+        })
     }
   }, [])
 
@@ -418,6 +458,7 @@ export default function GlobalChat() {
 
   const pushFriendRequest = useCallback((request: FriendRequest) => {
     setActiveFriendRequest(prev => {
+      if (prev && prev.id === request.id) return prev
       if (!prev) return request
       setFriendRequestQueue(queuePrev => {
         if (queuePrev.some(item => item.id === request.id)) return queuePrev
@@ -440,7 +481,6 @@ export default function GlobalChat() {
   }
 
   useEffect(() => {
-    if (!isMounted) return
     const userId = getCurrentUserId()
     if (!userId) return
 
@@ -499,7 +539,7 @@ export default function GlobalChat() {
         friendRequestChannelRef.current = null
       }
     }
-  }, [getCurrentUserId, isMounted, pushFriendRequest])
+  }, [getCurrentUserId, pushFriendRequest])
 
 
   const clearLongPress = () => {

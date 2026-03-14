@@ -10,7 +10,6 @@ import {
   flushToSupabase,
   saveInterests,
   getInterests,
-  getUserId,
 } from '@/lib/friday'
 
 interface Room {
@@ -28,6 +27,7 @@ interface Message {
   timestamp: string
   created_at?: string
   room_id?: string | null
+  user_id?: string | null
   reveal_delay?: number
 }
 
@@ -50,6 +50,10 @@ const formatTime = (isoString?: string) => {
 }
 
 const INTEREST_OPTIONS = ['Tech & AI', 'Sports', 'Politics', 'Entertainment', 'Business', 'Science', 'Gaming', 'Campus Life']
+const USER_ID_STORAGE_KEY = 'spreadz_user_uuid'
+const USERNAME_STORAGE_KEY = 'spreadz_username'
+const COLLEGE_STORAGE_KEY = 'spreadz_college'
+const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 
 export default function GlobalChat() {
   const [rooms, setRooms] = useState<Room[]>([])
@@ -70,7 +74,9 @@ export default function GlobalChat() {
   const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
   const [sheetClosing, setSheetClosing] = useState(false)
   const [friendsSheetOpen, setFriendsSheetOpen] = useState(false)
+  const [friends, setFriends] = useState<{ id: string; username: string }[]>([])
   const longPressTimerRef = useRef<number | null>(null)
+  const userIdRef = useRef<string>('')
 
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
@@ -83,10 +89,33 @@ export default function GlobalChat() {
   // Load user profile
   useEffect(() => {
     setIsMounted(true)
-    const storedName = localStorage.getItem('spreadz_username')
-    const storedCollege = localStorage.getItem('spreadz_college')
+    const storedName = localStorage.getItem(USERNAME_STORAGE_KEY)
+    const storedCollege = localStorage.getItem(COLLEGE_STORAGE_KEY)
+    let storedUserId = localStorage.getItem(USER_ID_STORAGE_KEY)
+    if (!storedUserId) {
+      storedUserId = crypto.randomUUID()
+      localStorage.setItem(USER_ID_STORAGE_KEY, storedUserId)
+    }
+    userIdRef.current = storedUserId || ''
+    const storedFriends = localStorage.getItem(FRIENDS_STORAGE_KEY)
+    if (storedFriends) {
+      try {
+        const parsed = JSON.parse(storedFriends) as { id: string; username: string }[]
+        if (Array.isArray(parsed)) setFriends(parsed)
+      } catch {
+        // Ignore corrupted local storage
+      }
+    }
     if (storedName) setUsername(storedName)
     if (storedCollege) setUniversity(storedCollege)
+    if (storedUserId) {
+      supabase.from('users').upsert(
+        { id: storedUserId, created_at: new Date().toISOString() },
+        { onConflict: 'id' }
+      ).then(({ error }) => {
+        if (error) console.error('[Users] upsert failed:', error)
+      })
+    }
   }, [])
 
   // Fetch rooms on mount
@@ -180,6 +209,7 @@ export default function GlobalChat() {
         timestamp: formatTime(m.created_at),
         created_at: m.created_at,
         room_id: m.room_id,
+        user_id: m.user_id ?? null,
         reveal_delay: m.reveal_delay || 0,
       }))
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
@@ -226,6 +256,7 @@ export default function GlobalChat() {
             timestamp: formatTime(m.created_at),
             created_at: m.created_at,
             room_id: m.room_id,
+            user_id: m.user_id ?? null,
             reveal_delay: m.reveal_delay || 0,
           }
 
@@ -274,6 +305,7 @@ export default function GlobalChat() {
             timestamp: formatTime(m.created_at),
             created_at: m.created_at,
             room_id: m.room_id,
+            user_id: m.user_id ?? null,
             reveal_delay: m.reveal_delay || 0,
           }
 
@@ -363,6 +395,17 @@ export default function GlobalChat() {
     }
   }, [roomMessages, currentRoomIndex, visibleMessageIds])
 
+  const getCurrentUserId = () => {
+    if (userIdRef.current) return userIdRef.current
+    let storedUserId = localStorage.getItem(USER_ID_STORAGE_KEY)
+    if (!storedUserId) {
+      storedUserId = crypto.randomUUID()
+      localStorage.setItem(USER_ID_STORAGE_KEY, storedUserId)
+    }
+    userIdRef.current = storedUserId
+    return storedUserId
+  }
+
 
   const clearLongPress = () => {
     if (longPressTimerRef.current) {
@@ -394,10 +437,11 @@ export default function GlobalChat() {
     if (!reportSheetMessage) return
     setReportStatus('submitting')
     const roomId = reportSheetMessage.room_id ?? rooms[currentRoomIndex]?.id ?? null
+    const reportedId = reportSheetMessage.user_id || reportSheetMessage.username
     const { error } = await supabase.from('reports').insert([
       {
-        reporter_id: getUserId(),
-        reported_id: reportSheetMessage.username,
+        reporter_id: getCurrentUserId(),
+        reported_id: reportedId,
         reported_message: reportSheetMessage.text,
         room_id: roomId,
         created_at: new Date().toISOString(),
@@ -416,18 +460,60 @@ export default function GlobalChat() {
     setReportStatus('done')
     closeSheet()
   }
+
+  const handleAddFriend = async () => {
+    if (!reportSheetMessage) return
+    const friendId = reportSheetMessage.user_id
+    const friendName = reportSheetMessage.username || 'Anonymous'
+    if (!friendId) {
+      closeSheet()
+      return
+    }
+    const userId = getCurrentUserId()
+    if (!userId || friendId === userId) {
+      closeSheet()
+      return
+    }
+    if (friends.some(friend => friend.id === friendId)) {
+      closeSheet()
+      return
+    }
+    const { error } = await supabase.from('friends').insert({
+      user_id: userId,
+      friend_id: friendId,
+      created_at: new Date().toISOString(),
+    })
+
+    if (error) {
+      console.error('[Friends] insert failed:', error)
+      closeSheet()
+      return
+    }
+
+    setFriends(prev => {
+      if (prev.some(friend => friend.id === friendId)) return prev
+      const next = [...prev, { id: friendId, username: friendName }]
+      localStorage.setItem(FRIENDS_STORAGE_KEY, JSON.stringify(next))
+      return next
+    })
+    closeSheet()
+  }
+
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string) => {
     const text = (inputTexts[roomId] || '').trim()
     if (!text) return
 
-    const activeName = overrideName || username || localStorage.getItem('spreadz_username')
+    const userId = getCurrentUserId()
+    const activeName = overrideName || username || localStorage.getItem(USERNAME_STORAGE_KEY)
     if (!activeName) {
       pendingSendRef.current = { roomId }
+      setTempProfileName('')
+      setTempProfileCollege('')
       setShowProfileModal(true)
       return
     }
 
-    const activeCollege = overrideCollege !== undefined ? overrideCollege : (university || localStorage.getItem('spreadz_college') || '')
+    const activeCollege = overrideCollege !== undefined ? overrideCollege : (university || localStorage.getItem(COLLEGE_STORAGE_KEY) || '')
     const tempId = `temp-${Date.now()}`
 
     const optimisticMsg: Message = {
@@ -438,6 +524,7 @@ export default function GlobalChat() {
       text,
       timestamp: formatTime(),
       room_id: roomId,
+      user_id: userId,
       reveal_delay: 0,
     }
 
@@ -460,7 +547,7 @@ export default function GlobalChat() {
 
     const { data, error } = await supabase
       .from('messages')
-      .insert({ content: text, username: activeName, university: activeCollege, room_id: roomId })
+      .insert({ content: text, username: activeName, university: activeCollege, room_id: roomId, user_id: userId })
       .select()
 
     if (error) {
@@ -484,6 +571,7 @@ export default function GlobalChat() {
           timestamp: formatTime(m.created_at),
           created_at: m.created_at,
           room_id: m.room_id,
+          user_id: m.user_id ?? userId,
           reveal_delay: 0,
         } : msg)
       }))
@@ -497,18 +585,26 @@ export default function GlobalChat() {
     }
   }
 
-  const handleProfileSubmit = (e?: React.FormEvent) => {
+  const handleProfileSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
     e?.stopPropagation()
     const name = tempProfileName.trim()
     const college = tempProfileCollege.trim()
     if (!name) return
 
-    localStorage.setItem('spreadz_username', name)
-    localStorage.setItem('spreadz_college', college)
+    localStorage.setItem(USERNAME_STORAGE_KEY, name)
+    localStorage.setItem(COLLEGE_STORAGE_KEY, college)
     setUsername(name)
     setUniversity(college)
     setShowProfileModal(false)
+    setTempProfileName('')
+    setTempProfileCollege('')
+    const userId = getCurrentUserId()
+    const { error } = await supabase.from('users').upsert(
+      { id: userId, username: name, college: college || null, updated_at: new Date().toISOString() },
+      { onConflict: 'id' }
+    )
+    if (error) console.error('[Users] update failed:', error)
 
     if (pendingSendRef.current) {
       handleSend(pendingSendRef.current.roomId, name, college)
@@ -648,15 +744,36 @@ export default function GlobalChat() {
       </div>
 
       {showProfileModal && (
-        <div className="modal-overlay">
-          <form className="modal" onSubmit={handleProfileSubmit}>
-            <h2 className="modal-title">What&apos;s your name?</h2>
-            <div className="modal-inputs">
-              <input type="text" placeholder="Your name" value={tempProfileName} onChange={(e) => setTempProfileName(e.target.value)} autoFocus required className="modal-input" />
-              <p className="modal-sub">Your college? (optional)</p>
-              <input type="text" placeholder="e.g. MIT, Stanford..." value={tempProfileCollege} onChange={(e) => setTempProfileCollege(e.target.value)} className="modal-input" />
+        <div className="profile-overlay">
+          <form className="profile-sheet" onSubmit={handleProfileSubmit}>
+            <div className="sheet-handle" />
+            <div className="profile-title">Introduce yourself</div>
+            <div className="profile-sub">Set a display name to join the chat.</div>
+            <div className="profile-field">
+              <label className="profile-label" htmlFor="display-name">Display name</label>
+              <input
+                id="display-name"
+                type="text"
+                placeholder="Your name"
+                value={tempProfileName}
+                onChange={(e) => setTempProfileName(e.target.value)}
+                autoFocus
+                required
+                className="profile-input"
+              />
             </div>
-            <button type="submit" className="join-btn">Join Chat</button>
+            <div className="profile-field">
+              <label className="profile-label" htmlFor="college-name">College (optional)</label>
+              <input
+                id="college-name"
+                type="text"
+                placeholder="e.g. MIT, Stanford..."
+                value={tempProfileCollege}
+                onChange={(e) => setTempProfileCollege(e.target.value)}
+                className="profile-input"
+              />
+            </div>
+            <button type="submit" className="profile-submit">Continue</button>
           </form>
         </div>
       )}
@@ -669,7 +786,7 @@ export default function GlobalChat() {
             <div className="sheet-handle" />
             <button
               className="sheet-item sheet-item-friend"
-              onClick={closeSheet}
+              onClick={handleAddFriend}
             >
               <span className="sheet-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -712,7 +829,20 @@ export default function GlobalChat() {
                 </svg>
               </button>
             </div>
-            <div className="friends-empty">No friends yet {'\uD83D\uDC40'}</div>
+            {friends.length === 0 ? (
+              <div className="friends-empty">No friends yet {'\uD83D\uDC40'}</div>
+            ) : (
+              <div className="friends-list">
+                {friends.map(friend => (
+                  <div key={friend.id} className="friends-item">
+                    <div className="friends-avatar" style={{ backgroundColor: getUserColor(friend.username) }}>
+                      {getInitials(friend.username)}
+                    </div>
+                    <div className="friends-name">{friend.username}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -797,17 +927,62 @@ export default function GlobalChat() {
         .send-btn:hover { background: #4752c4; }
         .send-btn:active { transform: scale(0.95); }
 
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
-        .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 32px; width: 100%; max-width: 360px; text-align: center; }
-        .modal-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 24px; color: var(--text-primary); }
-        .modal-sub { font-size: 0.9rem; color: var(--text-muted); margin: 12px 0 8px; text-align: left; }
-        .modal-inputs { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
-        .modal-input { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: var(--text-primary); font-size: 1rem; outline: none; width: 100%; }
-        .join-btn { background: var(--text-primary); color: var(--bg); border: none; border-radius: 14px; padding: 16px; width: 100%; font-size: 1.1rem; font-weight: 700; cursor: pointer; }
+        .profile-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(6px);
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          z-index: 1200;
+          padding: 12px;
+        }
+        .profile-sheet {
+          width: 100%;
+          max-width: 520px;
+          background: #1a1a1a;
+          border-radius: 22px 22px 0 0;
+          padding: 14px 20px 22px;
+          box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.45);
+          animation: sheetUp 0.18s ease-out;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .profile-title { font-size: 19px; font-weight: 800; color: #ffffff; }
+        .profile-sub { font-size: 13px; color: #9aa0a6; margin-top: -6px; }
+        .profile-field { display: flex; flex-direction: column; gap: 6px; }
+        .profile-label { font-size: 12px; color: #9aa0a6; }
+        .profile-input {
+          background: #111;
+          border: 1px solid #2a2a2a;
+          border-radius: 12px;
+          padding: 12px 14px;
+          color: var(--text-primary);
+          font-size: 15px;
+          outline: none;
+          width: 100%;
+          font-family: inherit;
+        }
+        .profile-input::placeholder { color: #6b7076; }
+        .profile-submit {
+          margin-top: 6px;
+          background: #f2f3f5;
+          color: #0f1012;
+          border: none;
+          border-radius: 14px;
+          padding: 14px;
+          width: 100%;
+          font-size: 15px;
+          font-weight: 700;
+          cursor: pointer;
+        }
         @keyframes sheetUp {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
-        }        .sheet-overlay {
+        }
+        .sheet-overlay {
           position: fixed;
           inset: 0;
           background: rgba(0, 0, 0, 0.45);
@@ -820,7 +995,8 @@ export default function GlobalChat() {
           opacity: 1;
           transition: opacity 280ms ease;
         }
-        .sheet-overlay.closing { opacity: 0; }        .sheet {
+        .sheet-overlay.closing { opacity: 0; }
+        .sheet {
           width: 100%;
           max-width: 520px;
           background: #1a1a1a;
@@ -925,7 +1101,36 @@ export default function GlobalChat() {
           color: #9aa0a6;
           font-size: 15px;
           padding-top: 6px;
-        }        .hidden { display: none !important; }
+        }
+        .friends-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding-top: 4px;
+          overflow-y: auto;
+        }
+        .friends-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .friends-avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+          font-size: 12px;
+          color: #ffffff;
+        }
+        .friends-name {
+          color: #f2f3f5;
+          font-size: 15px;
+          font-weight: 600;
+        }
+        .hidden { display: none !important; }
         .interest-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
         .interest-sheet { background: #1a1a1a; border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 440px; }
         .interest-title { font-size: 18px; font-weight: 700; color: #fff; margin: 0 0 4px; }

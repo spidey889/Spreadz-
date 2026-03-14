@@ -34,16 +34,19 @@ export type Database = {
       }
       friends: {
         Row: {
+          id: string
           user_uuid: string
           friend_uuid: string
           created_at?: string | null
         }
         Insert: {
+          id?: string
           user_uuid: string
           friend_uuid: string
           created_at?: string | null
         }
         Update: {
+          id?: string
           user_uuid?: string
           friend_uuid?: string
           created_at?: string | null
@@ -77,8 +80,8 @@ export type Database = {
         Row: {
           id: string
           content: string
-          username: string | null
-          university: string | null
+          display_name: string | null
+          college: string | null
           room_id: string | null
           created_at: string
           user_uuid: string | null
@@ -86,8 +89,8 @@ export type Database = {
         }
         Insert: {
           content: string
-          username?: string | null
-          university?: string | null
+          display_name?: string | null
+          college?: string | null
           room_id?: string | null
           created_at?: string
           user_uuid?: string | null
@@ -95,8 +98,8 @@ export type Database = {
         }
         Update: {
           content?: string
-          username?: string | null
-          university?: string | null
+          display_name?: string | null
+          college?: string | null
           room_id?: string | null
           created_at?: string
           user_uuid?: string | null
@@ -106,24 +109,21 @@ export type Database = {
       reports: {
         Row: {
           id: string
-          reported_message_id: string | null
-          reported_username: string | null
+          reported_id: string | null
           reported_message: string | null
           reporter_id: string | null
           room_id: string | null
           created_at: string | null
         }
         Insert: {
-          reported_message_id?: string | null
-          reported_username?: string | null
+          reported_id?: string | null
           reported_message?: string | null
           reporter_id?: string | null
           room_id?: string | null
           created_at?: string | null
         }
         Update: {
-          reported_message_id?: string | null
-          reported_username?: string | null
+          reported_id?: string | null
           reported_message?: string | null
           reporter_id?: string | null
           room_id?: string | null
@@ -150,7 +150,7 @@ export type Database = {
       user_behaviour: {
         Row: {
           id: string
-          user_id: string
+          user_uuid: string
           room_id: string
           seconds_spent: number
           messages_sent: number
@@ -160,7 +160,7 @@ export type Database = {
           updated_at?: string | null
         }
         Insert: {
-          user_id: string
+          user_uuid: string
           room_id: string
           seconds_spent?: number
           messages_sent?: number
@@ -170,7 +170,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          user_id?: string
+          user_uuid?: string
           room_id?: string
           seconds_spent?: number
           messages_sent?: number

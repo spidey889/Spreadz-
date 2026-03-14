@@ -99,12 +99,13 @@ export default function GlobalChat() {
   const inputHadContentRef = useRef<Record<string, boolean>>({})
 
   const buildMessageFromRow = useCallback((m: any, fallbackUserId?: string): Message => {
-    const resolvedName = m.username || 'Anonymous'
+    const resolvedName = m.display_name || m.username || 'Anonymous'
+    const resolvedCollege = m.college || m.university || ''
     return {
       id: m.id,
       username: resolvedName,
       initials: getInitials(resolvedName),
-      university: m.university || '',
+      university: resolvedCollege,
       text: m.content,
       timestamp: formatTime(m.created_at),
       created_at: m.created_at,
@@ -187,15 +188,15 @@ export default function GlobalChat() {
           if (missingUuids.length > 0) {
             const { data: messageNames, error: messageError } = await supabase
               .from('messages')
-              .select('user_uuid, username, created_at')
+              .select('user_uuid, display_name, created_at')
               .in('user_uuid', missingUuids)
               .order('created_at', { ascending: false })
             if (messageError) {
               console.error('[Friends] message names fetch failed:', messageError)
             } else {
               messageNames?.forEach(row => {
-                if (!fallbackNames.has(row.user_uuid) && row.username) {
-                  fallbackNames.set(row.user_uuid, row.username)
+                if (!fallbackNames.has(row.user_uuid) && row.display_name) {
+                  fallbackNames.set(row.user_uuid, row.display_name)
                 }
               })
             }
@@ -280,23 +281,15 @@ export default function GlobalChat() {
   }, [roomMessages, scheduleReveal])
 
   // Fetch messages for a specific room
-  const fetchMessagesForRoom = useCallback(async (room: Room, roomIndex: number) => {
+  const fetchMessagesForRoom = useCallback(async (room: Room) => {
     if (fetchedRoomsRef.current.has(room.id)) return
     fetchedRoomsRef.current.add(room.id)
 
-    let query = supabase
+    const { data } = await supabase
       .from('messages')
       .select('*')
+      .eq('room_id', room.id)
       .order('created_at', { ascending: true })
-
-    if (roomIndex === 0) {
-      // First room: include messages with this room_id OR null room_id
-      query = query.or(`room_id.eq.${room.id},room_id.is.null`)
-    } else {
-      query = query.eq('room_id', room.id)
-    }
-
-    const { data } = await query
 
     if (data) {
       const msgs = data.map((m: any) => buildMessageFromRow(m))
@@ -311,22 +304,18 @@ export default function GlobalChat() {
   }, [buildMessageFromRow, scheduleReveal])
 
   // Subscribe to realtime for a room
-  const subscribeToRoom = useCallback((room: Room, roomIndex: number) => {
+  const subscribeToRoom = useCallback((room: Room) => {
     // Unsubscribe from previous channel
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current)
       channelRef.current = null
     }
 
-    const filterValue = roomIndex === 0
-      ? `room_id=eq.${room.id}`
-      : `room_id=eq.${room.id}`
-
     const channel = supabase
       .channel(`room-${room.id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: filterValue },
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${room.id}` },
         (payload) => {
           const m = payload.new
           const newMessage = buildMessageFromRow(m)
@@ -345,49 +334,12 @@ export default function GlobalChat() {
     channelRef.current = channel
   }, [buildMessageFromRow, scheduleReveal])
 
-  // Also subscribe to null room_id inserts for room index 0
-  const nullChannelRef = useRef<any>(null)
-
-  useEffect(() => {
-    if (rooms.length === 0) return
-    const firstRoom = rooms[0]
-
-    // Subscribe to messages with null room_id (for room 0 fallback)
-    const nullChannel = supabase
-      .channel('room-null-messages')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          const m = payload.new
-          if (m.room_id !== null) return // Only care about null room_id
-          const newMessage = buildMessageFromRow(m)
-
-          // Trigger reveal for realtime message (null room_id)
-          scheduleReveal(newMessage.id, newMessage.reveal_delay || 0)
-          setRoomMessages(prev => {
-            const existing = prev[firstRoom.id] || []
-            if (existing.some(msg => msg.id === m.id)) return prev
-            return { ...prev, [firstRoom.id]: [...existing, newMessage] }
-          })
-        }
-      )
-      .subscribe()
-
-    nullChannelRef.current = nullChannel
-
-    return () => {
-      if (nullChannelRef.current) {
-        supabase.removeChannel(nullChannelRef.current)
-      }
-    }
-  }, [rooms, buildMessageFromRow, scheduleReveal])
 
   // When rooms load, fetch + subscribe for room index 0
   useEffect(() => {
     if (rooms.length === 0) return
-    fetchMessagesForRoom(rooms[0], 0)
-    subscribeToRoom(rooms[0], 0)
+    fetchMessagesForRoom(rooms[0])
+    subscribeToRoom(rooms[0])
 
     return () => {
       if (channelRef.current) {
@@ -413,8 +365,8 @@ export default function GlobalChat() {
               prevRoomIndexRef.current = idx
 
               setCurrentRoomIndex(idx)
-              fetchMessagesForRoom(rooms[idx], idx)
-              subscribeToRoom(rooms[idx], idx)
+              fetchMessagesForRoom(rooms[idx])
+              subscribeToRoom(rooms[idx])
 
               // Reset visibleMessageIds to empty Set when switching rooms
               setVisibleMessageIds(new Set())
@@ -719,7 +671,7 @@ export default function GlobalChat() {
 
     const { data, error } = await supabase
       .from('messages')
-      .insert({ content: text, username: activeName, university: activeCollege, room_id: roomId, user_uuid: userId })
+      .insert({ content: text, display_name: activeName, college: activeCollege, room_id: roomId, user_uuid: userId })
       .select()
 
     if (error) {

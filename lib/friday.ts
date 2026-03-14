@@ -131,7 +131,7 @@ export async function flushToSupabase(): Promise<void> {
             const { data: existing } = await supabase
                 .from('user_behaviour')
                 .select('id, seconds_spent, messages_sent, typed_but_not_sent, returned_to_room')
-                .eq('user_id', userId)
+                .eq('user_uuid', userId)
                 .eq('room_id', roomId)
                 .gte('visited_at', `${today}T00:00:00.000Z`)
                 .limit(1)
@@ -146,7 +146,7 @@ export async function flushToSupabase(): Promise<void> {
                 }).eq('id', existing[0].id)
             } else {
                 await supabase.from('user_behaviour').insert({
-                    user_id: userId,
+                    user_uuid: userId,
                     room_id: roomId,
                     seconds_spent: d.secondsSpent,
                     messages_sent: d.messagesSent,
@@ -183,7 +183,7 @@ export async function rankRooms(rooms: Room[]): Promise<Room[]> {
         const { data: behaviourData } = await supabase
             .from('user_behaviour')
             .select('*')
-            .eq('user_id', userId)
+            .eq('user_uuid', userId)
 
         // Aggregate behaviour by room
         const behaviourMap: Record<string, {

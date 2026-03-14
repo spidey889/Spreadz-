@@ -1293,8 +1293,7 @@ export default function GlobalChat() {
         .menu-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.18);
-          backdrop-filter: blur(2px);
+          background: transparent;
           z-index: 1035;
         }
         @keyframes menuPop {
@@ -1305,44 +1304,32 @@ export default function GlobalChat() {
           position: absolute;
           top: 62px;
           right: 14px;
-          background: rgba(26, 26, 26, 0.92);
-          border: 1px solid rgba(0, 255, 136, 0.2);
-          border-radius: 14px;
+          background: #202226;
+          border: 1px solid #2b2f36;
+          border-radius: 12px;
           min-width: 170px;
           padding: 6px;
-          box-shadow: 0 14px 28px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 255, 136, 0.08) inset;
+          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
           animation: menuPop 0.16s ease-out;
-        }
-        .menu-panel::before {
-          content: '';
-          position: absolute;
-          top: -6px;
-          right: 18px;
-          width: 12px;
-          height: 12px;
-          background: rgba(26, 26, 26, 0.92);
-          border-left: 1px solid rgba(0, 255, 136, 0.2);
-          border-top: 1px solid rgba(0, 255, 136, 0.2);
-          transform: rotate(45deg);
         }
         .menu-item {
           width: 100%;
-          background: linear-gradient(135deg, rgba(0, 255, 136, 0.08), rgba(0, 0, 0, 0));
+          background: transparent;
           border: none;
-          color: #f5f6f8;
+          color: #e6e8eb;
           font-size: 14px;
           font-weight: 600;
           text-align: left;
           padding: 10px 12px;
-          border-radius: 10px;
+          border-radius: 8px;
           cursor: pointer;
           display: flex;
           align-items: center;
           gap: 10px;
         }
-        .menu-item:hover { background: rgba(0, 255, 136, 0.12); }
-        .menu-icon { color: #00ff88; display: inline-flex; }
-        .menu-label { letter-spacing: 0.2px; }
+        .menu-item:hover { background: #2a2d33; }
+        .menu-icon { color: #9aa0a6; display: inline-flex; }
+        .menu-label { letter-spacing: 0.15px; }
         @keyframes friendSlideIn {
           from { opacity: 0; transform: translate(-50%, 12px); }
           to { opacity: 1; transform: translate(-50%, 0); }

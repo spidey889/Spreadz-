@@ -121,8 +121,14 @@ export default function GlobalChat() {
     if (storedName) setUsername(storedName)
     if (storedCollege) setUniversity(storedCollege)
     if (storedUserId) {
+      const userPayload: { uuid: string; created_at: string; display_name?: string; college?: string } = {
+        uuid: storedUserId,
+        created_at: new Date().toISOString(),
+      }
+      if (storedName) userPayload.display_name = storedName
+      if (storedCollege) userPayload.college = storedCollege
       supabase.from('users').upsert(
-        { uuid: storedUserId, created_at: new Date().toISOString() },
+        userPayload,
         { onConflict: 'uuid' }
       ).then(({ error }) => {
         if (error) console.error('[Users] upsert failed:', error)
@@ -145,11 +151,32 @@ export default function GlobalChat() {
           if (profileError) {
             console.error('[Friends] profiles fetch failed:', profileError)
           }
+          const missingUuids = friendUuids.filter(friendUuid => {
+            const profile = profiles?.find(p => p.uuid === friendUuid)
+            return !profile?.display_name
+          })
+          const fallbackNames = new Map<string, string>()
+          if (missingUuids.length > 0) {
+            const { data: messageNames, error: messageError } = await supabase
+              .from('messages')
+              .select('user_uuid, username, created_at')
+              .in('user_uuid', missingUuids)
+              .order('created_at', { ascending: false })
+            if (messageError) {
+              console.error('[Friends] message names fetch failed:', messageError)
+            } else {
+              messageNames?.forEach(row => {
+                if (!fallbackNames.has(row.user_uuid) && row.username) {
+                  fallbackNames.set(row.user_uuid, row.username)
+                }
+              })
+            }
+          }
           const remoteFriends = friendUuids.map(friendUuid => {
             const profile = profiles?.find(p => p.uuid === friendUuid)
             return {
               id: friendUuid,
-              username: profile?.display_name || 'Anonymous',
+              username: profile?.display_name || fallbackNames.get(friendUuid) || 'Anonymous',
             }
           })
           const mergedMap = new Map<string, { id: string; username: string }>()

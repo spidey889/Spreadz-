@@ -1293,7 +1293,8 @@ export default function GlobalChat() {
         .menu-overlay {
           position: fixed;
           inset: 0;
-          background: transparent;
+          background: rgba(0, 0, 0, 0.18);
+          backdrop-filter: blur(2px);
           z-index: 1035;
         }
         @keyframes menuPop {

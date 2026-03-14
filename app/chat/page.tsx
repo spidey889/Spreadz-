@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import Image from 'next/image'
 import { supabase } from '@/lib/supabase'
 import {
   trackRoomEnter,
@@ -462,7 +463,7 @@ export default function GlobalChat() {
     )
 
     return () => observer.disconnect()
-  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed])
+  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed, triggerRevealsForRoom])
 
   useEffect(() => {
     const endEl = messageEndRefs.current[currentRoomIndex]
@@ -845,7 +846,7 @@ export default function GlobalChat() {
               {/* Header */}
               <div className={`header${isKeyboardOpen ? ' hidden' : ''}`}>
                 <div className="logo">
-                  <img src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" />
+                  <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={180} height={90} priority />
                 </div>
                 <button className="settings-btn" aria-label="Menu" onClick={() => setFriendsSheetOpen(true)}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">

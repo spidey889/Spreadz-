@@ -666,27 +666,26 @@ export default function GlobalChat() {
       {reportSheetMessage && (
         <div className={`sheet-overlay${sheetClosing ? ' closing' : ''}`} onClick={closeSheet}>
           <div className={`sheet${sheetClosing ? ' closing' : ''}`} onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
             <button
-              className="sheet-friend-btn"
+              className="sheet-item sheet-item-friend"
               onClick={closeSheet}
             >
-              <span className="friend-icon" aria-hidden="true">
+              <span className="sheet-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="6" x2="12" y2="18" />
                   <line x1="6" y1="12" x2="18" y2="12" />
                 </svg>
               </span>
-              <span className="friend-text">
-                <span className="friend-title">Add Friend</span>
-                <span className="friend-username">@{reportSheetMessage.username}</span>
-              </span>
+              <span>Add Friend</span>
             </button>
+            <div className="sheet-divider" />
             <button
-              className="sheet-report-btn"
+              className="sheet-item sheet-item-report"
               onClick={handleReport}
               disabled={reportStatus === 'submitting' || reportStatus === 'done'}
             >
-              <span className="ban-icon" aria-hidden="true">
+              <span className="sheet-icon" aria-hidden="true">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="8" />
                   <line x1="7" y1="17" x2="17" y2="7" />
@@ -824,10 +823,9 @@ export default function GlobalChat() {
         .sheet-overlay.closing { opacity: 0; }        .sheet {
           width: 100%;
           max-width: 520px;
-          background: var(--surface);
-          border: 1px solid var(--border);
+          background: #1a1a1a;
           border-radius: 20px 20px 0 0;
-          padding: 16px 16px 20px;
+          padding: 10px 18px 14px;
           box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.45);
           animation: sheetUp 0.18s ease-out;
           transform: translateY(0);
@@ -841,53 +839,36 @@ export default function GlobalChat() {
           transform: translateY(12px);
           opacity: 0;
         }
-        .sheet-report-btn {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          background: #1c1f24;
-          border: 1px solid #2b2f37;
-          border-radius: 14px;
-          padding: 14px 16px;
-          color: #ff5a5a;
-          font-size: 15px;
-          font-weight: 700;
-          font-family: inherit;
-          cursor: pointer;
-          user-select: none;
-          -webkit-user-select: none;
-          -webkit-touch-callout: none;
+        .sheet-handle {
+          width: 44px;
+          height: 4px;
+          border-radius: 999px;
+          background: #3a3a3a;
+          margin: 2px auto 10px;
         }
-        .sheet-friend-btn {
+        .sheet-item {
           width: 100%;
           display: flex;
           align-items: center;
           gap: 12px;
-          background: #1c1f24;
-          border: 1px solid #2b2f37;
-          border-radius: 14px;
-          padding: 14px 16px;
+          padding: 14px 4px;
+          background: transparent;
+          border: none;
           color: #f2f3f5;
           font-size: 15px;
-          font-weight: 700;
-          font-family: inherit;
+          font-weight: 600;
+          text-align: left;
           cursor: pointer;
-          margin-bottom: 10px;
-          user-select: none;
-          -webkit-user-select: none;
-          -webkit-touch-callout: none;
         }
-        .friend-icon { color: #f2f3f5; display: inline-flex; }
-        .friend-text {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          line-height: 1.1;
+        .sheet-item:disabled { opacity: 0.6; cursor: default; }
+        .sheet-item-report { color: #ff5a5a; }
+        .sheet-divider {
+          height: 1px;
+          width: 100%;
+          background: rgba(255, 255, 255, 0.08);
+          margin: 2px 0;
         }
-        .friend-title { font-size: 15px; font-weight: 700; color: #f2f3f5; }
-        .friend-username { font-size: 13px; font-weight: 500; color: #f2f3f5; opacity: 0.7; }        .sheet-report-btn:disabled { opacity: 0.6; cursor: default; }
-        .ban-icon { color: #ff5a5a; display: inline-flex; }
+        .sheet-icon { display: inline-flex; color: inherit; }
         .sheet-confirm { margin-top: 10px; text-align: center; font-size: 13px; color: #7bd389; }
         .sheet-confirm.error { color: #ff8a8a; }
 
@@ -958,6 +939,9 @@ export default function GlobalChat() {
     </>
   )
 }
+
+
+
 
 
 

@@ -84,6 +84,7 @@ export default function GlobalChat() {
   const [friends, setFriends] = useState<{ id: string; username: string }[]>([])
   const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
   const [friendRequestQueue, setFriendRequestQueue] = useState<FriendRequest[]>([])
+  const [menuOpen, setMenuOpen] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
   const userIdRef = useRef<string>('')
 
@@ -848,7 +849,7 @@ export default function GlobalChat() {
                 <div className="logo">
                   <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={180} height={90} priority />
                 </div>
-                <button className="settings-btn" aria-label="Menu" onClick={() => setFriendsSheetOpen(true)}>
+                <button className="settings-btn" aria-label="Menu" onClick={() => setMenuOpen(true)}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="4" y1="5" x2="20" y2="5" />
                     <line x1="4" y1="12" x2="20" y2="12" />
@@ -985,6 +986,22 @@ export default function GlobalChat() {
       )}
 
 
+
+      {menuOpen && (
+        <div className="menu-overlay" onClick={() => setMenuOpen(false)}>
+          <div className="menu-panel" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="menu-item"
+              onClick={() => {
+                setMenuOpen(false)
+                setFriendsSheetOpen(true)
+              }}
+            >
+              My Friends
+            </button>
+          </div>
+        </div>
+      )}
 
       {activeFriendRequest && (
         <div className="friend-request-popup" role="status" aria-live="polite">
@@ -1265,6 +1282,36 @@ export default function GlobalChat() {
         .sheet-icon { display: inline-flex; color: inherit; }
         .sheet-confirm { margin-top: 10px; text-align: center; font-size: 13px; color: #7bd389; }
         .sheet-confirm.error { color: #ff8a8a; }
+        .menu-overlay {
+          position: fixed;
+          inset: 0;
+          background: transparent;
+          z-index: 1035;
+        }
+        .menu-panel {
+          position: absolute;
+          top: 64px;
+          right: 16px;
+          background: #1a1a1a;
+          border: 1px solid #2a2a2a;
+          border-radius: 12px;
+          min-width: 160px;
+          padding: 6px;
+          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
+        }
+        .menu-item {
+          width: 100%;
+          background: transparent;
+          border: none;
+          color: #f2f3f5;
+          font-size: 14px;
+          font-weight: 600;
+          text-align: left;
+          padding: 10px 12px;
+          border-radius: 8px;
+          cursor: pointer;
+        }
+        .menu-item:hover { background: #242424; }
         @keyframes friendSlideIn {
           from { opacity: 0; transform: translate(-50%, 12px); }
           to { opacity: 1; transform: translate(-50%, 0); }

@@ -31,6 +31,12 @@ interface Message {
   reveal_delay?: number
 }
 
+interface FriendRequest {
+  id: string
+  sender_uuid: string
+  sender_name: string
+}
+
 const getUserColor = (username: string) => {
   const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
   let hash = 0
@@ -75,11 +81,15 @@ export default function GlobalChat() {
   const [sheetClosing, setSheetClosing] = useState(false)
   const [friendsSheetOpen, setFriendsSheetOpen] = useState(false)
   const [friends, setFriends] = useState<{ id: string; username: string }[]>([])
+  const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
+  const [friendRequestQueue, setFriendRequestQueue] = useState<FriendRequest[]>([])
   const longPressTimerRef = useRef<number | null>(null)
   const userIdRef = useRef<string>('')
 
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
+  const friendRequestChannelRef = useRef<any>(null)
+  const friendRequestsLoadedRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string } | null>(null)
@@ -395,7 +405,7 @@ export default function GlobalChat() {
     }
   }, [roomMessages, currentRoomIndex, visibleMessageIds])
 
-  const getCurrentUserId = () => {
+  const getCurrentUserId = useCallback(() => {
     if (userIdRef.current) return userIdRef.current
     let storedUserId = localStorage.getItem(USER_UUID_STORAGE_KEY)
     if (!storedUserId) {
@@ -404,7 +414,92 @@ export default function GlobalChat() {
     }
     userIdRef.current = storedUserId
     return storedUserId
+  }, [])
+
+  const pushFriendRequest = useCallback((request: FriendRequest) => {
+    setActiveFriendRequest(prev => {
+      if (!prev) return request
+      setFriendRequestQueue(queuePrev => {
+        if (queuePrev.some(item => item.id === request.id)) return queuePrev
+        return [...queuePrev, request]
+      })
+      return prev
+    })
+  }, [])
+
+  const advanceFriendRequest = () => {
+    setFriendRequestQueue(prev => {
+      if (prev.length === 0) {
+        setActiveFriendRequest(null)
+        return prev
+      }
+      const [next, ...rest] = prev
+      setActiveFriendRequest(next)
+      return rest
+    })
   }
+
+  useEffect(() => {
+    if (!isMounted) return
+    const userId = getCurrentUserId()
+    if (!userId) return
+
+    if (!friendRequestsLoadedRef.current) {
+      friendRequestsLoadedRef.current = true
+      supabase
+        .from('friend_requests')
+        .select('id, sender_uuid, sender_name, status')
+        .eq('receiver_uuid', userId)
+        .eq('status', 'pending')
+        .order('id', { ascending: true })
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('[FriendRequests] fetch failed:', error)
+            return
+          }
+          if (data && data.length > 0) {
+            data.forEach((req) => {
+              pushFriendRequest({
+                id: req.id,
+                sender_uuid: req.sender_uuid,
+                sender_name: req.sender_name || 'Anonymous',
+              })
+            })
+          }
+        })
+    }
+
+    if (friendRequestChannelRef.current) {
+      supabase.removeChannel(friendRequestChannelRef.current)
+      friendRequestChannelRef.current = null
+    }
+
+    const channel = supabase
+      .channel(`friend-requests-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'friend_requests', filter: `receiver_uuid=eq.${userId}` },
+        (payload) => {
+          const req = payload.new
+          if (req.status !== 'pending') return
+          pushFriendRequest({
+            id: req.id,
+            sender_uuid: req.sender_uuid,
+            sender_name: req.sender_name || 'Anonymous',
+          })
+        }
+      )
+      .subscribe()
+
+    friendRequestChannelRef.current = channel
+
+    return () => {
+      if (friendRequestChannelRef.current) {
+        supabase.removeChannel(friendRequestChannelRef.current)
+        friendRequestChannelRef.current = null
+      }
+    }
+  }, [getCurrentUserId, isMounted, pushFriendRequest])
 
 
   const clearLongPress = () => {
@@ -463,40 +558,83 @@ export default function GlobalChat() {
 
   const handleAddFriend = async () => {
     if (!reportSheetMessage) return
-    const friendId = reportSheetMessage.user_uuid
-    const friendName = reportSheetMessage.username || 'Anonymous'
-    if (!friendId) {
+    const receiverUuid = reportSheetMessage.user_uuid
+    if (!receiverUuid) {
       closeSheet()
       return
     }
-    const userId = getCurrentUserId()
-    if (!userId || friendId === userId) {
+    const senderUuid = getCurrentUserId()
+    if (!senderUuid || receiverUuid === senderUuid) {
       closeSheet()
       return
     }
-    if (friends.some(friend => friend.id === friendId)) {
+    if (friends.some(friend => friend.id === receiverUuid)) {
       closeSheet()
       return
     }
-    const { error } = await supabase.from('friends').insert({
-      user_uuid: userId,
-      friend_uuid: friendId,
-      created_at: new Date().toISOString(),
+    const senderName = username || localStorage.getItem(USERNAME_STORAGE_KEY) || 'Anonymous'
+    const { error } = await supabase.from('friend_requests').insert({
+      sender_uuid: senderUuid,
+      receiver_uuid: receiverUuid,
+      sender_name: senderName,
+      status: 'pending',
     })
 
     if (error) {
-      console.error('[Friends] insert failed:', error)
+      console.error('[FriendRequests] insert failed:', error)
       closeSheet()
       return
     }
 
+    closeSheet()
+  }
+
+  const handleAcceptFriendRequest = async () => {
+    if (!activeFriendRequest) return
+    const userId = getCurrentUserId()
+    const friendUuid = activeFriendRequest.sender_uuid
+    const friendName = activeFriendRequest.sender_name || 'Anonymous'
+    if (!userId || !friendUuid || friendUuid === userId) {
+      advanceFriendRequest()
+      return
+    }
+
+    const { error: friendError } = await supabase.from('friends').insert([
+      { user_uuid: userId, friend_uuid: friendUuid },
+      { user_uuid: friendUuid, friend_uuid: userId },
+    ])
+
+    if (friendError) {
+      console.error('[Friends] insert failed:', friendError)
+      return
+    }
+
+    const { error: requestError } = await supabase
+      .from('friend_requests')
+      .update({ status: 'accepted' })
+      .eq('id', activeFriendRequest.id)
+
+    if (requestError) console.error('[FriendRequests] status update failed:', requestError)
+
     setFriends(prev => {
-      if (prev.some(friend => friend.id === friendId)) return prev
-      const next = [...prev, { id: friendId, username: friendName }]
+      if (prev.some(friend => friend.id === friendUuid)) return prev
+      const next = [...prev, { id: friendUuid, username: friendName }]
       localStorage.setItem(FRIENDS_STORAGE_KEY, JSON.stringify(next))
       return next
     })
-    closeSheet()
+
+    advanceFriendRequest()
+  }
+
+  const handleDeclineFriendRequest = async () => {
+    if (!activeFriendRequest) return
+    const { error } = await supabase
+      .from('friend_requests')
+      .update({ status: 'declined' })
+      .eq('id', activeFriendRequest.id)
+
+    if (error) console.error('[FriendRequests] status update failed:', error)
+    advanceFriendRequest()
   }
 
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string) => {
@@ -780,6 +918,18 @@ export default function GlobalChat() {
 
 
 
+      {activeFriendRequest && (
+        <div className="friend-request-popup" role="status" aria-live="polite">
+          <div className="friend-request-text">
+            <span className="friend-request-name">{activeFriendRequest.sender_name}</span> wants to be your friend
+          </div>
+          <div className="friend-request-actions">
+            <button className="friend-request-btn accept" onClick={handleAcceptFriendRequest}>Accept</button>
+            <button className="friend-request-btn decline" onClick={handleDeclineFriendRequest}>Decline</button>
+          </div>
+        </div>
+      )}
+
       {reportSheetMessage && (
         <div className={`sheet-overlay${sheetClosing ? ' closing' : ''}`} onClick={closeSheet}>
           <div className={`sheet${sheetClosing ? ' closing' : ''}`} onClick={(e) => e.stopPropagation()}>
@@ -1047,6 +1197,47 @@ export default function GlobalChat() {
         .sheet-icon { display: inline-flex; color: inherit; }
         .sheet-confirm { margin-top: 10px; text-align: center; font-size: 13px; color: #7bd389; }
         .sheet-confirm.error { color: #ff8a8a; }
+        @keyframes friendSlideIn {
+          from { opacity: 0; transform: translate(-50%, 12px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        .friend-request-popup {
+          position: fixed;
+          left: 50%;
+          bottom: 96px;
+          transform: translateX(-50%);
+          width: min(92vw, 420px);
+          background: #1a1a1a;
+          border: 1px solid #2a2a2a;
+          border-radius: 16px;
+          padding: 14px 16px;
+          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
+          z-index: 1040;
+          animation: friendSlideIn 0.22s ease-out;
+        }
+        .friend-request-text {
+          color: #f2f3f5;
+          font-size: 14px;
+          margin-bottom: 10px;
+        }
+        .friend-request-name { font-weight: 700; }
+        .friend-request-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+        }
+        .friend-request-btn {
+          background: #2a2a2a;
+          color: #f2f3f5;
+          border: none;
+          border-radius: 10px;
+          padding: 8px 12px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .friend-request-btn.accept { background: #22c55e; color: #0b1a0f; }
+        .friend-request-btn.decline { background: #3a3a3a; color: #e5e7eb; }
 
         .friends-overlay {
           position: fixed;

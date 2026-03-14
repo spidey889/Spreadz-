@@ -847,7 +847,7 @@ export default function GlobalChat() {
               {/* Header */}
               <div className={`header${isKeyboardOpen ? ' hidden' : ''}`}>
                 <div className="logo">
-                  <Image src="/s'z'z.jpg" alt="SpreadZ" className="logo-img" width={180} height={90} priority />
+                  <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={180} height={90} priority />
                 </div>
                 <button className="settings-btn" aria-label="Menu" onClick={() => setMenuOpen(true)}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">

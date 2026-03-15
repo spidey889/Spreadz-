@@ -293,21 +293,38 @@ export default function GlobalChat() {
           return
         }
 
-        const ghostMessageId = crypto.randomUUID()
-        const { data: insertData, error } = await supabase
-          .from('messages')
-          .insert({
-            id: ghostMessageId,
-            content: data.text,
-            display_name: ghostProfile.name,
-            college: ghostProfile.college,
-            room_id: roomId,
-            user_uuid: ghostProfile.uuid,
-          })
-          .select()
+        const insertGhostMessage = async (attempt = 0) => {
+          const ghostMessageId = crypto.randomUUID()
+          return supabase
+            .from('messages')
+            .insert({
+              id: ghostMessageId,
+              content: data.text,
+              display_name: ghostProfile.name,
+              college: ghostProfile.college,
+              room_id: roomId,
+              user_uuid: ghostProfile.uuid,
+              created_at: new Date().toISOString(),
+            })
+            .select()
+        }
+
+        let insertResult = await insertGhostMessage()
+
+        if (insertResult.error?.code === '23505') {
+          console.warn('[Ghost] ID conflict, retrying insert', { code: insertResult.error.code })
+          insertResult = await insertGhostMessage(1)
+        }
+
+        const { data: insertData, error } = insertResult
 
         if (error || !insertData || !insertData[0]) {
-          console.error('[Ghost] Supabase insert failed', { error })
+          console.error('[Ghost] Supabase insert failed', {
+            code: error?.code,
+            message: error?.message,
+            details: error?.details,
+            hint: error?.hint,
+          })
           ghostPendingRef.current[roomId] = false
           return
         }

@@ -242,8 +242,15 @@ export default function GlobalChat() {
       if (!currentUserId) return
 
       const ghostProfile = getGhostProfile(roomId)
-      if (!isRoomEmptyForGhost(roomId, ghostProfile.uuid, currentUserId, snapshot)) return
-      if (ghostPendingRef.current[roomId]) return
+      const roomIsEmpty = isRoomEmptyForGhost(roomId, ghostProfile.uuid, currentUserId, snapshot)
+      if (!roomIsEmpty) {
+        console.log('[Ghost] Skip: room not empty', { roomId })
+        return
+      }
+      if (ghostPendingRef.current[roomId]) {
+        console.log('[Ghost] Skip: pending request', { roomId })
+        return
+      }
 
       ghostPendingRef.current[roomId] = true
       const delay = 700 + Math.random() * 900
@@ -251,11 +258,13 @@ export default function GlobalChat() {
       await new Promise(resolve => setTimeout(resolve, delay))
 
       if (!isRoomEmptyForGhost(roomId, ghostProfile.uuid, currentUserId)) {
+        console.log('[Ghost] Cancelled after delay: room not empty', { roomId })
         ghostPendingRef.current[roomId] = false
         return
       }
 
       try {
+        console.log('[Ghost] Calling /api/ghost', { roomId, messagePreview: userMessage.slice(0, 80) })
         const response = await fetch('/api/ghost', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -268,7 +277,18 @@ export default function GlobalChat() {
 
         const data = await response.json().catch(() => null)
 
-        if (!response.ok || !data?.text || data?.enabled === false) {
+        if (!response.ok) {
+          console.error('[Ghost] API error', { status: response.status, data })
+          ghostPendingRef.current[roomId] = false
+          return
+        }
+        if (data?.enabled === false) {
+          console.warn('[Ghost] API disabled', { roomId })
+          ghostPendingRef.current[roomId] = false
+          return
+        }
+        if (!data?.text) {
+          console.warn('[Ghost] Empty API response', { roomId, data })
           ghostPendingRef.current[roomId] = false
           return
         }
@@ -285,6 +305,7 @@ export default function GlobalChat() {
           .select()
 
         if (error || !insertData || !insertData[0]) {
+          console.error('[Ghost] Supabase insert failed', { error })
           ghostPendingRef.current[roomId] = false
           return
         }
@@ -505,8 +526,8 @@ export default function GlobalChat() {
             if (existing.some(msg => msg.id === m.id)) return prev
             return { ...prev, [room.id]: [...existing, newMessage] }
           })
-        }
-      )
+    }
+  )
       .subscribe()
 
     channelRef.current = channel

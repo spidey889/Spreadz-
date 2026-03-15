@@ -180,6 +180,17 @@ export default function GlobalChat() {
     }, delay)
   }, [])
 
+  const getCurrentUserId = useCallback(() => {
+    if (userIdRef.current) return userIdRef.current
+    let storedUserId = localStorage.getItem(USER_UUID_STORAGE_KEY)
+    if (!storedUserId) {
+      storedUserId = crypto.randomUUID()
+      localStorage.setItem(USER_UUID_STORAGE_KEY, storedUserId)
+    }
+    userIdRef.current = storedUserId
+    return storedUserId
+  }, [])
+
   const getGhostProfile = useCallback((roomId: string): GhostProfile => {
     if (!ghostProfilesLoadedRef.current) {
       ghostProfilesLoadedRef.current = true
@@ -561,17 +572,6 @@ export default function GlobalChat() {
       scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' })
     }
   }, [roomMessages, currentRoomIndex, visibleMessageIds])
-
-  const getCurrentUserId = useCallback(() => {
-    if (userIdRef.current) return userIdRef.current
-    let storedUserId = localStorage.getItem(USER_UUID_STORAGE_KEY)
-    if (!storedUserId) {
-      storedUserId = crypto.randomUUID()
-      localStorage.setItem(USER_UUID_STORAGE_KEY, storedUserId)
-    }
-    userIdRef.current = storedUserId
-    return storedUserId
-  }, [])
 
   const pushFriendRequest = useCallback((request: FriendRequest) => {
     setActiveFriendRequest(prev => {

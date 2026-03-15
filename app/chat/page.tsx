@@ -195,7 +195,7 @@ export default function GlobalChat() {
               console.error('[Friends] message names fetch failed:', messageError)
             } else {
               messageNames?.forEach(row => {
-                if (!fallbackNames.has(row.user_uuid) && row.display_name) {
+                if (row.user_uuid && !fallbackNames.has(row.user_uuid) && row.display_name) {
                   fallbackNames.set(row.user_uuid, row.display_name)
                 }
               })

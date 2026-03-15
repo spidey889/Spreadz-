@@ -1,7 +1,7 @@
-# Spreadz
+﻿# Spreadz
 
 Real-time global chat where strangers discuss trending topics together.
-Swipe to find new people and fresh discussions � no commitment, no friend requests.
+Swipe to find new people and fresh discussions — no commitment, no friend requests.
 
 ## What's built
 - Live messaging with Supabase real-time
@@ -22,3 +22,8 @@ Swipe to find new people and fresh discussions � no commitment, no friend reques
 2. Create `.env.local` with your Supabase URL and anon key
 3. `npm install`
 4. `npm run dev`
+
+## Progress log
+- March 15, 2026 — Hit 101 pushes; shipped identity, reporting, PWA install flow, and UI polish.
+- Early build — Real-time chat, swipe rooms, discussion headlines, and FRIDAY personalization.
+

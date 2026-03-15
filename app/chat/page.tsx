@@ -293,9 +293,11 @@ export default function GlobalChat() {
           return
         }
 
+        const ghostMessageId = crypto.randomUUID()
         const { data: insertData, error } = await supabase
           .from('messages')
           .insert({
+            id: ghostMessageId,
             content: data.text,
             display_name: ghostProfile.name,
             college: ghostProfile.college,

@@ -31,6 +31,7 @@ export type Database = {
           created_at?: string | null
           updated_at?: string | null
         }
+        Relationships: []
       }
       friends: {
         Row: {
@@ -51,6 +52,7 @@ export type Database = {
           friend_uuid?: string
           created_at?: string | null
         }
+        Relationships: []
       }
       friend_requests: {
         Row: {
@@ -75,6 +77,7 @@ export type Database = {
           status?: string
           created_at?: string | null
         }
+        Relationships: []
       }
       messages: {
         Row: {
@@ -105,6 +108,7 @@ export type Database = {
           user_uuid?: string | null
           reveal_delay?: number | null
         }
+        Relationships: []
       }
       reports: {
         Row: {
@@ -129,6 +133,7 @@ export type Database = {
           room_id?: string | null
           created_at?: string | null
         }
+        Relationships: []
       }
       rooms: {
         Row: {
@@ -146,6 +151,7 @@ export type Database = {
           headline?: string
           created_at?: string
         }
+        Relationships: []
       }
       user_behaviour: {
         Row: {
@@ -179,11 +185,20 @@ export type Database = {
           visited_at?: string | null
           updated_at?: string | null
         }
+        Relationships: []
       }
     }
-    Views: Record<string, never>
-    Functions: Record<string, never>
-    Enums: Record<string, never>
-    CompositeTypes: Record<string, never>
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      friend_request_status: 'pending' | 'accepted' | 'declined'
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
 }

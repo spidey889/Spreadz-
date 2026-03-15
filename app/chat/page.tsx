@@ -293,6 +293,26 @@ export default function GlobalChat() {
           return
         }
 
+        const { error: ghostUserError } = await supabase.from('users').upsert(
+          {
+            uuid: ghostProfile.uuid,
+            display_name: ghostProfile.name,
+            college: ghostProfile.college,
+          },
+          { onConflict: 'uuid' }
+        )
+
+        if (ghostUserError) {
+          console.error('[Ghost] Supabase ghost user upsert failed', {
+            code: ghostUserError.code,
+            message: ghostUserError.message,
+            details: ghostUserError.details,
+            hint: ghostUserError.hint,
+          })
+          ghostPendingRef.current[roomId] = false
+          return
+        }
+
         const insertGhostMessage = async (attempt = 0) => {
           const ghostMessageId = crypto.randomUUID()
           return supabase

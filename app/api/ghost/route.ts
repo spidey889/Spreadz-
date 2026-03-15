@@ -5,11 +5,13 @@ const MAX_TOKENS = 140
 
 export async function POST(request: Request) {
   if (process.env.AI_GHOST_ENABLED !== 'true') {
+    console.log('[Ghost] Disabled via AI_GHOST_ENABLED')
     return NextResponse.json({ enabled: false }, { status: 200 })
   }
 
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
+    console.error('[Ghost] Missing GEMINI_API_KEY')
     return NextResponse.json({ error: 'Missing GEMINI_API_KEY' }, { status: 500 })
   }
 
@@ -17,6 +19,7 @@ export async function POST(request: Request) {
   try {
     payload = await request.json()
   } catch {
+    console.error('[Ghost] Invalid JSON payload')
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
@@ -25,8 +28,15 @@ export async function POST(request: Request) {
   const ghostCollege = payload.ghostCollege?.trim() || 'IIT Bombay'
 
   if (!message) {
+    console.warn('[Ghost] Missing message in payload')
     return NextResponse.json({ error: 'Missing message' }, { status: 400 })
   }
+
+  console.log('[Ghost] Request received', {
+    messagePreview: message.slice(0, 120),
+    ghostName,
+    ghostCollege,
+  })
 
   const model = process.env.GEMINI_MODEL || DEFAULT_MODEL
   const prompt = [
@@ -38,29 +48,41 @@ export async function POST(request: Request) {
     `User message: ${message}`,
   ].join('\n')
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }],
+  let response: Response
+  try {
+    console.log('[Ghost] Calling Gemini model', { model })
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.9,
+            maxOutputTokens: MAX_TOKENS,
+            topP: 0.9,
           },
-        ],
-        generationConfig: {
-          temperature: 0.9,
-          maxOutputTokens: MAX_TOKENS,
-          topP: 0.9,
-        },
-      }),
-    }
-  )
+        }),
+      }
+    )
+  } catch (error) {
+    console.error('[Ghost] Gemini fetch failed', error)
+    return NextResponse.json({ error: 'Gemini request failed' }, { status: 502 })
+  }
 
   if (!response.ok) {
     const errorText = await response.text()
+    console.error('[Ghost] Gemini response error', {
+      status: response.status,
+      statusText: response.statusText,
+      errorText,
+    })
     return NextResponse.json({ error: errorText || 'Gemini request failed' }, { status: 502 })
   }
 
@@ -68,8 +90,10 @@ export async function POST(request: Request) {
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
 
   if (!text) {
+    console.warn('[Ghost] Empty Gemini response', { data })
     return NextResponse.json({ error: 'Empty response' }, { status: 502 })
   }
 
+  console.log('[Ghost] Gemini response ok', { preview: text.slice(0, 120) })
   return NextResponse.json({ text })
 }

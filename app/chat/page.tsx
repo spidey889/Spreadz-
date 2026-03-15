@@ -903,7 +903,7 @@ export default function GlobalChat() {
     setTempProfileCollege('')
     const userId = getCurrentUserId()
     const { error } = await supabase.from('users').upsert(
-      { uuid: userId, display_name: name, college: college || null, updated_at: new Date().toISOString() },
+      { uuid: userId, display_name: name, college: college || null },
       { onConflict: 'uuid' }
     )
     if (error) console.error('[Users] update failed:', error)

@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: 'SpreadZ',
   description: 'Global live chat',
   manifest: '/manifest.json',
+}
+
+export const viewport = {
   themeColor: '#0a0a0a',
 }
 

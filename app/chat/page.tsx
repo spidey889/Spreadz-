@@ -38,6 +38,12 @@ interface FriendRequest {
   sender_name: string
 }
 
+interface GhostProfile {
+  uuid: string
+  name: string
+  college: string
+}
+
 const getUserColor = (username: string) => {
   const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
   let hash = 0
@@ -61,6 +67,52 @@ const USER_UUID_STORAGE_KEY = 'spreadz_user_uuid'
 const USERNAME_STORAGE_KEY = 'spreadz_username'
 const COLLEGE_STORAGE_KEY = 'spreadz_college'
 const FRIENDS_STORAGE_KEY = 'spreadz_friends'
+const GHOST_PROFILE_STORAGE_KEY = 'spreadz_ghost_profiles'
+const AI_GHOST_SILENCE_MS = 10 * 60 * 1000
+const GHOST_NAMES = [
+  'Aarav Mehta',
+  'Priya Sharma',
+  'Rohit Verma',
+  'Sneha Iyer',
+  'Karan Patel',
+  'Ananya Singh',
+  'Arjun Mehta',
+  'Ishita Gupta',
+  'Rohan Kulkarni',
+  'Neha Kapoor',
+  'Vivek Shah',
+  'Pooja Nair',
+  'Rahul Gupta',
+  'Aditi Rao',
+  'Siddharth Jain',
+  'Meera Joshi',
+  'Nikhil Bansal',
+  'Tanya Bose',
+  'Sagar Desai',
+  'Maya Verma',
+]
+const GHOST_COLLEGES = [
+  'IIT Bombay',
+  'IIT Delhi',
+  'IIT Madras',
+  'BITS Pilani',
+  'NIT Trichy',
+  'IIT Kharagpur',
+  'IIT Kanpur',
+  'DTU Delhi',
+  'VIT Vellore',
+  'IIT Roorkee',
+  'IIT Guwahati',
+  'IIIT Hyderabad',
+  'IIT Indore',
+  'IIT Mandi',
+  'NIT Surathkal',
+  'IIT BHU',
+  'NIT Warangal',
+  'IIT Gandhinagar',
+  'IISc Bangalore',
+  'IIT Patna',
+]
 
 export default function GlobalChat() {
   const [rooms, setRooms] = useState<Room[]>([])
@@ -87,6 +139,9 @@ export default function GlobalChat() {
   const [menuOpen, setMenuOpen] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
   const userIdRef = useRef<string>('')
+  const ghostProfilesRef = useRef<Record<string, GhostProfile>>({})
+  const ghostProfilesLoadedRef = useRef(false)
+  const ghostPendingRef = useRef<Record<string, boolean>>({})
 
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
@@ -124,6 +179,118 @@ export default function GlobalChat() {
       })
     }, delay)
   }, [])
+
+  const getGhostProfile = useCallback((roomId: string): GhostProfile => {
+    if (!ghostProfilesLoadedRef.current) {
+      ghostProfilesLoadedRef.current = true
+      const stored = localStorage.getItem(GHOST_PROFILE_STORAGE_KEY)
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored) as Record<string, GhostProfile>
+          if (parsed && typeof parsed === 'object') {
+            ghostProfilesRef.current = parsed
+          }
+        } catch {
+          ghostProfilesRef.current = {}
+        }
+      }
+    }
+
+    if (ghostProfilesRef.current[roomId]) return ghostProfilesRef.current[roomId]
+
+    const name = GHOST_NAMES[Math.floor(Math.random() * GHOST_NAMES.length)]
+    const college = GHOST_COLLEGES[Math.floor(Math.random() * GHOST_COLLEGES.length)]
+    const profile: GhostProfile = {
+      uuid: crypto.randomUUID(),
+      name,
+      college,
+    }
+
+    ghostProfilesRef.current[roomId] = profile
+    localStorage.setItem(GHOST_PROFILE_STORAGE_KEY, JSON.stringify(ghostProfilesRef.current))
+    return profile
+  }, [])
+
+  const isRoomEmptyForGhost = useCallback(
+    (roomId: string, ghostUuid: string, currentUserId: string, snapshot?: Message[]) => {
+      const messages = snapshot || roomMessages[roomId] || []
+      const now = Date.now()
+      return !messages.some(msg => {
+        const msgUser = msg.user_uuid
+        if (msgUser === currentUserId || msgUser === ghostUuid) return false
+        const createdAt = msg.created_at ? new Date(msg.created_at).getTime() : now
+        return now - createdAt < AI_GHOST_SILENCE_MS
+      })
+    },
+    [roomMessages]
+  )
+
+  const requestGhostReply = useCallback(
+    async (roomId: string, userMessage: string, snapshot?: Message[]) => {
+      const currentUserId = getCurrentUserId()
+      if (!currentUserId) return
+
+      const ghostProfile = getGhostProfile(roomId)
+      if (!isRoomEmptyForGhost(roomId, ghostProfile.uuid, currentUserId, snapshot)) return
+      if (ghostPendingRef.current[roomId]) return
+
+      ghostPendingRef.current[roomId] = true
+      const delay = 700 + Math.random() * 900
+
+      await new Promise(resolve => setTimeout(resolve, delay))
+
+      if (!isRoomEmptyForGhost(roomId, ghostProfile.uuid, currentUserId)) {
+        ghostPendingRef.current[roomId] = false
+        return
+      }
+
+      try {
+        const response = await fetch('/api/ghost', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: userMessage,
+            ghostName: ghostProfile.name,
+            ghostCollege: ghostProfile.college,
+          }),
+        })
+
+        const data = await response.json().catch(() => null)
+
+        if (!response.ok || !data?.text || data?.enabled === false) {
+          ghostPendingRef.current[roomId] = false
+          return
+        }
+
+        const { data: insertData, error } = await supabase
+          .from('messages')
+          .insert({
+            content: data.text,
+            display_name: ghostProfile.name,
+            college: ghostProfile.college,
+            room_id: roomId,
+            user_uuid: ghostProfile.uuid,
+          })
+          .select()
+
+        if (error || !insertData || !insertData[0]) {
+          ghostPendingRef.current[roomId] = false
+          return
+        }
+
+        const serverMessage = buildMessageFromRow(insertData[0], ghostProfile.uuid)
+        scheduleReveal(serverMessage.id, 0)
+        setRoomMessages(prev => {
+          const existing = prev[roomId] || []
+          if (existing.some(msg => msg.id === serverMessage.id)) return prev
+          return { ...prev, [roomId]: [...existing, serverMessage] }
+        })
+      } finally {
+        ghostPendingRef.current[roomId] = false
+      }
+    },
+    [buildMessageFromRow, getCurrentUserId, getGhostProfile, isRoomEmptyForGhost, scheduleReveal]
+  )
 
   // Load user profile
   useEffect(() => {
@@ -656,6 +823,8 @@ export default function GlobalChat() {
       reveal_delay: 0,
     }
 
+    const ghostSnapshot = [...(roomMessages[roomId] || []), optimisticMsg]
+
     // Reveal immediately for user's own message
     scheduleReveal(tempId, 0)
 
@@ -692,6 +861,8 @@ export default function GlobalChat() {
 
       // Ensure the server-returned success message is also revealed
       scheduleReveal(serverMessage.id, 0)
+
+      requestGhostReply(roomId, text, ghostSnapshot)
     }
   }
 

@@ -864,7 +864,10 @@ export default function GlobalChat() {
 
               {/* Input area */}
               <div className="input-area">
-                <div className={`hint${isKeyboardOpen ? ' hidden' : ''}`}>? swipe for new people &amp; topics</div>
+                <div className={`hint${isKeyboardOpen ? ' hidden' : ''}`}>
+                  <span className="hint-badge">Swipe Up</span>
+                  <span>for new people &amp; topics</span>
+                </div>
                 <div className="input-wrap">
                   <input
                     type="text"

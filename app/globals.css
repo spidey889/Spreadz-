@@ -118,9 +118,9 @@ body {
         .settings-btn:hover { color: var(--text-primary); }
 
         .ai-card-wrap { margin: 12px 16px; flex-shrink: 0; }
-        .ai-card { background: var(--headline-bg); border-left: 3px solid var(--accent-green); border-radius: 4px; padding: 14px 18px; position: relative; }
-        .card-label { color: var(--accent-green); font-size: 9px; font-weight: 700; letter-spacing: 2px; margin-bottom: 4px; }
-        .ai-headline { font-size: 16px; color: #FFFFFF; font-weight: 600; line-height: 1.4; }
+        .ai-card { background: linear-gradient(180deg, rgba(16,16,18,0.98), rgba(11,11,13,0.99)); border: 1px solid rgba(255,255,255,0.04); border-left: 3px solid var(--accent-green); border-radius: 8px; padding: 14px 18px; position: relative; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02); }
+        .card-label { color: var(--accent-green); font-size: 10px; font-weight: 700; letter-spacing: 2.4px; margin-bottom: 5px; }
+        .ai-headline { font-size: 16px; color: #FFFFFF; font-weight: 600; line-height: 1.36; }
 
         @keyframes slideUpFade {
           from { opacity: 0; transform: translateY(12px); }
@@ -155,25 +155,25 @@ body {
         .msg-content { flex: 1; min-width: 0; position: relative; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         .msg-content.continuation { margin-left: 54px; }
 
-        .msg-header { display: flex; align-items: baseline; margin-bottom: 2px; }
+        .msg-header { display: flex; align-items: baseline; margin-bottom: 3px; }
         .msg-username { font-size: 15px; font-weight: 700; color: #FFFFFF; }
-        .msg-university { font-size: 13px; color: #71767B; margin-left: 6px; }
-        .msg-timestamp { font-size: 13px; color: #71767B; margin-left: auto; }
+        .msg-university { font-size: 13px; color: #7d838c; margin-left: 6px; }
+        .msg-timestamp { font-size: 12px; color: #666d77; margin-left: auto; }
 
-        .msg-text { font-size: 15px; color: #E7E9EA; line-height: 1.5; margin-top: 2px; word-wrap: break-word; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+        .msg-text { font-size: 15px; color: #EBEDF0; line-height: 1.55; margin-top: 2px; word-wrap: break-word; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 
         .input-area { background: var(--bg); padding: 8px 16px 16px; flex-shrink: 0; }
         .hint { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 11px; color: #8b90a0; padding-bottom: 8px; opacity: 0.92; font-weight: 600; letter-spacing: 0.02em; }
         .hint-badge { display: inline-flex; align-items: center; justify-content: center; padding: 4px 9px; border-radius: 999px; background: rgba(88, 101, 242, 0.12); color: #aeb4ff; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
         
-        .input-wrap { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 4px 4px 4px 16px; transition: box-shadow 0.2s; }
-        .input-wrap:focus-within { box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.15); }
+        .input-wrap { display: flex; align-items: center; gap: 12px; background: linear-gradient(180deg, rgba(35,35,42,0.96), rgba(28,28,34,0.96)); border: 1px solid rgba(255,255,255,0.06); border-radius: 24px; padding: 4px 4px 4px 16px; transition: box-shadow 0.2s, border-color 0.2s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.03); }
+        .input-wrap:focus-within { box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.14); border-color: rgba(88,101,242,0.22); }
         
         input { flex: 1; background: none; border: none; outline: none; font-size: 15px; color: var(--text-primary); font-family: inherit; }
-        input::placeholder { color: var(--text-muted); }
+        input::placeholder { color: #7f8590; }
 
-        .send-btn { background: #5865F2; color: white; border: none; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s; flex-shrink: 0; }
-        .send-btn:hover { background: #4752c4; }
+        .send-btn { background: linear-gradient(180deg, #6974ff, #5865F2); color: white; border: none; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s, box-shadow 0.2s; flex-shrink: 0; box-shadow: 0 8px 20px rgba(88, 101, 242, 0.24); }
+        .send-btn:hover { background: linear-gradient(180deg, #5f6af8, #4d58d6); }
         .send-btn:active { transform: scale(0.95); }
 
         .profile-overlay {

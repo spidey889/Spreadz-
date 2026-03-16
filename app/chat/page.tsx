@@ -726,7 +726,7 @@ export default function GlobalChat() {
                 id: req.id,
                 requester_uuid: req.requester_uuid,
                 sender_name: req.sender_name || 'Anonymous',
-                created_at: req.created_at,
+                created_at: req.created_at ?? undefined,
               })
             })
           }

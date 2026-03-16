@@ -18,6 +18,8 @@
 # misc
 .DS_Store
 *.pem
+lib/db_cleanup.sql
+lib/user_behaviour_migration.sql
 
 # debug
 npm-debug.log*

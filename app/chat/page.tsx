@@ -34,8 +34,9 @@ interface Message {
 
 interface FriendRequest {
   id: string
-  sender_uuid: string
+  requester_uuid: string
   sender_name: string
+  created_at?: string
 }
 
 interface GhostProfile {
@@ -68,6 +69,7 @@ const USERNAME_STORAGE_KEY = 'spreadz_username'
 const COLLEGE_STORAGE_KEY = 'spreadz_college'
 const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const GHOST_PROFILE_STORAGE_KEY = 'spreadz_ghost_profiles'
+const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const AI_GHOST_SILENCE_MS = 10 * 60 * 1000
 const GHOST_NAMES = [
   'Aarav Mehta',
@@ -121,6 +123,7 @@ export default function GlobalChat() {
   const [currentRoomIndex, setCurrentRoomIndex] = useState(0)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [authReady, setAuthReady] = useState(false)
   const [username, setUsername] = useState('')
   const [university, setUniversity] = useState('')
   const [showProfileModal, setShowProfileModal] = useState(false)
@@ -153,9 +156,39 @@ export default function GlobalChat() {
   const prevRoomIndexRef = useRef<number>(0)
   const inputHadContentRef = useRef<Record<string, boolean>>({})
 
+  useEffect(() => {
+    let cancelled = false
+    const initAuth = async () => {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) {
+        console.error('[Auth] getSession failed:', sessionError)
+      }
+      let user = sessionData?.session?.user ?? null
+
+      if (!user) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously()
+        if (signInError) {
+          console.error('[Auth] anonymous sign-in failed:', signInError)
+          return
+        }
+        user = signInData?.user ?? null
+      }
+
+      if (!user || cancelled) return
+      userIdRef.current = user.id
+      localStorage.setItem(USER_UUID_STORAGE_KEY, user.id)
+      setAuthReady(true)
+    }
+
+    initAuth()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const buildMessageFromRow = useCallback((m: any, fallbackUserId?: string): Message => {
-    const resolvedName = m.display_name || m.username || 'Anonymous'
-    const resolvedCollege = m.college || m.university || ''
+    const resolvedName = m.display_name || 'Anonymous'
+    const resolvedCollege = m.college || ''
     return {
       id: m.id,
       username: resolvedName,
@@ -182,13 +215,12 @@ export default function GlobalChat() {
 
   const getCurrentUserId = useCallback(() => {
     if (userIdRef.current) return userIdRef.current
-    let storedUserId = localStorage.getItem(USER_UUID_STORAGE_KEY)
-    if (!storedUserId) {
-      storedUserId = crypto.randomUUID()
-      localStorage.setItem(USER_UUID_STORAGE_KEY, storedUserId)
+    const storedUserId = localStorage.getItem(USER_UUID_STORAGE_KEY)
+    if (storedUserId) {
+      userIdRef.current = storedUserId
+      return storedUserId
     }
-    userIdRef.current = storedUserId
-    return storedUserId
+    return ''
   }, [])
 
   const getGhostProfile = useCallback((roomId: string): GhostProfile => {
@@ -363,17 +395,18 @@ export default function GlobalChat() {
     [buildMessageFromRow, getCurrentUserId, getGhostProfile, isRoomEmptyForGhost, scheduleReveal]
   )
 
-  // Load user profile
   useEffect(() => {
     setIsMounted(true)
+  }, [])
+
+  // Load user profile
+  useEffect(() => {
+    if (!authReady) return
     const storedName = localStorage.getItem(USERNAME_STORAGE_KEY)
     const storedCollege = localStorage.getItem(COLLEGE_STORAGE_KEY)
-    let storedUserId = localStorage.getItem(USER_UUID_STORAGE_KEY)
-    if (!storedUserId) {
-      storedUserId = crypto.randomUUID()
-      localStorage.setItem(USER_UUID_STORAGE_KEY, storedUserId)
-    }
-    userIdRef.current = storedUserId || ''
+    const storedUserId = localStorage.getItem(USER_UUID_STORAGE_KEY)
+    if (!storedUserId) return
+    userIdRef.current = storedUserId
     const storedFriends = localStorage.getItem(FRIENDS_STORAGE_KEY)
     let localFriends: { id: string; username: string }[] = []
     if (storedFriends) {
@@ -402,14 +435,17 @@ export default function GlobalChat() {
       })
       supabase
         .from('friends')
-        .select('friend_uuid')
-        .eq('user_uuid', storedUserId)
+        .select('id, requester_uuid, addressee_uuid, status')
+        .or(`requester_uuid.eq.${storedUserId},addressee_uuid.eq.${storedUserId}`)
+        .eq('status', 'accepted')
         .then(async ({ data, error }) => {
           if (error) {
             console.error('[Friends] fetch failed:', error)
             return
           }
-          const friendUuids = (data || []).map(row => row.friend_uuid).filter(Boolean)
+          const friendUuids = Array.from(new Set((data || [])
+            .map(row => row.requester_uuid === storedUserId ? row.addressee_uuid : row.requester_uuid)
+            .filter(Boolean)))
           if (friendUuids.length === 0) return
           const { data: profiles, error: profileError } = await supabase
             .from('users')
@@ -460,10 +496,11 @@ export default function GlobalChat() {
           localStorage.setItem(FRIENDS_STORAGE_KEY, JSON.stringify(merged))
         })
     }
-  }, [])
+  }, [authReady])
 
   // Fetch rooms on mount
   useEffect(() => {
+    if (!authReady) return
     const fetchRooms = async () => {
       const { data } = await supabase
         .from('rooms')
@@ -479,10 +516,11 @@ export default function GlobalChat() {
       }
     }
     fetchRooms()
-  }, [])
+  }, [authReady])
 
   // FRIDAY: flush to Supabase on beforeunload + every 60s
   useEffect(() => {
+    if (!authReady) return
     const handleUnload = () => { flushToSupabase() }
     window.addEventListener('beforeunload', handleUnload)
     const intervalId = setInterval(() => { flushToSupabase() }, 60000)
@@ -490,7 +528,7 @@ export default function GlobalChat() {
       window.removeEventListener('beforeunload', handleUnload)
       clearInterval(intervalId)
     }
-  }, [])
+  }, [authReady])
 
   // FRIDAY: load saved interests on mount
   useEffect(() => {
@@ -634,6 +672,10 @@ export default function GlobalChat() {
   }, [roomMessages, currentRoomIndex, visibleMessageIds])
 
   const pushFriendRequest = useCallback((request: FriendRequest) => {
+    if (request.created_at) {
+      const ageMs = Date.now() - new Date(request.created_at).getTime()
+      if (ageMs > FRIEND_REQUEST_TTL_MS) return
+    }
     setActiveFriendRequest(prev => {
       if (prev && prev.id === request.id) return prev
       if (!prev) return request
@@ -658,17 +700,21 @@ export default function GlobalChat() {
   }
 
   useEffect(() => {
+    if (!authReady) return
     const userId = getCurrentUserId()
     if (!userId) return
+
+    const pendingCutoff = new Date(Date.now() - FRIEND_REQUEST_TTL_MS).toISOString()
 
     if (!friendRequestsLoadedRef.current) {
       friendRequestsLoadedRef.current = true
       supabase
-        .from('friend_requests')
-        .select('id, sender_uuid, sender_name, status')
-        .eq('receiver_uuid', userId)
-        .eq('status', 'pending')
-        .order('id', { ascending: true })
+        .from('friends')
+        .select('id, requester_uuid, addressee_uuid, sender_name, status, created_at')
+        .eq('addressee_uuid', userId)
+        .is('status', null)
+        .gte('created_at', pendingCutoff)
+        .order('created_at', { ascending: true })
         .then(({ data, error }) => {
           if (error) {
             console.error('[FriendRequests] fetch failed:', error)
@@ -678,8 +724,9 @@ export default function GlobalChat() {
             data.forEach((req) => {
               pushFriendRequest({
                 id: req.id,
-                sender_uuid: req.sender_uuid,
+                requester_uuid: req.requester_uuid,
                 sender_name: req.sender_name || 'Anonymous',
+                created_at: req.created_at,
               })
             })
           }
@@ -695,14 +742,15 @@ export default function GlobalChat() {
       .channel(`friend-requests-${userId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'friend_requests', filter: `receiver_uuid=eq.${userId}` },
+        { event: 'INSERT', schema: 'public', table: 'friends', filter: `addressee_uuid=eq.${userId}` },
         (payload) => {
           const req = payload.new
-          if (req.status !== 'pending') return
+          if (req.status !== null) return
           pushFriendRequest({
             id: req.id,
-            sender_uuid: req.sender_uuid,
+            requester_uuid: req.requester_uuid,
             sender_name: req.sender_name || 'Anonymous',
+            created_at: req.created_at,
           })
         }
       )
@@ -716,7 +764,7 @@ export default function GlobalChat() {
         friendRequestChannelRef.current = null
       }
     }
-  }, [getCurrentUserId, pushFriendRequest])
+  }, [authReady, getCurrentUserId, pushFriendRequest])
 
 
   const clearLongPress = () => {
@@ -790,11 +838,11 @@ export default function GlobalChat() {
       return
     }
     const senderName = username || localStorage.getItem(USERNAME_STORAGE_KEY) || 'Anonymous'
-    const { error } = await supabase.from('friend_requests').insert({
-      sender_uuid: senderUuid,
-      receiver_uuid: receiverUuid,
+    const { error } = await supabase.from('friends').insert({
+      requester_uuid: senderUuid,
+      addressee_uuid: receiverUuid,
       sender_name: senderName,
-      status: 'pending',
+      status: null,
     })
 
     if (error) {
@@ -809,25 +857,23 @@ export default function GlobalChat() {
   const handleAcceptFriendRequest = async () => {
     if (!activeFriendRequest) return
     const userId = getCurrentUserId()
-    const friendUuid = activeFriendRequest.sender_uuid
+    const friendUuid = activeFriendRequest.requester_uuid
     const friendName = activeFriendRequest.sender_name || 'Anonymous'
     if (!userId || !friendUuid || friendUuid === userId) {
       advanceFriendRequest()
       return
     }
 
-    const { error: friendError } = await supabase.from('friends').insert([
-      { user_uuid: userId, friend_uuid: friendUuid },
-      { user_uuid: friendUuid, friend_uuid: userId },
-    ])
-
-    if (friendError) {
-      console.error('[Friends] insert failed:', friendError)
-      return
+    if (activeFriendRequest.created_at) {
+      const ageMs = Date.now() - new Date(activeFriendRequest.created_at).getTime()
+      if (ageMs > FRIEND_REQUEST_TTL_MS) {
+        advanceFriendRequest()
+        return
+      }
     }
 
     const { error: requestError } = await supabase
-      .from('friend_requests')
+      .from('friends')
       .update({ status: 'accepted' })
       .eq('id', activeFriendRequest.id)
 
@@ -846,7 +892,7 @@ export default function GlobalChat() {
   const handleDeclineFriendRequest = async () => {
     if (!activeFriendRequest) return
     const { error } = await supabase
-      .from('friend_requests')
+      .from('friends')
       .update({ status: 'declined' })
       .eq('id', activeFriendRequest.id)
 
@@ -961,7 +1007,7 @@ export default function GlobalChat() {
     }
   }
 
-  if (!isMounted) return null
+  if (!isMounted || !authReady) return null
 
   return (
     <>

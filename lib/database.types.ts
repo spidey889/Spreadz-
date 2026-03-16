@@ -36,45 +36,26 @@ export type Database = {
       friends: {
         Row: {
           id: string
-          user_uuid: string
-          friend_uuid: string
-          created_at?: string | null
-        }
-        Insert: {
-          id?: string
-          user_uuid: string
-          friend_uuid: string
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_uuid?: string
-          friend_uuid?: string
-          created_at?: string | null
-        }
-        Relationships: []
-      }
-      friend_requests: {
-        Row: {
-          id: string
-          sender_uuid: string
-          receiver_uuid: string
+          requester_uuid: string
+          addressee_uuid: string
           sender_name: string | null
-          status: string
+          status: Database['public']['Enums']['friend_status'] | null
           created_at?: string | null
         }
         Insert: {
-          sender_uuid: string
-          receiver_uuid: string
+          id?: string
+          requester_uuid: string
+          addressee_uuid: string
           sender_name?: string | null
-          status?: string
+          status?: Database['public']['Enums']['friend_status'] | null
           created_at?: string | null
         }
         Update: {
-          sender_uuid?: string
-          receiver_uuid?: string
+          id?: string
+          requester_uuid?: string
+          addressee_uuid?: string
           sender_name?: string | null
-          status?: string
+          status?: Database['public']['Enums']['friend_status'] | null
           created_at?: string | null
         }
         Relationships: []
@@ -88,7 +69,6 @@ export type Database = {
           room_id: string | null
           created_at: string
           user_uuid: string | null
-          reveal_delay?: number | null
         }
         Insert: {
           content: string
@@ -97,7 +77,6 @@ export type Database = {
           room_id?: string | null
           created_at?: string
           user_uuid?: string | null
-          reveal_delay?: number | null
         }
         Update: {
           content?: string
@@ -106,7 +85,6 @@ export type Database = {
           room_id?: string | null
           created_at?: string
           user_uuid?: string | null
-          reveal_delay?: number | null
         }
         Relationships: []
       }
@@ -195,7 +173,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      friend_request_status: 'pending' | 'accepted' | 'declined'
+      friend_status: 'accepted' | 'declined'
     }
     CompositeTypes: {
       [_ in never]: never

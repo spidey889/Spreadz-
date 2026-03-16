@@ -438,7 +438,7 @@ export default function GlobalChat() {
 
   useEffect(() => {
     const endEl = messageEndRefs.current[currentRoomIndex]
-    const scrollEl = endEl?.closest('.room-messages') as HTMLDivElement | null
+    const scrollEl = endEl?.parentElement
     if (scrollEl) {
       scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' })
     }
@@ -816,8 +816,7 @@ export default function GlobalChat() {
               </div>
 
               {/* Messages */}
-              <div className="room-messages" onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}>
-                <div className="messages">
+              <div className="room-messages" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}>
                 {messages.map((msg, msgIndex) => {
                     const isVisible = visibleMessageIds.has(msg.id)
                     if (!isVisible) return null
@@ -861,7 +860,6 @@ export default function GlobalChat() {
                     )
                   })}
                   <div ref={(el) => { messageEndRefs.current[index] = el }} />
-                </div>
               </div>
 
               {/* Input area */}

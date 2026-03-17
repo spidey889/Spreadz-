@@ -70,8 +70,6 @@ const USERNAME_STORAGE_KEY = 'spreadz_username'
 const COLLEGE_STORAGE_KEY = 'spreadz_college'
 const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
-const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
-const CLIENT_REFRESH_VERSION = '2026-03-17-chat-notifications-v2'
 const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
@@ -318,39 +316,6 @@ export default function GlobalChat() {
   useEffect(() => {
     setIsMounted(true)
   }, [])
-
-  useEffect(() => {
-    if (!isMounted || typeof window === 'undefined') return
-
-    const appliedVersion = localStorage.getItem(CLIENT_REFRESH_STORAGE_KEY)
-    if (appliedVersion === CLIENT_REFRESH_VERSION) return
-
-    localStorage.setItem(CLIENT_REFRESH_STORAGE_KEY, CLIENT_REFRESH_VERSION)
-
-    const refreshClient = async () => {
-      try {
-        if ('serviceWorker' in navigator) {
-          const registrations = await navigator.serviceWorker.getRegistrations()
-          await Promise.all(registrations.map(registration => registration.update()))
-        }
-
-        if ('caches' in window) {
-          const cacheKeys = await caches.keys()
-          const cacheKeysToDelete = cacheKeys.filter(
-            key => key === 'start-url' || key.includes('workbox-precache')
-          )
-
-          await Promise.all(cacheKeysToDelete.map(key => caches.delete(key)))
-        }
-      } catch (error) {
-        console.error('[App] Client refresh failed', error)
-      } finally {
-        window.location.reload()
-      }
-    }
-
-    void refreshClient()
-  }, [isMounted])
 
   useEffect(() => {
     if (!isMounted || typeof window === 'undefined') return

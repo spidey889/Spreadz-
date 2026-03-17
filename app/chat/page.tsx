@@ -303,18 +303,6 @@ export default function GlobalChat() {
 
     if (!message) return
 
-    const isMobileBrowser =
-      typeof navigator !== 'undefined' &&
-      (
-        (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData?.mobile === true ||
-        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '')
-      )
-
-    if (isMobileBrowser) {
-      setNewMessageNotificationDebugLog('Notification skipped (mobile not supported yet)')
-      return
-    }
-
     if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') {
       setNewMessageNotificationDebugLog('Notification skipped')
       return

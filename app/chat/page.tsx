@@ -39,26 +39,6 @@ interface FriendRequest {
   created_at?: string
 }
 
-type NotificationPayload = {
-  title: string
-  body: string
-  url: string
-  tag: string
-}
-
-const urlBase64ToUint8Array = (base64String: string) => {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const normalized = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const raw = window.atob(normalized)
-  const outputArray = new Uint8Array(raw.length)
-
-  for (let i = 0; i < raw.length; ++i) {
-    outputArray[i] = raw.charCodeAt(i)
-  }
-
-  return outputArray
-}
-
 const getUserColor = (username: string) => {
   const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
   let hash = 0
@@ -83,10 +63,6 @@ const USERNAME_STORAGE_KEY = 'spreadz_username'
 const COLLEGE_STORAGE_KEY = 'spreadz_college'
 const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
-const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
-const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
-const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
-const PUSH_SUBSCRIPTION_STORAGE_KEY = 'spreadz_push_subscription'
 
 export default function GlobalChat() {
   const [rooms, setRooms] = useState<Room[]>([])
@@ -108,8 +84,6 @@ export default function GlobalChat() {
   const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
   const [sheetClosing, setSheetClosing] = useState(false)
   const [friendsSheetOpen, setFriendsSheetOpen] = useState(false)
-  const [notificationSheetOpen, setNotificationSheetOpen] = useState(false)
-  const [notificationStatus, setNotificationStatus] = useState<'idle' | 'enabling' | 'enabled' | 'unsupported' | 'error'>('idle')
   const [friends, setFriends] = useState<{ id: string; username: string }[]>([])
   const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
   const [friendRequestQueue, setFriendRequestQueue] = useState<FriendRequest[]>([])
@@ -126,7 +100,6 @@ export default function GlobalChat() {
   const pendingSendRef = useRef<{ roomId: string } | null>(null)
   const prevRoomIndexRef = useRef<number>(0)
   const inputHadContentRef = useRef<Record<string, boolean>>({})
-  const pendingNotificationPayloadRef = useRef<NotificationPayload | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -195,246 +168,9 @@ export default function GlobalChat() {
     return ''
   }, [])
 
-  const buildPrototypeNotificationPayload = useCallback(
-    (text: string): NotificationPayload => {
-      const preview = text.length > 72 ? `${text.slice(0, 69)}...` : text
-      return {
-        title: 'SpreadZ prototype',
-        body: `You sent: ${preview}`,
-        url: '/chat',
-        tag: 'spreadz-prototype',
-      }
-    },
-    []
-  )
-
-  const waitForPushRegistration = useCallback(async () => {
-    if (!('serviceWorker' in navigator)) return null
-
-    for (let attempt = 0; attempt < 12; attempt++) {
-      const registration =
-        (await navigator.serviceWorker.getRegistration('/')) ||
-        (await navigator.serviceWorker.getRegistration())
-
-      if (registration?.active) return registration
-      await new Promise(resolve => setTimeout(resolve, 500))
-    }
-
-    return null
-  }, [])
-
-  const getStoredPushSubscription = useCallback(async (): Promise<PushSubscriptionJSON | null> => {
-    if (typeof window === 'undefined') return null
-
-    const registration = await waitForPushRegistration()
-    if (registration) {
-      const subscription = await registration.pushManager.getSubscription()
-      if (subscription) {
-        const subscriptionJson = subscription.toJSON()
-        localStorage.setItem(PUSH_SUBSCRIPTION_STORAGE_KEY, JSON.stringify(subscriptionJson))
-        return subscriptionJson
-      }
-    }
-
-    const stored = localStorage.getItem(PUSH_SUBSCRIPTION_STORAGE_KEY)
-    if (!stored) return null
-
-    try {
-      return JSON.parse(stored) as PushSubscriptionJSON
-    } catch {
-      localStorage.removeItem(PUSH_SUBSCRIPTION_STORAGE_KEY)
-      return null
-    }
-  }, [waitForPushRegistration])
-
-  const sendPrototypeNotification = useCallback(
-    async (payload: NotificationPayload, subscriptionOverride?: PushSubscriptionJSON | null) => {
-      const subscription = subscriptionOverride || await getStoredPushSubscription()
-      if (!subscription?.endpoint) return
-
-      try {
-        const response = await fetch('/api/push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            subscription,
-            ...payload,
-          }),
-        })
-
-        if (!response.ok) {
-          const data = await response.json().catch(() => null)
-          console.error('[Push] Prototype send failed', { status: response.status, data })
-          if (response.status === 410) {
-            localStorage.removeItem(PUSH_SUBSCRIPTION_STORAGE_KEY)
-            localStorage.removeItem(PUSH_PROMPT_STATUS_STORAGE_KEY)
-            setNotificationStatus('idle')
-          }
-        }
-      } catch (error) {
-        console.error('[Push] Prototype send failed', error)
-      }
-    },
-    [getStoredPushSubscription]
-  )
-
-  const enablePushNotifications = useCallback(async (): Promise<PushSubscriptionJSON | null> => {
-    if (
-      typeof window === 'undefined' ||
-      !('Notification' in window) ||
-      !('serviceWorker' in navigator) ||
-      !('PushManager' in window)
-    ) {
-      setNotificationStatus('unsupported')
-      return null
-    }
-
-    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    if (!vapidPublicKey) {
-      console.error('[Push] Missing NEXT_PUBLIC_VAPID_PUBLIC_KEY')
-      setNotificationStatus('error')
-      return null
-    }
-
-    if (Notification.permission === 'denied') {
-      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
-      setNotificationStatus('error')
-      return null
-    }
-
-    setNotificationStatus('enabling')
-
-    try {
-      const permission =
-        Notification.permission === 'granted'
-          ? 'granted'
-          : await Notification.requestPermission()
-
-      if (permission !== 'granted') {
-        if (permission === 'denied') {
-          localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
-          setNotificationStatus('error')
-        } else {
-          setNotificationStatus('idle')
-        }
-        return null
-      }
-
-      const registration = await waitForPushRegistration()
-      if (!registration) {
-        console.error('[Push] No active service worker registration found')
-        setNotificationStatus('error')
-        return null
-      }
-
-      let subscription = await registration.pushManager.getSubscription()
-      if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-        })
-      }
-
-      const subscriptionJson = subscription.toJSON()
-      localStorage.setItem(PUSH_SUBSCRIPTION_STORAGE_KEY, JSON.stringify(subscriptionJson))
-      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'enabled')
-      setNotificationStatus('enabled')
-      return subscriptionJson
-    } catch (error) {
-      console.error('[Push] Enable notifications failed', error)
-      setNotificationStatus('error')
-      return null
-    }
-  }, [waitForPushRegistration])
-
-  const handleEnableNotifications = useCallback(async () => {
-    const subscription = await enablePushNotifications()
-    if (!subscription) return
-
-    const payload = pendingNotificationPayloadRef.current
-    pendingNotificationPayloadRef.current = null
-    setNotificationSheetOpen(false)
-
-    if (payload) {
-      await sendPrototypeNotification(payload, subscription)
-    }
-  }, [enablePushNotifications, sendPrototypeNotification])
-
-  const closeNotificationSheet = useCallback(() => {
-    pendingNotificationPayloadRef.current = null
-    setNotificationSheetOpen(false)
-  }, [])
-
-  const handlePrototypeNotificationAfterSend = useCallback(
-    async (text: string) => {
-      if (
-        typeof window === 'undefined' ||
-        !process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-        !('Notification' in window) ||
-        !('serviceWorker' in navigator) ||
-        !('PushManager' in window)
-      ) {
-        return
-      }
-
-      const payload = buildPrototypeNotificationPayload(text)
-
-      if (Notification.permission === 'granted') {
-        localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'enabled')
-        setNotificationStatus('enabled')
-        await sendPrototypeNotification(payload)
-        return
-      }
-
-      if (Notification.permission === 'denied') {
-        localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
-        setNotificationStatus('error')
-        return
-      }
-
-      const promptStatus = localStorage.getItem(PUSH_PROMPT_STATUS_STORAGE_KEY)
-      if (promptStatus === 'enabled' || promptStatus === 'denied') return
-
-      const sentCount = Number(localStorage.getItem(PUSH_SENT_COUNT_STORAGE_KEY) || '0') + 1
-      localStorage.setItem(PUSH_SENT_COUNT_STORAGE_KEY, String(sentCount))
-
-      if (sentCount >= PUSH_PROMPT_MESSAGE_THRESHOLD) {
-        pendingNotificationPayloadRef.current = payload
-        setNotificationSheetOpen(true)
-      }
-    },
-    [buildPrototypeNotificationPayload, sendPrototypeNotification]
-  )
-
   useEffect(() => {
     setIsMounted(true)
   }, [])
-
-  useEffect(() => {
-    if (!isMounted || typeof window === 'undefined') return
-
-    const supportsPush =
-      'Notification' in window &&
-      'serviceWorker' in navigator &&
-      'PushManager' in window &&
-      !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-
-    if (!supportsPush) {
-      setNotificationStatus('unsupported')
-      return
-    }
-
-    if (Notification.permission === 'granted') {
-      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'enabled')
-      setNotificationStatus('enabled')
-      return
-    }
-
-    if (Notification.permission === 'denied') {
-      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
-      setNotificationStatus('error')
-    }
-  }, [isMounted])
 
   // Load user profile
   useEffect(() => {
@@ -937,7 +673,7 @@ export default function GlobalChat() {
     advanceFriendRequest()
   }
 
-  const handleSend = useCallback(async (roomId: string, overrideName?: string, overrideCollege?: string) => {
+  const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string) => {
     const text = (inputTexts[roomId] || '').trim()
     if (!text) return
 
@@ -985,7 +721,6 @@ export default function GlobalChat() {
       .select()
 
     if (error) {
-      console.error('[Messages] send failed:', error)
       setRoomMessages(prev => ({
         ...prev,
         [roomId]: (prev[roomId] || []).filter(m => m.id !== tempId)
@@ -1003,10 +738,8 @@ export default function GlobalChat() {
 
       // Ensure the server-returned success message is also revealed
       scheduleReveal(serverMessage.id, 0)
-
-      void handlePrototypeNotificationAfterSend(text)
     }
-  }, [buildMessageFromRow, getCurrentUserId, handlePrototypeNotificationAfterSend, inputTexts, scheduleReveal, university, username])
+  }
 
   const handleProfileSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -1203,40 +936,6 @@ export default function GlobalChat() {
             </div>
             <button type="submit" className="profile-submit">Continue</button>
           </form>
-        </div>
-      )}
-
-      {notificationSheetOpen && (
-        <div className="sheet-overlay" onClick={closeNotificationSheet}>
-          <div className="sheet notify-sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-handle" />
-            <div className="notify-title">Turn on notifications</div>
-            <div className="notify-sub">
-              After you enable this, every message you send will fire a prototype notification to this device.
-            </div>
-            <div className="notify-actions">
-              <button
-                type="button"
-                className="notify-btn notify-btn-secondary"
-                onClick={closeNotificationSheet}
-              >
-                Not now
-              </button>
-              <button
-                type="button"
-                className="notify-btn notify-btn-primary"
-                onClick={() => void handleEnableNotifications()}
-                disabled={notificationStatus === 'enabling'}
-              >
-                {notificationStatus === 'enabling' ? 'Enabling...' : 'Enable notifications'}
-              </button>
-            </div>
-            {notificationStatus === 'error' && (
-              <div className="notify-error">
-                Notifications are not ready here yet. Try again from the installed app or deployed build.
-              </div>
-            )}
-          </div>
         </div>
       )}
 

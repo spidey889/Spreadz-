@@ -296,56 +296,6 @@ body {
         .sheet-icon { display: inline-flex; color: inherit; }
         .sheet-confirm { margin-top: 10px; text-align: center; font-size: 13px; color: #7bd389; }
         .sheet-confirm.error { color: #ff8a8a; }
-        .notify-sheet {
-          padding: 14px 18px 20px;
-          gap: 0;
-        }
-        .notify-title {
-          color: #ffffff;
-          font-size: 20px;
-          font-weight: 800;
-          letter-spacing: 0.2px;
-          margin-top: 2px;
-        }
-        .notify-sub {
-          color: #9aa0a6;
-          font-size: 14px;
-          line-height: 1.5;
-          margin-top: 8px;
-        }
-        .notify-actions {
-          display: flex;
-          gap: 10px;
-          margin-top: 18px;
-        }
-        .notify-btn {
-          flex: 1;
-          border: none;
-          border-radius: 14px;
-          padding: 13px 14px;
-          font-size: 14px;
-          font-weight: 700;
-          cursor: pointer;
-          font-family: inherit;
-        }
-        .notify-btn:disabled {
-          opacity: 0.7;
-          cursor: default;
-        }
-        .notify-btn-secondary {
-          background: #2a2d33;
-          color: #e6e8eb;
-        }
-        .notify-btn-primary {
-          background: #f2f3f5;
-          color: #0f1012;
-        }
-        .notify-error {
-          margin-top: 12px;
-          color: #ff9a9a;
-          font-size: 13px;
-          line-height: 1.45;
-        }
         .menu-overlay {
           position: fixed;
           inset: 0;

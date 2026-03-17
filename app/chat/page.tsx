@@ -332,6 +332,12 @@ export default function GlobalChat() {
     if (!message) return
 
     void (async () => {
+      const currentUserId = getCurrentUserId()
+      if (message?.user_uuid && currentUserId && message.user_uuid === currentUserId) {
+        setNewMessageNotificationDebugLog('Notification skipped')
+        return
+      }
+
       const payload = buildIncomingNotificationPayload(message)
 
       try {
@@ -377,7 +383,7 @@ export default function GlobalChat() {
         setNewMessageNotificationDebugLog(`Notification error: ${errorMessage}`)
       }
     })()
-  }, [buildIncomingNotificationPayload, getServiceWorkerRegistration, showBrowserNotification])
+  }, [buildIncomingNotificationPayload, getCurrentUserId, getServiceWorkerRegistration, showBrowserNotification])
 
   const handleTestNotification = useCallback(() => {
     setTestNotificationDebugLog('Test notification triggered')

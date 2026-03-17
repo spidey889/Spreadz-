@@ -287,18 +287,6 @@ export default function GlobalChat() {
     setNotificationSheetOpen(false)
   }, [])
 
-  const handleTestNotification = useCallback(() => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return
-    if (Notification.permission !== 'granted') return
-
-    showBrowserNotification({
-      title: 'SpreadZ test',
-      body: 'This is a manual test notification.',
-      url: '/chat',
-      tag: 'spreadz-manual-test',
-    })
-  }, [showBrowserNotification])
-
   const handleNotificationPromptAfterSend = useCallback(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return
 
@@ -1129,14 +1117,6 @@ export default function GlobalChat() {
                   <span className="hint-badge">Swipe Up</span>
                   <span>for new people &amp; topics</span>
                 </div>
-                <button
-                  type="button"
-                  className="friend-request-btn decline"
-                  onClick={handleTestNotification}
-                  style={{ marginBottom: 10 }}
-                >
-                  Test notification
-                </button>
                 <div className="input-wrap">
                   <input
                     type="text"

@@ -75,6 +75,7 @@ const CLIENT_REFRESH_VERSION = '2026-03-17-chat-notifications-v2'
 const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
+const NOTIFICATION_COOLDOWN_MS = 2500
 
 export default function GlobalChat() {
   const [rooms, setRooms] = useState<Room[]>([])
@@ -120,6 +121,7 @@ export default function GlobalChat() {
   const inputHadContentRef = useRef<Record<string, boolean>>({})
   const handledNotificationNavigationRef = useRef<string>('')
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
+  const notificationCooldownUntilRef = useRef(0)
   const currentNotificationPermission =
     !isMounted || typeof window === 'undefined' || !('Notification' in window)
       ? 'default'
@@ -399,12 +401,19 @@ export default function GlobalChat() {
           return
         }
 
+        const now = Date.now()
+        if (now < notificationCooldownUntilRef.current) {
+          setNewMessageNotificationDebugLog('Notification skipped')
+          return
+        }
+
         if ('Notification' in window) {
           if (Notification.permission !== 'granted') {
             setNewMessageNotificationDebugLog('Notification skipped')
             return
           }
 
+          notificationCooldownUntilRef.current = now + NOTIFICATION_COOLDOWN_MS
           try {
             showBrowserNotification(payload)
             setNewMessageNotificationDebugLog('Notification fired (Notification API)')
@@ -419,6 +428,7 @@ export default function GlobalChat() {
           return
         }
 
+        notificationCooldownUntilRef.current = now + NOTIFICATION_COOLDOWN_MS
         const registration = await getServiceWorkerRegistration()
         if (!registration) {
           setNewMessageNotificationDebugLog('Notification error: Service worker not ready')

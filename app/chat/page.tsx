@@ -303,47 +303,31 @@ export default function GlobalChat() {
 
     if (!message) return
 
-    void (async () => {
-      const payload = buildIncomingNotificationPayload(message)
+    const isMobileBrowser =
+      typeof navigator !== 'undefined' &&
+      (
+        (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData?.mobile === true ||
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '')
+      )
 
-      try {
-        if (typeof window === 'undefined') {
-          setNewMessageNotificationDebugLog('Notification skipped')
-          return
-        }
+    if (isMobileBrowser) {
+      setNewMessageNotificationDebugLog('Notification skipped (mobile not supported yet)')
+      return
+    }
 
-        if ('Notification' in window) {
-          if (Notification.permission !== 'granted') {
-            setNewMessageNotificationDebugLog('Notification skipped')
-            return
-          }
+    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') {
+      setNewMessageNotificationDebugLog('Notification skipped')
+      return
+    }
 
-          try {
-            showBrowserNotification(payload)
-            setNewMessageNotificationDebugLog('Notification fired (Notification API)')
-            return
-          } catch (notificationError) {
-            console.error('[Notifications] Notification API failed, falling back to service worker', notificationError)
-          }
-        }
-
-        if (!('serviceWorker' in navigator)) {
-          setNewMessageNotificationDebugLog('Notification skipped')
-          return
-        }
-
-        const registration = await navigator.serviceWorker.ready
-        await registration.showNotification('SpreadZ', {
-          body: payload.body,
-          icon: '/icon.png',
-        })
-        setNewMessageNotificationDebugLog('Notification fired (Service Worker)')
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        console.error('[Notifications] New message notification failed', error)
-        setNewMessageNotificationDebugLog(`Notification error: ${errorMessage}`)
-      }
-    })()
+    try {
+      showBrowserNotification(buildIncomingNotificationPayload(message))
+      setNewMessageNotificationDebugLog('Notification fired')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[Notifications] New message notification failed', error)
+      setNewMessageNotificationDebugLog(`Notification error: ${errorMessage}`)
+    }
   }, [buildIncomingNotificationPayload, showBrowserNotification])
 
   const handleTestNotification = useCallback(() => {

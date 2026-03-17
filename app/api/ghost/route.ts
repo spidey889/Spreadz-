@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const OPENROUTER_MODEL = 'openrouter/free'
+const OPENROUTER_MODEL = 'mistralai/mistral-7b-instruct:free'
 const MAX_TOKENS = 140
 
 type GhostRequestPayload = {
@@ -106,7 +106,8 @@ export async function POST(request: Request) {
   }
 
   const data = (await response.json()) as OpenRouterChatResponse
-  const text = data?.choices?.[0]?.message?.content?.trim()
+  const content = data?.choices?.[0]?.message?.content
+  const text = typeof content === 'string' ? content.trim() : ''
 
   if (!text) {
     console.warn('[Ghost] Empty OpenRouter response', { data })

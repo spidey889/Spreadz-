@@ -258,18 +258,17 @@ export default function GlobalChat() {
       return
     }
 
+    const targetUrl = new URL(payload.url || '/chat', window.location.origin).href
     const notification = new Notification(payload.title, {
       body: payload.body,
       icon: '/icon-192x192.png',
       tag: payload.tag,
-      data: { url: payload.url },
+      data: { url: targetUrl },
     })
 
     notification.onclick = () => {
       window.focus()
-      if (payload.url) {
-        window.location.href = payload.url
-      }
+      window.location.assign(targetUrl)
       notification.close()
     }
   }, [])

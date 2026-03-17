@@ -49,22 +49,24 @@ self.addEventListener('notificationclick', (event) => {
   const targetUrl = new URL(url, self.location.origin).href
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientsList) => {
-      for (const client of clientsList) {
-        if (client.url === targetUrl && 'focus' in client) {
-          return client.focus()
-        }
-      }
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clientsList) => {
+      const existingClient = clientsList[0]
 
-      if (clientsList[0] && 'navigate' in clientsList[0]) {
-        return clientsList[0].navigate(targetUrl).then(() => clientsList[0].focus())
+      if (existingClient) {
+        if ('focus' in existingClient) {
+          await existingClient.focus()
+        }
+
+        if ('navigate' in existingClient) {
+          await existingClient.navigate(targetUrl)
+        }
+
+        return
       }
 
       if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl)
+        await self.clients.openWindow(targetUrl)
       }
-
-      return undefined
     })
   )
 })

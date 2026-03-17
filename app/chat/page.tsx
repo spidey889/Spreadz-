@@ -101,6 +101,7 @@ export default function GlobalChat() {
   const [notificationErrorMessage, setNotificationErrorMessage] = useState('')
   const [testNotificationDebugLog, setTestNotificationDebugLog] = useState('')
   const [newMessageDebugTick, setNewMessageDebugTick] = useState(0)
+  const [newMessageNotificationDebugLog, setNewMessageNotificationDebugLog] = useState('')
   const [friends, setFriends] = useState<{ id: string; username: string }[]>([])
   const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
   const [friendRequestQueue, setFriendRequestQueue] = useState<FriendRequest[]>([])
@@ -300,8 +301,20 @@ export default function GlobalChat() {
   const handleNewMessageDebug = useCallback((message?: any) => {
     setNewMessageDebugTick(prev => prev + 1)
 
-    if (message) {
+    if (!message) return
+
+    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') {
+      setNewMessageNotificationDebugLog('Notification skipped')
+      return
+    }
+
+    try {
       showBrowserNotification(buildIncomingNotificationPayload(message))
+      setNewMessageNotificationDebugLog('Notification fired')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[Notifications] New message notification failed', error)
+      setNewMessageNotificationDebugLog(`Notification error: ${errorMessage}`)
     }
   }, [buildIncomingNotificationPayload, showBrowserNotification])
 
@@ -1127,6 +1140,9 @@ export default function GlobalChat() {
                 </div>
                 <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
                   {newMessageDebugTick > 0 ? 'New message detected' : ''}
+                </div>
+                <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
+                  {newMessageNotificationDebugLog}
                 </div>
                 <div className="input-wrap">
                   <input

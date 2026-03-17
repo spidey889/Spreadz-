@@ -26,7 +26,10 @@ self.addEventListener('notificationclick', (event) => {
       }
 
       if (self.clients.openWindow) {
-        await self.clients.openWindow(targetUrl)
+        const openedClient = await self.clients.openWindow(targetUrl)
+        if (openedClient && 'focus' in openedClient) {
+          await openedClient.focus()
+        }
       }
     })
   )

@@ -266,8 +266,8 @@ export default function GlobalChat() {
 
     notification.onclick = () => {
       window.focus()
-      window.location.assign(targetUrl)
       notification.close()
+      window.location.assign(targetUrl)
     }
   }, [])
 
@@ -326,11 +326,13 @@ export default function GlobalChat() {
       return 'Notification error: Service worker not ready'
     }
 
-    await registration.showNotification('SpreadZ', {
+    const targetUrl = new URL(payload.url || '/chat', window.location.origin).href
+
+    await registration.showNotification(payload.title, {
       body: payload.body,
       icon: '/icon.png',
       tag: payload.tag,
-      data: { url: payload.url },
+      data: { url: targetUrl },
     })
 
     return 'Notification fired (Service Worker)'

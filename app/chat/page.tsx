@@ -211,37 +211,16 @@ export default function GlobalChat() {
   const waitForPushRegistration = useCallback(async () => {
     if (!('serviceWorker' in navigator)) return null
 
-    const waitForReadyRegistration = async () => {
-      try {
-        const readyRegistration = await Promise.race<ServiceWorkerRegistration | null>([
-          navigator.serviceWorker.ready,
-          new Promise<null>(resolve => setTimeout(() => resolve(null), 10000)),
-        ])
-
-        if (readyRegistration?.active) return readyRegistration
-      } catch (error) {
-        console.error('[Push] Waiting for service worker failed', error)
-      }
-
-      return null
-    }
-
-    const readyRegistration = await waitForReadyRegistration()
-    if (readyRegistration) return readyRegistration
-
-    try {
-      const existingRegistration =
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const registration =
         (await navigator.serviceWorker.getRegistration('/')) ||
         (await navigator.serviceWorker.getRegistration())
 
-      if (existingRegistration?.active) return existingRegistration
-
-      await navigator.serviceWorker.register('/sw.js')
-      return await waitForReadyRegistration()
-    } catch (error) {
-      console.error('[Push] Service worker registration failed', error)
-      return null
+      if (registration?.active) return registration
+      await new Promise(resolve => setTimeout(resolve, 500))
     }
+
+    return null
   }, [])
 
   const getStoredPushSubscription = useCallback(async (): Promise<PushSubscriptionJSON | null> => {

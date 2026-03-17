@@ -234,6 +234,34 @@ export default function GlobalChat() {
     }
   }, [])
 
+  const getServiceWorkerRegistration = useCallback(async (): Promise<ServiceWorkerRegistration | null> => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      return null
+    }
+
+    try {
+      const existingRegistration =
+        (await navigator.serviceWorker.getRegistration('/')) ||
+        (await navigator.serviceWorker.getRegistration())
+
+      if (existingRegistration?.active) {
+        return existingRegistration
+      }
+
+      await navigator.serviceWorker.register('/sw.js')
+
+      const readyRegistration = await Promise.race<ServiceWorkerRegistration | null>([
+        navigator.serviceWorker.ready,
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 10000)),
+      ])
+
+      return readyRegistration
+    } catch (error) {
+      console.error('[Notifications] Service worker registration failed', error)
+      return null
+    }
+  }, [])
+
   const enableNotifications = useCallback(async (): Promise<boolean> => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       setNotificationStatus('unsupported')
@@ -332,7 +360,12 @@ export default function GlobalChat() {
           return
         }
 
-        const registration = await navigator.serviceWorker.ready
+        const registration = await getServiceWorkerRegistration()
+        if (!registration) {
+          setNewMessageNotificationDebugLog('Notification error: Service worker not ready')
+          return
+        }
+
         await registration.showNotification('SpreadZ', {
           body: payload.body,
           icon: '/icon.png',
@@ -344,7 +377,7 @@ export default function GlobalChat() {
         setNewMessageNotificationDebugLog(`Notification error: ${errorMessage}`)
       }
     })()
-  }, [buildIncomingNotificationPayload, showBrowserNotification])
+  }, [buildIncomingNotificationPayload, getServiceWorkerRegistration, showBrowserNotification])
 
   const handleTestNotification = useCallback(() => {
     setTestNotificationDebugLog('Test notification triggered')

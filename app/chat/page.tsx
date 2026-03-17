@@ -117,6 +117,10 @@ export default function GlobalChat() {
   const prevRoomIndexRef = useRef<number>(0)
   const inputHadContentRef = useRef<Record<string, boolean>>({})
   const notifiedMessageIdsRef = useRef<Set<string>>(new Set())
+  const currentNotificationPermission =
+    !isMounted || typeof window === 'undefined' || !('Notification' in window)
+      ? 'default'
+      : Notification.permission
 
   useEffect(() => {
     let cancelled = false
@@ -1128,6 +1132,9 @@ export default function GlobalChat() {
                 <div className={`hint${isKeyboardOpen ? ' hidden' : ''}`}>
                   <span className="hint-badge">Swipe Up</span>
                   <span>for new people &amp; topics</span>
+                </div>
+                <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 8 }}>
+                  Notification status: {currentNotificationPermission}
                 </div>
                 <button
                   type="button"

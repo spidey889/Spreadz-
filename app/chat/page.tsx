@@ -221,7 +221,6 @@ export default function GlobalChat() {
           : typeof message?.username === 'string' && message.username.trim()
             ? message.username.trim()
         : 'Someone'
-      const roomHeadline = rooms.find(room => room.id === message?.room_id)?.headline
       const content =
         typeof message?.content === 'string' && message.content.trim()
           ? message.content.trim()
@@ -242,13 +241,13 @@ export default function GlobalChat() {
       const targetUrl = notificationParams.toString() ? `/chat?${notificationParams.toString()}` : '/chat'
 
       return {
-        title: roomHeadline ? `${sender} in ${roomHeadline}` : `${sender} sent a message`,
+        title: sender,
         body: preview,
         url: targetUrl,
         tag: `spreadz-message-${message?.id || message?.room_id || 'live'}`,
       }
     },
-    [rooms]
+    []
   )
 
   const showBrowserNotification = useCallback((payload: NotificationPayload) => {

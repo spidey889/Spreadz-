@@ -335,14 +335,12 @@ export default function GlobalChat() {
         )
 
         if (ghostUserError) {
-          console.error('[Ghost] Supabase ghost user upsert failed', {
+          console.warn('[Ghost] Supabase ghost user upsert failed, continuing without user row', {
             code: ghostUserError.code,
             message: ghostUserError.message,
             details: ghostUserError.details,
             hint: ghostUserError.hint,
           })
-          ghostPendingRef.current[roomId] = false
-          return
         }
 
         const insertGhostMessage = async (attempt = 0) => {

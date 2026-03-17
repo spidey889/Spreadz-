@@ -101,7 +101,6 @@ export default function GlobalChat() {
   const [notificationStatus, setNotificationStatus] = useState<'idle' | 'enabling' | 'enabled' | 'unsupported' | 'error'>('idle')
   const [notificationErrorMessage, setNotificationErrorMessage] = useState('')
   const [debugMode, setDebugMode] = useState(false)
-  const [testNotificationDebugLog, setTestNotificationDebugLog] = useState('')
   const [newMessageDebugTick, setNewMessageDebugTick] = useState(0)
   const [newMessageNotificationDebugLog, setNewMessageNotificationDebugLog] = useState('')
   const [friends, setFriends] = useState<{ id: string; username: string }[]>([])
@@ -123,10 +122,6 @@ export default function GlobalChat() {
   const handledNotificationNavigationRef = useRef<string>('')
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
   const notificationCooldownUntilRef = useRef(0)
-  const currentNotificationPermission =
-    !isMounted || typeof window === 'undefined' || !('Notification' in window)
-      ? 'default'
-      : Notification.permission
 
   useEffect(() => {
     let cancelled = false
@@ -276,6 +271,23 @@ export default function GlobalChat() {
     }
   }, [])
 
+  const rememberNotificationKey = useCallback((notificationKey: string) => {
+    if (notifiedMessageKeysRef.current.has(notificationKey)) {
+      return false
+    }
+
+    notifiedMessageKeysRef.current.add(notificationKey)
+
+    if (notifiedMessageKeysRef.current.size > 200) {
+      const oldestNotificationKey = notifiedMessageKeysRef.current.values().next().value
+      if (oldestNotificationKey) {
+        notifiedMessageKeysRef.current.delete(oldestNotificationKey)
+      }
+    }
+
+    return true
+  }, [])
+
   const getServiceWorkerRegistration = useCallback(async (): Promise<ServiceWorkerRegistration | null> => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
       return null
@@ -303,6 +315,55 @@ export default function GlobalChat() {
       return null
     }
   }, [])
+
+  const showServiceWorkerNotification = useCallback(async (payload: NotificationPayload) => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      return 'Notification skipped'
+    }
+
+    const registration = await getServiceWorkerRegistration()
+    if (!registration) {
+      return 'Notification error: Service worker not ready'
+    }
+
+    await registration.showNotification('SpreadZ', {
+      body: payload.body,
+      icon: '/icon.png',
+      tag: payload.tag,
+      data: { url: payload.url },
+    })
+
+    return 'Notification fired (Service Worker)'
+  }, [getServiceWorkerRegistration])
+
+  const showIncomingNotification = useCallback(async (payload: NotificationPayload) => {
+    if (typeof window === 'undefined') {
+      return 'Notification skipped'
+    }
+
+    const now = Date.now()
+    if (now < notificationCooldownUntilRef.current) {
+      return 'Notification skipped'
+    }
+
+    if ('Notification' in window) {
+      if (Notification.permission !== 'granted') {
+        return 'Notification skipped'
+      }
+
+      notificationCooldownUntilRef.current = now + NOTIFICATION_COOLDOWN_MS
+
+      try {
+        showBrowserNotification(payload)
+        return 'Notification fired (Notification API)'
+      } catch (notificationError) {
+        console.error('[Notifications] Notification API failed, falling back to service worker', notificationError)
+      }
+    }
+
+    notificationCooldownUntilRef.current = now + NOTIFICATION_COOLDOWN_MS
+    return showServiceWorkerNotification(payload)
+  }, [showBrowserNotification, showServiceWorkerNotification])
 
   const enableNotifications = useCallback(async (): Promise<boolean> => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
@@ -381,88 +442,23 @@ export default function GlobalChat() {
       }
 
       const notificationKey = getNotificationMessageKey(message)
-      if (notifiedMessageKeysRef.current.has(notificationKey)) {
+      if (!rememberNotificationKey(notificationKey)) {
         setNewMessageNotificationDebugLog('Notification skipped')
         return
-      }
-
-      notifiedMessageKeysRef.current.add(notificationKey)
-      if (notifiedMessageKeysRef.current.size > 200) {
-        const oldestNotificationKey = notifiedMessageKeysRef.current.values().next().value
-        if (oldestNotificationKey) {
-          notifiedMessageKeysRef.current.delete(oldestNotificationKey)
-        }
       }
 
       const payload = buildIncomingNotificationPayload(message)
 
       try {
-        if (typeof window === 'undefined') {
-          setNewMessageNotificationDebugLog('Notification skipped')
-          return
-        }
-
-        const now = Date.now()
-        if (now < notificationCooldownUntilRef.current) {
-          setNewMessageNotificationDebugLog('Notification skipped')
-          return
-        }
-
-        if ('Notification' in window) {
-          if (Notification.permission !== 'granted') {
-            setNewMessageNotificationDebugLog('Notification skipped')
-            return
-          }
-
-          notificationCooldownUntilRef.current = now + NOTIFICATION_COOLDOWN_MS
-          try {
-            showBrowserNotification(payload)
-            setNewMessageNotificationDebugLog('Notification fired (Notification API)')
-            return
-          } catch (notificationError) {
-            console.error('[Notifications] Notification API failed, falling back to service worker', notificationError)
-          }
-        }
-
-        if (!('serviceWorker' in navigator)) {
-          setNewMessageNotificationDebugLog('Notification skipped')
-          return
-        }
-
-        notificationCooldownUntilRef.current = now + NOTIFICATION_COOLDOWN_MS
-        const registration = await getServiceWorkerRegistration()
-        if (!registration) {
-          setNewMessageNotificationDebugLog('Notification error: Service worker not ready')
-          return
-        }
-
-        await registration.showNotification('SpreadZ', {
-          body: payload.body,
-          icon: '/icon.png',
-          tag: payload.tag,
-          data: { url: payload.url },
-        })
-        setNewMessageNotificationDebugLog('Notification fired (Service Worker)')
+        const notificationResult = await showIncomingNotification(payload)
+        setNewMessageNotificationDebugLog(notificationResult)
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         console.error('[Notifications] New message notification failed', error)
         setNewMessageNotificationDebugLog(`Notification error: ${errorMessage}`)
       }
     })()
-  }, [buildIncomingNotificationPayload, getCurrentUserId, getNotificationMessageKey, getServiceWorkerRegistration, showBrowserNotification])
-
-  const handleTestNotification = useCallback(() => {
-    setTestNotificationDebugLog('Test notification triggered')
-    if (typeof window === 'undefined' || !('Notification' in window)) return
-    if (Notification.permission !== 'granted') return
-
-    showBrowserNotification({
-      title: 'SpreadZ test',
-      body: 'This is a manual test notification.',
-      url: '/chat',
-      tag: 'spreadz-manual-test',
-    })
-  }, [showBrowserNotification])
+  }, [buildIncomingNotificationPayload, getCurrentUserId, getNotificationMessageKey, rememberNotificationKey, showIncomingNotification])
 
   const handleNotificationPromptAfterSend = useCallback(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return
@@ -1290,17 +1286,6 @@ export default function GlobalChat() {
                   <span className="hint-badge">Swipe Up</span>
                   <span>for new people &amp; topics</span>
                 </div>
-                <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 8 }}>
-                  Notification status: {currentNotificationPermission}
-                </div>
-                <button
-                  type="button"
-                  className="friend-request-btn decline"
-                  onClick={handleTestNotification}
-                  style={{ marginBottom: 10 }}
-                >
-                  Test notification
-                </button>
                 <button
                   type="button"
                   className="friend-request-btn decline"
@@ -1311,9 +1296,6 @@ export default function GlobalChat() {
                 </button>
                 {debugMode && (
                   <>
-                    <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
-                      {testNotificationDebugLog}
-                    </div>
                     <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
                       {newMessageDebugTick > 0 ? 'New message detected' : ''}
                     </div>

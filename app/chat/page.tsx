@@ -353,7 +353,6 @@ export default function GlobalChat() {
               display_name: ghostProfile.name,
               college: ghostProfile.college,
               room_id: roomId,
-              user_uuid: ghostProfile.uuid,
               created_at: new Date().toISOString(),
             })
             .select()

@@ -100,6 +100,7 @@ export default function GlobalChat() {
   const [notificationStatus, setNotificationStatus] = useState<'idle' | 'enabling' | 'enabled' | 'unsupported' | 'error'>('idle')
   const [notificationErrorMessage, setNotificationErrorMessage] = useState('')
   const [testNotificationDebugLog, setTestNotificationDebugLog] = useState('')
+  const [newMessageDebugTick, setNewMessageDebugTick] = useState(0)
   const [friends, setFriends] = useState<{ id: string; username: string }[]>([])
   const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
   const [friendRequestQueue, setFriendRequestQueue] = useState<FriendRequest[]>([])
@@ -290,6 +291,10 @@ export default function GlobalChat() {
 
   const closeNotificationSheet = useCallback(() => {
     setNotificationSheetOpen(false)
+  }, [])
+
+  const handleNewMessageDebug = useCallback(() => {
+    setNewMessageDebugTick(prev => prev + 1)
   }, [])
 
   const handleTestNotification = useCallback(() => {
@@ -597,6 +602,7 @@ export default function GlobalChat() {
           setRoomMessages(prev => {
             const existing = prev[room.id] || []
             if (existing.some(msg => msg.id === m.id)) return prev
+            handleNewMessageDebug()
             return { ...prev, [room.id]: [...existing, newMessage] }
           })
     }
@@ -604,7 +610,7 @@ export default function GlobalChat() {
       .subscribe()
 
     channelRef.current = channel
-  }, [buildMessageFromRow, scheduleReveal])
+  }, [buildMessageFromRow, handleNewMessageDebug, scheduleReveal])
 
 
   // When rooms load, fetch + subscribe for room index 0
@@ -966,6 +972,7 @@ export default function GlobalChat() {
 
     // Reveal immediately for user's own message
     scheduleReveal(tempId, 0)
+    handleNewMessageDebug()
 
     setRoomMessages(prev => ({
       ...prev,
@@ -1004,7 +1011,7 @@ export default function GlobalChat() {
 
       handleNotificationPromptAfterSend()
     }
-  }, [buildMessageFromRow, getCurrentUserId, handleNotificationPromptAfterSend, inputTexts, scheduleReveal, university, username])
+  }, [buildMessageFromRow, getCurrentUserId, handleNewMessageDebug, handleNotificationPromptAfterSend, inputTexts, scheduleReveal, university, username])
 
   const handleProfileSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()
@@ -1148,6 +1155,9 @@ export default function GlobalChat() {
                 </button>
                 <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
                   {testNotificationDebugLog}
+                </div>
+                <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
+                  {newMessageDebugTick > 0 ? 'New message detected' : ''}
                 </div>
                 <div className="input-wrap">
                   <input

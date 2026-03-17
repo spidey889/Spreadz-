@@ -110,6 +110,7 @@ export default function GlobalChat() {
 
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
+  const notificationChannelRef = useRef<any>(null)
   const friendRequestChannelRef = useRef<any>(null)
   const friendRequestsLoadedRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -117,6 +118,7 @@ export default function GlobalChat() {
   const pendingSendRef = useRef<{ roomId: string } | null>(null)
   const prevRoomIndexRef = useRef<number>(0)
   const inputHadContentRef = useRef<Record<string, boolean>>({})
+  const notifiedMessageIdsRef = useRef<Set<string>>(new Set())
   const currentNotificationPermission =
     !isMounted || typeof window === 'undefined' || !('Notification' in window)
       ? 'default'
@@ -191,18 +193,12 @@ export default function GlobalChat() {
 
   const buildIncomingNotificationPayload = useCallback(
     (message: any): NotificationPayload => {
-      const sender =
-        typeof message?.display_name === 'string' && message.display_name.trim()
-          ? message.display_name.trim()
-          : typeof message?.username === 'string' && message.username.trim()
-            ? message.username.trim()
+      const sender = typeof message?.display_name === 'string' && message.display_name.trim()
+        ? message.display_name.trim()
         : 'Someone'
       const roomHeadline = rooms.find(room => room.id === message?.room_id)?.headline
-      const content =
-        typeof message?.content === 'string' && message.content.trim()
-          ? message.content.trim()
-          : typeof message?.text === 'string' && message.text.trim()
-            ? message.text.trim()
+      const content = typeof message?.content === 'string' && message.content.trim()
+        ? message.content.trim()
         : 'sent a new message'
       const preview = content.length > 88 ? `${content.slice(0, 85)}...` : content
 
@@ -297,13 +293,9 @@ export default function GlobalChat() {
     setNotificationSheetOpen(false)
   }, [])
 
-  const handleNewMessageDebug = useCallback((message?: any) => {
+  const handleNewMessageDebug = useCallback(() => {
     setNewMessageDebugTick(prev => prev + 1)
-
-    if (message) {
-      showBrowserNotification(buildIncomingNotificationPayload(message))
-    }
-  }, [buildIncomingNotificationPayload, showBrowserNotification])
+  }, [])
 
   const handleTestNotification = useCallback(() => {
     setTestNotificationDebugLog('Test notification triggered')
@@ -610,7 +602,7 @@ export default function GlobalChat() {
           setRoomMessages(prev => {
             const existing = prev[room.id] || []
             if (existing.some(msg => msg.id === m.id)) return prev
-            handleNewMessageDebug(newMessage)
+            handleNewMessageDebug()
             return { ...prev, [room.id]: [...existing, newMessage] }
           })
     }
@@ -633,6 +625,45 @@ export default function GlobalChat() {
       }
     }
   }, [rooms, fetchMessagesForRoom, subscribeToRoom])
+
+  useEffect(() => {
+    if (!authReady || typeof window === 'undefined' || !('Notification' in window)) return
+
+    if (notificationChannelRef.current) {
+      supabase.removeChannel(notificationChannelRef.current)
+      notificationChannelRef.current = null
+    }
+
+    const channel = supabase
+      .channel('message-notifications')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const message = payload.new as any
+          const messageId = typeof message?.id === 'string' ? message.id : ''
+
+          if (!messageId || notifiedMessageIdsRef.current.has(messageId)) return
+          notifiedMessageIdsRef.current.add(messageId)
+
+          const currentUserId = getCurrentUserId()
+          if (message?.user_uuid && currentUserId && message.user_uuid === currentUserId) return
+          if (Notification.permission !== 'granted') return
+
+          showBrowserNotification(buildIncomingNotificationPayload(message))
+        }
+      )
+      .subscribe()
+
+    notificationChannelRef.current = channel
+
+    return () => {
+      if (notificationChannelRef.current) {
+        supabase.removeChannel(notificationChannelRef.current)
+        notificationChannelRef.current = null
+      }
+    }
+  }, [authReady, buildIncomingNotificationPayload, getCurrentUserId, showBrowserNotification])
 
   // Detect room changes via IntersectionObserver + FRIDAY tracking
   useEffect(() => {
@@ -941,7 +972,7 @@ export default function GlobalChat() {
 
     // Reveal immediately for user's own message
     scheduleReveal(tempId, 0)
-    handleNewMessageDebug(optimisticMsg)
+    handleNewMessageDebug()
 
     setRoomMessages(prev => ({
       ...prev,

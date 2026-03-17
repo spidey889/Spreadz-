@@ -99,6 +99,7 @@ export default function GlobalChat() {
   const [notificationSheetOpen, setNotificationSheetOpen] = useState(false)
   const [notificationStatus, setNotificationStatus] = useState<'idle' | 'enabling' | 'enabled' | 'unsupported' | 'error'>('idle')
   const [notificationErrorMessage, setNotificationErrorMessage] = useState('')
+  const [testNotificationDebugLog, setTestNotificationDebugLog] = useState('')
   const [friends, setFriends] = useState<{ id: string; username: string }[]>([])
   const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
   const [friendRequestQueue, setFriendRequestQueue] = useState<FriendRequest[]>([])
@@ -292,6 +293,7 @@ export default function GlobalChat() {
   }, [])
 
   const handleTestNotification = useCallback(() => {
+    setTestNotificationDebugLog('Test notification triggered')
     if (typeof window === 'undefined' || !('Notification' in window)) return
     if (Notification.permission !== 'granted') return
 
@@ -1144,6 +1146,9 @@ export default function GlobalChat() {
                 >
                   Test notification
                 </button>
+                <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
+                  {testNotificationDebugLog}
+                </div>
                 <div className="input-wrap">
                   <input
                     type="text"

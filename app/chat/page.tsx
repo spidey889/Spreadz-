@@ -110,6 +110,7 @@ export default function GlobalChat() {
   const [friendsSheetOpen, setFriendsSheetOpen] = useState(false)
   const [notificationSheetOpen, setNotificationSheetOpen] = useState(false)
   const [notificationStatus, setNotificationStatus] = useState<'idle' | 'enabling' | 'enabled' | 'unsupported' | 'error'>('idle')
+  const [notificationErrorMessage, setNotificationErrorMessage] = useState('')
   const [friends, setFriends] = useState<{ id: string; username: string }[]>([])
   const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
   const [friendRequestQueue, setFriendRequestQueue] = useState<FriendRequest[]>([])
@@ -290,6 +291,7 @@ export default function GlobalChat() {
             localStorage.removeItem(PUSH_SUBSCRIPTION_STORAGE_KEY)
             localStorage.removeItem(PUSH_PROMPT_STATUS_STORAGE_KEY)
             setNotificationStatus('idle')
+            setNotificationErrorMessage('')
           }
         }
       } catch (error) {
@@ -307,6 +309,7 @@ export default function GlobalChat() {
       !('PushManager' in window)
     ) {
       setNotificationStatus('unsupported')
+      setNotificationErrorMessage('This browser does not support web push.')
       return null
     }
 
@@ -314,16 +317,19 @@ export default function GlobalChat() {
     if (!vapidPublicKey) {
       console.error('[Push] Missing NEXT_PUBLIC_VAPID_PUBLIC_KEY')
       setNotificationStatus('error')
+      setNotificationErrorMessage('The notification public key is missing in this deployment.')
       return null
     }
 
     if (Notification.permission === 'denied') {
       localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
       setNotificationStatus('error')
+      setNotificationErrorMessage('Notifications are blocked for this app or site.')
       return null
     }
 
     setNotificationStatus('enabling')
+    setNotificationErrorMessage('')
 
     try {
       const permission =
@@ -335,8 +341,10 @@ export default function GlobalChat() {
         if (permission === 'denied') {
           localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
           setNotificationStatus('error')
+          setNotificationErrorMessage('Notifications were blocked for this app or site.')
         } else {
           setNotificationStatus('idle')
+          setNotificationErrorMessage('')
         }
         return null
       }
@@ -345,6 +353,7 @@ export default function GlobalChat() {
       if (!registration) {
         console.error('[Push] No active service worker registration found')
         setNotificationStatus('error')
+        setNotificationErrorMessage('The app could not get an active service worker.')
         return null
       }
 
@@ -360,10 +369,12 @@ export default function GlobalChat() {
       localStorage.setItem(PUSH_SUBSCRIPTION_STORAGE_KEY, JSON.stringify(subscriptionJson))
       localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'enabled')
       setNotificationStatus('enabled')
+      setNotificationErrorMessage('')
       return subscriptionJson
     } catch (error) {
       console.error('[Push] Enable notifications failed', error)
       setNotificationStatus('error')
+      setNotificationErrorMessage(error instanceof Error ? error.message : 'Notification setup failed.')
       return null
     }
   }, [waitForPushRegistration])
@@ -442,18 +453,21 @@ export default function GlobalChat() {
 
     if (!supportsPush) {
       setNotificationStatus('unsupported')
+      setNotificationErrorMessage('This browser does not support web push.')
       return
     }
 
     if (Notification.permission === 'granted') {
       localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'enabled')
       setNotificationStatus('enabled')
+      setNotificationErrorMessage('')
       return
     }
 
     if (Notification.permission === 'denied') {
       localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
       setNotificationStatus('error')
+      setNotificationErrorMessage('Notifications are blocked for this app or site.')
     }
   }, [isMounted])
 
@@ -1254,7 +1268,7 @@ export default function GlobalChat() {
             </div>
             {notificationStatus === 'error' && (
               <div className="notify-error">
-                Notifications are not ready here yet. Try again from the installed app or deployed build.
+                {notificationErrorMessage || 'Notifications are not ready here yet. Try again from the installed app or deployed build.'}
               </div>
             )}
           </div>

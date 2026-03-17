@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const OPENROUTER_MODEL = 'arcee-ai/trinity-mini:free'
-const MAX_TOKENS = 140
+const MAX_TOKENS = 256
 
 type GhostRequestPayload = {
   message?: string
@@ -89,6 +89,7 @@ export async function POST(request: Request) {
         ],
         temperature: 0.9,
         max_tokens: MAX_TOKENS,
+        reasoning: { exclude: true },
         stream: false,
       }),
     })

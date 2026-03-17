@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const OPENROUTER_MODEL = 'arcee-ai/trinity-mini:free'
+const OPENROUTER_MODEL = 'arcee-ai/trinity-large-preview:free'
 const MAX_TOKENS = 256
 
 type GhostRequestPayload = {

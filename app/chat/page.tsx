@@ -246,7 +246,7 @@ export default function GlobalChat() {
       const targetUrl = notificationParams.toString() ? `/chat?${notificationParams.toString()}` : '/chat'
 
       return {
-        title: roomHeadline ? `${sender} in ${roomHeadline}` : sender,
+        title: roomHeadline ? `${sender} in ${roomHeadline}` : `${sender} sent a message`,
         body: preview,
         url: targetUrl,
         tag: `spreadz-message-${message?.id || message?.room_id || 'live'}`,
@@ -435,7 +435,7 @@ export default function GlobalChat() {
           return
         }
 
-        await registration.showNotification(payload.title, {
+        await registration.showNotification('SpreadZ', {
           body: payload.body,
           icon: '/icon.png',
           tag: payload.tag,

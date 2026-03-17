@@ -118,6 +118,8 @@ export default function GlobalChat() {
   const pendingSendRef = useRef<{ roomId: string } | null>(null)
   const prevRoomIndexRef = useRef<number>(0)
   const inputHadContentRef = useRef<Record<string, boolean>>({})
+  const handledNotificationNavigationRef = useRef<string>('')
+  const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
   const currentNotificationPermission =
     !isMounted || typeof window === 'undefined' || !('Notification' in window)
       ? 'default'
@@ -190,6 +192,29 @@ export default function GlobalChat() {
     return ''
   }, [])
 
+  const getNotificationMessageKey = useCallback((message: any) => {
+    if (typeof message?.id === 'string' && message.id.trim()) {
+      return message.id.trim()
+    }
+
+    const roomId =
+      typeof message?.room_id === 'string' && message.room_id.trim()
+        ? message.room_id.trim()
+        : 'unknown-room'
+    const createdAt =
+      typeof message?.created_at === 'string' && message.created_at.trim()
+        ? message.created_at.trim()
+        : 'unknown-created-at'
+    const content =
+      typeof message?.content === 'string' && message.content.trim()
+        ? message.content.trim()
+        : typeof message?.text === 'string' && message.text.trim()
+          ? message.text.trim()
+          : 'unknown-content'
+
+    return `${roomId}:${createdAt}:${content}`
+  }, [])
+
   const buildIncomingNotificationPayload = useCallback(
     (message: any): NotificationPayload => {
       const sender =
@@ -204,13 +229,24 @@ export default function GlobalChat() {
           ? message.content.trim()
           : typeof message?.text === 'string' && message.text.trim()
             ? message.text.trim()
-        : 'sent a new message'
+            : 'sent a new message'
       const preview = content.length > 88 ? `${content.slice(0, 85)}...` : content
+      const notificationParams = new URLSearchParams()
+
+      if (typeof message?.room_id === 'string' && message.room_id.trim()) {
+        notificationParams.set('roomId', message.room_id.trim())
+      }
+
+      if (typeof message?.id === 'string' && message.id.trim()) {
+        notificationParams.set('messageId', message.id.trim())
+      }
+
+      const targetUrl = notificationParams.toString() ? `/chat?${notificationParams.toString()}` : '/chat'
 
       return {
         title: roomHeadline ? `${sender} in ${roomHeadline}` : `${sender} sent a message`,
         body: preview,
-        url: '/chat',
+        url: targetUrl,
         tag: `spreadz-message-${message?.id || message?.room_id || 'live'}`,
       }
     },
@@ -226,10 +262,14 @@ export default function GlobalChat() {
       body: payload.body,
       icon: '/icon-192x192.png',
       tag: payload.tag,
+      data: { url: payload.url },
     })
 
     notification.onclick = () => {
       window.focus()
+      if (payload.url) {
+        window.location.href = payload.url
+      }
       notification.close()
     }
   }, [])
@@ -338,6 +378,20 @@ export default function GlobalChat() {
         return
       }
 
+      const notificationKey = getNotificationMessageKey(message)
+      if (notifiedMessageKeysRef.current.has(notificationKey)) {
+        setNewMessageNotificationDebugLog('Notification skipped')
+        return
+      }
+
+      notifiedMessageKeysRef.current.add(notificationKey)
+      if (notifiedMessageKeysRef.current.size > 200) {
+        const oldestNotificationKey = notifiedMessageKeysRef.current.values().next().value
+        if (oldestNotificationKey) {
+          notifiedMessageKeysRef.current.delete(oldestNotificationKey)
+        }
+      }
+
       const payload = buildIncomingNotificationPayload(message)
 
       try {
@@ -375,6 +429,8 @@ export default function GlobalChat() {
         await registration.showNotification('SpreadZ', {
           body: payload.body,
           icon: '/icon.png',
+          tag: payload.tag,
+          data: { url: payload.url },
         })
         setNewMessageNotificationDebugLog('Notification fired (Service Worker)')
       } catch (error) {
@@ -383,7 +439,7 @@ export default function GlobalChat() {
         setNewMessageNotificationDebugLog(`Notification error: ${errorMessage}`)
       }
     })()
-  }, [buildIncomingNotificationPayload, getCurrentUserId, getServiceWorkerRegistration, showBrowserNotification])
+  }, [buildIncomingNotificationPayload, getCurrentUserId, getNotificationMessageKey, getServiceWorkerRegistration, showBrowserNotification])
 
   const handleTestNotification = useCallback(() => {
     setTestNotificationDebugLog('Test notification triggered')
@@ -713,6 +769,39 @@ export default function GlobalChat() {
       }
     }
   }, [rooms, fetchMessagesForRoom, subscribeToRoom])
+
+  useEffect(() => {
+    if (!isMounted || rooms.length === 0 || typeof window === 'undefined') return
+
+    const searchParams = new URLSearchParams(window.location.search)
+    const targetRoomId = searchParams.get('roomId')
+    const targetMessageId = searchParams.get('messageId') || ''
+
+    if (!targetRoomId) return
+
+    const navigationKey = `${targetRoomId}:${targetMessageId}`
+    if (handledNotificationNavigationRef.current === navigationKey) return
+
+    const targetIndex = rooms.findIndex(room => room.id === targetRoomId)
+    if (targetIndex === -1) return
+
+    handledNotificationNavigationRef.current = navigationKey
+
+    const targetRoom = rooms[targetIndex]
+    fetchMessagesForRoom(targetRoom)
+    subscribeToRoom(targetRoom)
+    setVisibleMessageIds(new Set())
+
+    window.setTimeout(() => {
+      const targetPanel = containerRef.current?.querySelector(`[data-room-index="${targetIndex}"]`) as HTMLElement | null
+      if (containerRef.current && targetPanel) {
+        containerRef.current.scrollTo({ top: targetPanel.offsetTop, behavior: 'smooth' })
+      }
+
+      triggerRevealsForRoom(targetRoom.id)
+      window.history.replaceState({}, '', '/chat')
+    }, 50)
+  }, [fetchMessagesForRoom, isMounted, rooms, subscribeToRoom, triggerRevealsForRoom])
 
   // Detect room changes via IntersectionObserver + FRIDAY tracking
   useEffect(() => {

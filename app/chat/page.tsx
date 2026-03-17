@@ -100,6 +100,7 @@ export default function GlobalChat() {
   const [notificationSheetOpen, setNotificationSheetOpen] = useState(false)
   const [notificationStatus, setNotificationStatus] = useState<'idle' | 'enabling' | 'enabled' | 'unsupported' | 'error'>('idle')
   const [notificationErrorMessage, setNotificationErrorMessage] = useState('')
+  const [debugMode, setDebugMode] = useState(false)
   const [testNotificationDebugLog, setTestNotificationDebugLog] = useState('')
   const [newMessageDebugTick, setNewMessageDebugTick] = useState(0)
   const [newMessageNotificationDebugLog, setNewMessageNotificationDebugLog] = useState('')
@@ -1300,15 +1301,27 @@ export default function GlobalChat() {
                 >
                   Test notification
                 </button>
-                <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
-                  {testNotificationDebugLog}
-                </div>
-                <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
-                  {newMessageDebugTick > 0 ? 'New message detected' : ''}
-                </div>
-                <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
-                  {newMessageNotificationDebugLog}
-                </div>
+                <button
+                  type="button"
+                  className="friend-request-btn decline"
+                  onClick={() => setDebugMode(prev => !prev)}
+                  style={{ marginBottom: 10 }}
+                >
+                  Debug: {debugMode ? 'ON' : 'OFF'}
+                </button>
+                {debugMode && (
+                  <>
+                    <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
+                      {testNotificationDebugLog}
+                    </div>
+                    <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
+                      {newMessageDebugTick > 0 ? 'New message detected' : ''}
+                    </div>
+                    <div style={{ color: '#9aa0a6', fontSize: 13, marginBottom: 10 }}>
+                      {newMessageNotificationDebugLog}
+                    </div>
+                  </>
+                )}
                 <div className="input-wrap">
                   <input
                     type="text"

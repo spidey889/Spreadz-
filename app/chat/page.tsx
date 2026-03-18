@@ -136,6 +136,7 @@ export default function GlobalChat() {
   const handledNotificationNavigationRef = useRef<string>('')
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
   const notificationCooldownUntilRef = useRef(0)
+  const optimisticMessageIdsRef = useRef<Map<string, string>>(new Map())
 
   useEffect(() => {
     let cancelled = false
@@ -211,6 +212,26 @@ export default function GlobalChat() {
     }
 
     return `${trimmedMessage.slice(0, PUSH_NOTIFICATION_PREVIEW_MAX_LENGTH - 3)}...`
+  }, [])
+
+  const getOptimisticMessageKey = useCallback((roomId: string, userUuid: string, text: string) => {
+    return `${roomId}:${userUuid}:${text.trim()}`
+  }, [])
+
+  const syncVisibleMessageId = useCallback((previousId: string, nextId: string) => {
+    if (!previousId || !nextId || previousId === nextId) return
+
+    setVisibleMessageIds(prev => {
+      const next = new Set(prev)
+      const hadPreviousId = next.delete(previousId)
+
+      if (!hadPreviousId && next.has(nextId)) {
+        return prev
+      }
+
+      next.add(nextId)
+      return next
+    })
   }, [])
 
   const getNotificationMessageKey = useCallback((message: any) => {
@@ -348,32 +369,22 @@ export default function GlobalChat() {
       throw new Error('Push subscription is missing an endpoint.')
     }
 
-    const { data: existingSubscription, error: existingSubscriptionError } = await supabase
-      .from('push_subscriptions')
-      .select('id')
-      .eq('endpoint', endpoint)
-      .maybeSingle()
-
-    if (existingSubscriptionError) {
-      throw existingSubscriptionError
-    }
-
     const subscriptionPayload = {
       user_uuid: userUuid,
       endpoint,
       subscription: subscription as any,
     }
 
-    if (existingSubscription?.id) {
-      const { error: updateError } = await supabase
-        .from('push_subscriptions')
-        .update(subscriptionPayload)
-        .eq('id', existingSubscription.id)
+    const { count, error: updateError } = await supabase
+      .from('push_subscriptions')
+      .update(subscriptionPayload, { count: 'exact' })
+      .eq('endpoint', endpoint)
 
-      if (updateError) {
-        throw updateError
-      }
+    if (updateError) {
+      throw updateError
+    }
 
+    if ((count ?? 0) > 0) {
       return
     }
 
@@ -385,6 +396,47 @@ export default function GlobalChat() {
       throw insertError
     }
   }, [])
+
+  const ensurePushSubscriptionSaved = useCallback(async () => {
+    const userUuid = getCurrentUserId()
+    if (!userUuid) {
+      console.error('[Push] Cannot save subscription because user id is not ready.')
+      return false
+    }
+
+    if (typeof window === 'undefined' || !('PushManager' in window)) {
+      console.error('[Push] Push subscriptions are not supported in this browser.')
+      return false
+    }
+
+    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    if (!vapidPublicKey) {
+      console.error('[Push] NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing.')
+      return false
+    }
+
+    try {
+      const registration = await getServiceWorkerRegistration()
+      if (!registration) {
+        console.error('[Push] Service worker is not ready yet.')
+        return false
+      }
+
+      let subscription = await registration.pushManager.getSubscription()
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        })
+      }
+
+      await savePushSubscription(subscription.toJSON(), userUuid)
+      return true
+    } catch (error) {
+      console.error('[Push] Failed to save push subscription', error)
+      return false
+    }
+  }, [getCurrentUserId, getServiceWorkerRegistration, savePushSubscription])
 
   const triggerServerPush = useCallback(async (params: {
     roomId: string
@@ -520,38 +572,7 @@ export default function GlobalChat() {
     const enabled = await enableNotifications()
     if (!enabled) return
 
-    try {
-      const userUuid = getCurrentUserId()
-      if (!userUuid) {
-        throw new Error('User id is not ready yet.')
-      }
-
-      if (typeof window === 'undefined' || !('PushManager' in window)) {
-        throw new Error('Push subscriptions are not supported in this browser.')
-      }
-
-      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-      if (!vapidPublicKey) {
-        throw new Error('NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing.')
-      }
-
-      const registration = await getServiceWorkerRegistration()
-      if (!registration) {
-        throw new Error('Service worker is not ready yet.')
-      }
-
-      let subscription = await registration.pushManager.getSubscription()
-      if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-        })
-      }
-
-      await savePushSubscription(subscription.toJSON(), userUuid)
-    } catch (error) {
-      console.error('[Push] Failed to subscribe current device', error)
-    }
+    await ensurePushSubscriptionSaved()
 
     setNotificationSheetOpen(false)
     showBrowserNotification({
@@ -560,7 +581,7 @@ export default function GlobalChat() {
       url: '/chat',
       tag: 'spreadz-notifications-enabled',
     })
-  }, [enableNotifications, getCurrentUserId, getServiceWorkerRegistration, savePushSubscription, showBrowserNotification])
+  }, [enableNotifications, ensurePushSubscriptionSaved, showBrowserNotification])
 
   const closeNotificationSheet = useCallback(() => {
     setNotificationSheetOpen(false)
@@ -686,6 +707,13 @@ export default function GlobalChat() {
       setNotificationErrorMessage('Notifications are blocked for this app or site.')
     }
   }, [isMounted])
+
+  useEffect(() => {
+    if (!authReady || !isMounted || typeof window === 'undefined' || !('Notification' in window)) return
+    if (Notification.permission !== 'granted') return
+
+    void ensurePushSubscriptionSaved()
+  }, [authReady, ensurePushSubscriptionSaved, isMounted])
 
   // Load user profile
   useEffect(() => {
@@ -883,21 +911,43 @@ export default function GlobalChat() {
         (payload) => {
           const m = payload.new
           const newMessage = buildMessageFromRow(m)
+          const optimisticMessageKey =
+            newMessage.room_id && newMessage.user_uuid
+              ? getOptimisticMessageKey(newMessage.room_id, newMessage.user_uuid, newMessage.text)
+              : ''
+          const optimisticTempId = optimisticMessageKey
+            ? optimisticMessageIdsRef.current.get(optimisticMessageKey) || ''
+            : ''
 
-          // Trigger reveal for realtime message
-          scheduleReveal(newMessage.id, newMessage.reveal_delay || 0)
+          if (optimisticMessageKey && optimisticTempId) {
+            optimisticMessageIdsRef.current.delete(optimisticMessageKey)
+          }
+
           setRoomMessages(prev => {
             const existing = prev[room.id] || []
             if (existing.some(msg => msg.id === m.id)) return prev
-            handleNewMessageDebug(newMessage)
+
+            if (optimisticTempId) {
+              const nextMessages = existing.map(msg => msg.id === optimisticTempId ? newMessage : msg)
+              return { ...prev, [room.id]: nextMessages }
+            }
+
             return { ...prev, [room.id]: [...existing, newMessage] }
           })
+
+          if (optimisticTempId) {
+            syncVisibleMessageId(optimisticTempId, newMessage.id)
+            return
+          }
+
+          scheduleReveal(newMessage.id, newMessage.reveal_delay || 0)
+          handleNewMessageDebug(newMessage)
     }
   )
       .subscribe()
 
     channelRef.current = channel
-  }, [buildMessageFromRow, handleNewMessageDebug, scheduleReveal])
+  }, [buildMessageFromRow, getOptimisticMessageKey, handleNewMessageDebug, scheduleReveal, syncVisibleMessageId])
 
 
   // When rooms load, fetch + subscribe for room index 0
@@ -1254,6 +1304,7 @@ export default function GlobalChat() {
     // Reveal immediately for user's own message
     scheduleReveal(tempId, 0)
     handleNewMessageDebug(optimisticMsg)
+    optimisticMessageIdsRef.current.set(getOptimisticMessageKey(roomId, userId, text), tempId)
 
     setRoomMessages(prev => ({
       ...prev,
@@ -1272,6 +1323,7 @@ export default function GlobalChat() {
 
     if (error) {
       console.error('[Messages] send failed:', error)
+      optimisticMessageIdsRef.current.delete(getOptimisticMessageKey(roomId, userId, text))
       setRoomMessages(prev => ({
         ...prev,
         [roomId]: (prev[roomId] || []).filter(m => m.id !== tempId)
@@ -1282,13 +1334,12 @@ export default function GlobalChat() {
     if (data && data[0]) {
       const m = data[0]
       const serverMessage = buildMessageFromRow(m, userId)
+      optimisticMessageIdsRef.current.delete(getOptimisticMessageKey(roomId, userId, text))
       setRoomMessages(prev => ({
         ...prev,
         [roomId]: (prev[roomId] || []).map(msg => msg.id === tempId ? serverMessage : msg)
       }))
-
-      // Ensure the server-returned success message is also revealed
-      scheduleReveal(serverMessage.id, 0)
+      syncVisibleMessageId(tempId, serverMessage.id)
 
       handleNotificationPromptAfterSend()
       void triggerServerPush({
@@ -1298,7 +1349,7 @@ export default function GlobalChat() {
         senderUuid: userId,
       })
     }
-  }, [buildMessageFromRow, buildPushMessagePreview, getCurrentUserId, handleNewMessageDebug, handleNotificationPromptAfterSend, inputTexts, scheduleReveal, triggerServerPush, university, username])
+  }, [buildMessageFromRow, buildPushMessagePreview, getCurrentUserId, getOptimisticMessageKey, handleNewMessageDebug, handleNotificationPromptAfterSend, inputTexts, scheduleReveal, syncVisibleMessageId, triggerServerPush, university, username])
 
   const handleProfileSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()

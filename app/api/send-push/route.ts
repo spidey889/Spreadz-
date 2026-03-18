@@ -24,6 +24,12 @@ type StoredPushSubscription = {
 
 let vapidConfigured = false
 
+const maskEndpoint = (endpoint: string) => {
+  if (!endpoint) return 'unknown-endpoint'
+  if (endpoint.length <= 24) return endpoint
+  return `${endpoint.slice(0, 16)}...${endpoint.slice(-8)}`
+}
+
 const ensureConfig = () => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE
@@ -122,6 +128,12 @@ export async function POST(request: Request) {
   const senderUuid =
     typeof body?.sender_uuid === 'string' && body.sender_uuid.trim() ? body.sender_uuid.trim() : ''
 
+  console.log('[Push] /api/send-push called', {
+    roomId,
+    senderUuid,
+    senderName,
+  })
+
   if (!roomId) {
     return NextResponse.json({ error: 'room_id is required' }, { status: 400 })
   }
@@ -147,6 +159,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to load subscriptions' }, { status: 500 })
   }
 
+  console.log('[Push] Loaded push subscriptions', {
+    roomId,
+    subscriptionsFound: subscriptions?.length ?? 0,
+  })
+
   const targetUrl = `/chat?${new URLSearchParams({ roomId }).toString()}`
   const notificationPayload = JSON.stringify({
     title: senderName,
@@ -159,6 +176,8 @@ export async function POST(request: Request) {
   let skipped = 0
   let deleted = 0
   let failed = 0
+  let invalid = 0
+  let attempted = 0
 
   await Promise.all(
     (subscriptions || []).map(async (row) => {
@@ -169,13 +188,22 @@ export async function POST(request: Request) {
 
       const subscription = normalizeSubscription(row.subscription)
       if (!subscription) {
-        failed += 1
+        invalid += 1
+        console.log('[Push] Skipping invalid push subscription', {
+          subscriptionId: row.id,
+          userUuid: row.user_uuid,
+        })
         return
       }
 
       try {
+        attempted += 1
         await webpush.sendNotification(subscription, notificationPayload)
         sent += 1
+        console.log('[Push] Notification sent successfully', {
+          subscriptionId: row.id,
+          endpoint: maskEndpoint(subscription.endpoint),
+        })
       } catch (error: any) {
         const statusCode = Number(error?.statusCode || 0)
 
@@ -192,20 +220,42 @@ export async function POST(request: Request) {
           }
 
           deleted += 1
+          console.log('[Push] Deleted expired push subscription', {
+            subscriptionId: row.id,
+            endpoint: maskEndpoint(subscription.endpoint),
+            statusCode,
+          })
           return
         }
 
         failed += 1
         console.error('[Push] Failed to send notification', {
+          subscriptionId: row.id,
+          endpoint: maskEndpoint(subscription.endpoint),
           statusCode,
           message: error?.message,
+          body: error?.body,
         })
       }
     })
   )
 
+  const summary = {
+    roomId,
+    subscriptionsFound: subscriptions?.length ?? 0,
+    attempted,
+    sent,
+    skipped,
+    deleted,
+    failed,
+    invalid,
+  }
+
+  console.log('[Push] send-push summary', summary)
+
   return NextResponse.json({
     ok: true,
+    ...summary,
     sent,
     skipped,
     deleted,

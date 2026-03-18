@@ -473,11 +473,18 @@ export default function GlobalChat() {
         }),
       })
 
+      const responsePayload = await response.json().catch(() => null)
+
+      console.log('[Push] /api/send-push response', {
+        status: response.status,
+        ok: response.ok,
+        responsePayload,
+      })
+
       if (!response.ok) {
-        const errorPayload = await response.json().catch(() => null)
         console.error('[Push] Failed to trigger server push', {
           status: response.status,
-          errorPayload,
+          errorPayload: responsePayload,
         })
       }
     } catch (error) {

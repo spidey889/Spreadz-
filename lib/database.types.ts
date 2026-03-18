@@ -88,6 +88,33 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_uuid: string | null
+          endpoint: string | null
+          subscription: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Insert: {
+          id?: string
+          user_uuid?: string | null
+          endpoint?: string | null
+          subscription?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_uuid?: string | null
+          endpoint?: string | null
+          subscription?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       reports: {
         Row: {
           id: string

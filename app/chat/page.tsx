@@ -76,6 +76,20 @@ const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
 const NOTIFICATION_COOLDOWN_MS = 2500
+const PUSH_NOTIFICATION_PREVIEW_MAX_LENGTH = 120
+
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const normalizedBase64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(normalizedBase64)
+  const outputArray = new Uint8Array(rawData.length)
+
+  for (let index = 0; index < rawData.length; index += 1) {
+    outputArray[index] = rawData.charCodeAt(index)
+  }
+
+  return outputArray
+}
 
 export default function GlobalChat() {
   const [rooms, setRooms] = useState<Room[]>([])
@@ -188,6 +202,15 @@ export default function GlobalChat() {
       return storedUserId
     }
     return ''
+  }, [])
+
+  const buildPushMessagePreview = useCallback((messageText: string) => {
+    const trimmedMessage = messageText.trim()
+    if (trimmedMessage.length <= PUSH_NOTIFICATION_PREVIEW_MAX_LENGTH) {
+      return trimmedMessage
+    }
+
+    return `${trimmedMessage.slice(0, PUSH_NOTIFICATION_PREVIEW_MAX_LENGTH - 3)}...`
   }, [])
 
   const getNotificationMessageKey = useCallback((message: any) => {
@@ -315,6 +338,116 @@ export default function GlobalChat() {
     }
   }, [])
 
+  const savePushSubscription = useCallback(async (subscription: PushSubscriptionJSON, userUuid: string) => {
+    const endpoint =
+      typeof subscription.endpoint === 'string' && subscription.endpoint.trim()
+        ? subscription.endpoint.trim()
+        : ''
+
+    if (!endpoint) {
+      throw new Error('Push subscription is missing an endpoint.')
+    }
+
+    const { data: existingSubscription, error: existingSubscriptionError } = await supabase
+      .from('push_subscriptions')
+      .select('id')
+      .eq('endpoint', endpoint)
+      .maybeSingle()
+
+    if (existingSubscriptionError) {
+      throw existingSubscriptionError
+    }
+
+    const subscriptionPayload = {
+      user_uuid: userUuid,
+      endpoint,
+      subscription: subscription as any,
+    }
+
+    if (existingSubscription?.id) {
+      const { error: updateError } = await supabase
+        .from('push_subscriptions')
+        .update(subscriptionPayload)
+        .eq('id', existingSubscription.id)
+
+      if (updateError) {
+        throw updateError
+      }
+
+      return
+    }
+
+    const { error: insertError } = await supabase
+      .from('push_subscriptions')
+      .insert(subscriptionPayload)
+
+    if (insertError) {
+      throw insertError
+    }
+  }, [])
+
+  const subscribeCurrentDeviceToPush = useCallback(async (userUuid: string) => {
+    if (!userUuid) {
+      throw new Error('User id is not ready yet.')
+    }
+
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      throw new Error('Push subscriptions are not supported in this browser.')
+    }
+
+    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    if (!vapidPublicKey) {
+      throw new Error('NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing.')
+    }
+
+    const registration = await getServiceWorkerRegistration()
+    if (!registration) {
+      throw new Error('Service worker is not ready yet.')
+    }
+
+    let subscription = await registration.pushManager.getSubscription()
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      })
+    }
+
+    await savePushSubscription(subscription.toJSON(), userUuid)
+  }, [getServiceWorkerRegistration, savePushSubscription])
+
+  const triggerServerPush = useCallback(async (params: {
+    roomId: string
+    senderName: string
+    messagePreview: string
+    senderUuid: string
+  }) => {
+    try {
+      const response = await fetch('/api/send-push', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          room_id: params.roomId,
+          sender_name: params.senderName,
+          message_preview: params.messagePreview,
+          sender_uuid: params.senderUuid,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => null)
+        console.error('[Push] Failed to trigger server push', {
+          status: response.status,
+          errorPayload,
+        })
+      }
+    } catch (error) {
+      console.error('[Push] Failed to trigger server push', error)
+    }
+  }, [])
+
   const showServiceWorkerNotification = useCallback(async (payload: NotificationPayload) => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
       return 'Notification skipped'
@@ -417,6 +550,15 @@ export default function GlobalChat() {
     const enabled = await enableNotifications()
     if (!enabled) return
 
+    try {
+      await subscribeCurrentDeviceToPush(getCurrentUserId())
+    } catch (error) {
+      console.error('[Push] Failed to subscribe current device', error)
+      setNotificationStatus('error')
+      setNotificationErrorMessage(error instanceof Error ? error.message : 'Push subscription failed.')
+      return
+    }
+
     setNotificationSheetOpen(false)
     showBrowserNotification({
       title: 'Notifications are on',
@@ -424,7 +566,7 @@ export default function GlobalChat() {
       url: '/chat',
       tag: 'spreadz-notifications-enabled',
     })
-  }, [enableNotifications, showBrowserNotification])
+  }, [enableNotifications, getCurrentUserId, showBrowserNotification, subscribeCurrentDeviceToPush])
 
   const closeNotificationSheet = useCallback(() => {
     setNotificationSheetOpen(false)
@@ -1155,8 +1297,14 @@ export default function GlobalChat() {
       scheduleReveal(serverMessage.id, 0)
 
       handleNotificationPromptAfterSend()
+      void triggerServerPush({
+        roomId,
+        senderName: activeName,
+        messagePreview: buildPushMessagePreview(serverMessage.text),
+        senderUuid: userId,
+      })
     }
-  }, [buildMessageFromRow, getCurrentUserId, handleNewMessageDebug, handleNotificationPromptAfterSend, inputTexts, scheduleReveal, university, username])
+  }, [buildMessageFromRow, buildPushMessagePreview, getCurrentUserId, handleNewMessageDebug, handleNotificationPromptAfterSend, inputTexts, scheduleReveal, triggerServerPush, university, username])
 
   const handleProfileSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()

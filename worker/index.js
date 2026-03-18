@@ -31,9 +31,18 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon: '/icon-192x192.png',
-      badge: '/icon-192x192.png',
+      icon: '/icon-512x512.png',
+      badge: '/favicon-48x48.png',
       tag,
+      vibrate: [200, 100, 200],
+      requireInteraction: true,
+      timestamp: Date.now(),
+      actions: [
+        {
+          action: 'open-chat',
+          title: 'Open Chat',
+        },
+      ],
       data: { url },
     })
   )

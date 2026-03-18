@@ -164,10 +164,31 @@ export async function POST(request: Request) {
     subscriptionsFound: subscriptions?.length ?? 0,
   })
 
+  const { data: roomRecord, error: roomFetchError } = await supabase
+    .from('rooms')
+    .select('headline')
+    .eq('id', roomId)
+    .maybeSingle()
+
+  if (roomFetchError) {
+    console.error('[Push] Failed to load room headline', {
+      roomId,
+      message: roomFetchError.message,
+    })
+  }
+
+  const roomHeadline =
+    typeof roomRecord?.headline === 'string' && roomRecord.headline.trim()
+      ? roomRecord.headline.trim()
+      : ''
+  const notificationBody = roomHeadline
+    ? `${messagePreview}\nin ${roomHeadline}`
+    : messagePreview
+
   const targetUrl = `/chat?${new URLSearchParams({ roomId }).toString()}`
   const notificationPayload = JSON.stringify({
     title: senderName,
-    body: messagePreview,
+    body: notificationBody,
     url: targetUrl,
     tag: `spreadz-room-${roomId}`,
   })

@@ -25,15 +25,18 @@ type StoredPushSubscription = {
 let vapidConfigured = false
 
 const ensureConfig = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
-  const supabaseKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE
+  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
   const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY
   const vapidSubject = process.env.VAPID_SUBJECT
 
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Missing Supabase server configuration')
+  if (!supabaseUrl) {
+    throw new Error('Missing Supabase URL configuration')
+  }
+
+  if (!supabaseServiceRoleKey) {
+    throw new Error('Missing Supabase service role configuration')
   }
 
   if (!vapidPublicKey || !vapidPrivateKey || !vapidSubject) {
@@ -46,7 +49,7 @@ const ensureConfig = () => {
   }
 
   return {
-    supabase: createClient<Database>(supabaseUrl, supabaseKey, {
+    supabase: createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -128,6 +131,7 @@ export async function POST(request: Request) {
   try {
     supabase = ensureConfig().supabase
   } catch (error) {
+    console.error('[Push] Route configuration error', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Configuration error' },
       { status: 500 }

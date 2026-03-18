@@ -320,14 +320,18 @@ export default function GlobalChat() {
     }
   }, [rooms])
 
-  // Helper: trigger reveals for a room
-  const triggerRevealsForRoom = useCallback((roomId: string) => {
-    const msgs = roomMessages[roomId] || []
+  const triggerRevealsForMessages = useCallback((msgs: Message[]) => {
     msgs.forEach((m, idx) => {
       const delay = idx < 2 ? 0 : (m.reveal_delay || 0)
       scheduleReveal(m.id, delay)
     })
-  }, [roomMessages, scheduleReveal])
+  }, [scheduleReveal])
+
+  // Helper: trigger reveals for a room
+  const triggerRevealsForRoom = useCallback((roomId: string) => {
+    const msgs = roomMessages[roomId] || []
+    triggerRevealsForMessages(msgs)
+  }, [roomMessages, triggerRevealsForMessages])
 
   // Fetch messages for a specific room
   const fetchMessagesForRoom = useCallback(async (room: Room) => {
@@ -344,13 +348,11 @@ export default function GlobalChat() {
       const msgs = data.map((m: any) => buildMessageFromRow(m))
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
 
-      // trigger reveals immediately when messages are first fetched
-      msgs.forEach((m, idx) => {
-        const delay = idx < 2 ? 0 : (m.reveal_delay || 0)
-        scheduleReveal(m.id, delay)
+      requestAnimationFrame(() => {
+        triggerRevealsForMessages(msgs)
       })
     }
-  }, [buildMessageFromRow, scheduleReveal])
+  }, [buildMessageFromRow, triggerRevealsForMessages])
 
   // Subscribe to realtime for a room
   const subscribeToRoom = useCallback((room: Room) => {
@@ -413,16 +415,21 @@ export default function GlobalChat() {
               trackRoomEnter(rooms[idx].id)
               prevRoomIndexRef.current = idx
 
+              const nextRoom = rooms[idx]
+              const hasLoadedMessages = (roomMessages[nextRoom.id] || []).length > 0
+
               setCurrentRoomIndex(idx)
-              fetchMessagesForRoom(rooms[idx])
-              subscribeToRoom(rooms[idx])
+              fetchMessagesForRoom(nextRoom)
+              subscribeToRoom(nextRoom)
 
               // Reset visibleMessageIds to empty Set when switching rooms
               setVisibleMessageIds(new Set())
-              // Trigger reveals for the newly active room (replaces IntersectionObserver logic with re-trigger)
-              setTimeout(() => {
-                triggerRevealsForRoom(rooms[idx].id)
-              }, 50)
+
+              if (hasLoadedMessages) {
+                requestAnimationFrame(() => {
+                  triggerRevealsForRoom(nextRoom.id)
+                })
+              }
             }
           }
         }
@@ -434,7 +441,7 @@ export default function GlobalChat() {
     )
 
     return () => observer.disconnect()
-  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed, triggerRevealsForRoom])
+  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed, roomMessages, triggerRevealsForRoom])
 
   useEffect(() => {
     const endEl = messageEndRefs.current[currentRoomIndex]

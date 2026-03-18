@@ -386,36 +386,6 @@ export default function GlobalChat() {
     }
   }, [])
 
-  const subscribeCurrentDeviceToPush = useCallback(async (userUuid: string) => {
-    if (!userUuid) {
-      throw new Error('User id is not ready yet.')
-    }
-
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-      throw new Error('Push subscriptions are not supported in this browser.')
-    }
-
-    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    if (!vapidPublicKey) {
-      throw new Error('NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing.')
-    }
-
-    const registration = await getServiceWorkerRegistration()
-    if (!registration) {
-      throw new Error('Service worker is not ready yet.')
-    }
-
-    let subscription = await registration.pushManager.getSubscription()
-    if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-      })
-    }
-
-    await savePushSubscription(subscription.toJSON(), userUuid)
-  }, [getServiceWorkerRegistration, savePushSubscription])
-
   const triggerServerPush = useCallback(async (params: {
     roomId: string
     senderName: string
@@ -551,12 +521,36 @@ export default function GlobalChat() {
     if (!enabled) return
 
     try {
-      await subscribeCurrentDeviceToPush(getCurrentUserId())
+      const userUuid = getCurrentUserId()
+      if (!userUuid) {
+        throw new Error('User id is not ready yet.')
+      }
+
+      if (typeof window === 'undefined' || !('PushManager' in window)) {
+        throw new Error('Push subscriptions are not supported in this browser.')
+      }
+
+      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      if (!vapidPublicKey) {
+        throw new Error('NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing.')
+      }
+
+      const registration = await getServiceWorkerRegistration()
+      if (!registration) {
+        throw new Error('Service worker is not ready yet.')
+      }
+
+      let subscription = await registration.pushManager.getSubscription()
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        })
+      }
+
+      await savePushSubscription(subscription.toJSON(), userUuid)
     } catch (error) {
       console.error('[Push] Failed to subscribe current device', error)
-      setNotificationStatus('error')
-      setNotificationErrorMessage(error instanceof Error ? error.message : 'Push subscription failed.')
-      return
     }
 
     setNotificationSheetOpen(false)
@@ -566,7 +560,7 @@ export default function GlobalChat() {
       url: '/chat',
       tag: 'spreadz-notifications-enabled',
     })
-  }, [enableNotifications, getCurrentUserId, showBrowserNotification, subscribeCurrentDeviceToPush])
+  }, [enableNotifications, getCurrentUserId, getServiceWorkerRegistration, savePushSubscription, showBrowserNotification])
 
   const closeNotificationSheet = useCallback(() => {
     setNotificationSheetOpen(false)

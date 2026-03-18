@@ -146,7 +146,8 @@ export default function GlobalChat() {
   const ghostProfilesLoadedRef = useRef(false)
   const ghostPendingRef = useRef<Record<string, boolean>>({})
 
-  const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
+  const roomPanelRefs = useRef<(HTMLDivElement | null)[]>([])
+  const roomMessageRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
   const friendRequestChannelRef = useRef<any>(null)
   const friendRequestsLoadedRef = useRef(false)
@@ -657,16 +658,28 @@ export default function GlobalChat() {
       }
     )
 
+    roomPanelRefs.current.forEach(panel => {
+      if (panel) observer.observe(panel)
+    })
+
     return () => observer.disconnect()
   }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed, triggerRevealsForRoom])
 
+  const activeRoomId = rooms[currentRoomIndex]?.id
+  const activeVisibleCount = activeRoomId
+    ? (roomMessages[activeRoomId] || []).filter(message => visibleMessageIds.has(message.id)).length
+    : 0
+
   useEffect(() => {
-    const endEl = messageEndRefs.current[currentRoomIndex]
-    const scrollEl = endEl?.closest('.room-messages') as HTMLDivElement | null
-    if (scrollEl) {
+    const scrollEl = roomMessageRefs.current[currentRoomIndex]
+    if (!scrollEl) return
+
+    const frameId = window.requestAnimationFrame(() => {
       scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' })
-    }
-  }, [roomMessages, currentRoomIndex, visibleMessageIds])
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [currentRoomIndex, activeRoomId, activeVisibleCount])
 
   const pushFriendRequest = useCallback((request: FriendRequest) => {
     if (request.created_at) {
@@ -1017,6 +1030,7 @@ export default function GlobalChat() {
           return (
             <div
               key={room.id}
+              ref={(el) => { roomPanelRefs.current[index] = el }}
               className="room-panel"
               data-room-index={index}
               style={{ background: 'var(--bg)' }}
@@ -1044,7 +1058,11 @@ export default function GlobalChat() {
               </div>
 
               {/* Messages */}
-              <div className="room-messages" onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}>
+              <div
+                ref={(el) => { roomMessageRefs.current[index] = el }}
+                className="room-messages"
+                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
+              >
                 <div className="messages">
                 {messages.map((msg, msgIndex) => {
                     const isVisible = visibleMessageIds.has(msg.id)
@@ -1088,7 +1106,6 @@ export default function GlobalChat() {
                       </div>
                     )
                   })}
-                  <div ref={(el) => { messageEndRefs.current[index] = el }} />
                 </div>
               </div>
 

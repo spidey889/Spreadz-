@@ -397,7 +397,7 @@ export default function GlobalChat() {
     }
   }, [])
 
-  const ensurePushSubscriptionSaved = useCallback(async () => {
+  const ensurePushSubscriptionSaved = useCallback(async (forceFreshSubscription = false) => {
     const userUuid = getCurrentUserId()
     if (!userUuid) {
       console.error('[Push] Cannot save subscription because user id is not ready.')
@@ -423,6 +423,21 @@ export default function GlobalChat() {
       }
 
       let subscription = await registration.pushManager.getSubscription()
+
+      if (forceFreshSubscription && subscription) {
+        const existingEndpoint = subscription.endpoint
+        const unsubscribed = await subscription.unsubscribe()
+
+        if (!unsubscribed) {
+          console.error('[Push] Failed to unsubscribe existing push subscription.', {
+            endpoint: existingEndpoint,
+          })
+          return false
+        }
+
+        subscription = null
+      }
+
       if (!subscription) {
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
@@ -572,7 +587,7 @@ export default function GlobalChat() {
     const enabled = await enableNotifications()
     if (!enabled) return
 
-    await ensurePushSubscriptionSaved()
+    await ensurePushSubscriptionSaved(true)
 
     setNotificationSheetOpen(false)
     showBrowserNotification({

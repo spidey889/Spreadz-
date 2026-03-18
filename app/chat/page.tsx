@@ -335,6 +335,8 @@ export default function GlobalChat() {
 
   // Fetch messages for a specific room
   const fetchMessagesForRoom = useCallback(async (room: Room) => {
+    setVisibleMessageIds(new Set())
+
     if (fetchedRoomsRef.current.has(room.id)) return
     fetchedRoomsRef.current.add(room.id)
 
@@ -421,9 +423,6 @@ export default function GlobalChat() {
               setCurrentRoomIndex(idx)
               fetchMessagesForRoom(nextRoom)
               subscribeToRoom(nextRoom)
-
-              // Reset visibleMessageIds to empty Set when switching rooms
-              setVisibleMessageIds(new Set())
 
               if (hasLoadedMessages) {
                 requestAnimationFrame(() => {

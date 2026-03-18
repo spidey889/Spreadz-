@@ -79,7 +79,7 @@ export default function GlobalChat() {
   const [tempProfileCollege, setTempProfileCollege] = useState('')
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [interestDismissed, setInterestDismissed] = useState(false)
-  const [visibleMessageIds, setVisibleMessageIds] = useState<Set<string>>(new Set())
+  const [visibleMessageIdsByRoom, setVisibleMessageIdsByRoom] = useState<Record<string, Set<string>>>({})
   const [reportSheetMessage, setReportSheetMessage] = useState<Message | null>(null)
   const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
   const [sheetClosing, setSheetClosing] = useState(false)
@@ -148,11 +148,13 @@ export default function GlobalChat() {
     }
   }, [])
 
-  const scheduleReveal = useCallback((messageId: string, delay: number) => {
+  const scheduleReveal = useCallback((roomId: string, messageId: string, delay: number) => {
     setTimeout(() => {
-      setVisibleMessageIds(prev => {
-        const next = new Set(prev)
-        next.add(messageId)
+      setVisibleMessageIdsByRoom(prev => {
+        const next = { ...prev }
+        const roomVisibleMessageIds = new Set(next[roomId] || [])
+        roomVisibleMessageIds.add(messageId)
+        next[roomId] = roomVisibleMessageIds
         return next
       })
     }, delay)
@@ -320,23 +322,15 @@ export default function GlobalChat() {
     }
   }, [rooms])
 
-  const triggerRevealsForMessages = useCallback((msgs: Message[]) => {
+  const triggerRevealsForMessages = useCallback((roomId: string, msgs: Message[]) => {
     msgs.forEach((m, idx) => {
       const delay = idx < 2 ? 0 : (m.reveal_delay || 0)
-      scheduleReveal(m.id, delay)
+      scheduleReveal(roomId, m.id, delay)
     })
   }, [scheduleReveal])
 
-  // Helper: trigger reveals for a room
-  const triggerRevealsForRoom = useCallback((roomId: string) => {
-    const msgs = roomMessages[roomId] || []
-    triggerRevealsForMessages(msgs)
-  }, [roomMessages, triggerRevealsForMessages])
-
   // Fetch messages for a specific room
   const fetchMessagesForRoom = useCallback(async (room: Room) => {
-    setVisibleMessageIds(new Set())
-
     if (fetchedRoomsRef.current.has(room.id)) return
     fetchedRoomsRef.current.add(room.id)
 
@@ -351,7 +345,7 @@ export default function GlobalChat() {
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
 
       requestAnimationFrame(() => {
-        triggerRevealsForMessages(msgs)
+        triggerRevealsForMessages(room.id, msgs)
       })
     }
   }, [buildMessageFromRow, triggerRevealsForMessages])
@@ -374,7 +368,7 @@ export default function GlobalChat() {
           const newMessage = buildMessageFromRow(m)
 
           // Trigger reveal for realtime message
-          scheduleReveal(newMessage.id, newMessage.reveal_delay || 0)
+          scheduleReveal(room.id, newMessage.id, newMessage.reveal_delay || 0)
           setRoomMessages(prev => {
             const existing = prev[room.id] || []
             if (existing.some(msg => msg.id === m.id)) return prev
@@ -418,17 +412,10 @@ export default function GlobalChat() {
               prevRoomIndexRef.current = idx
 
               const nextRoom = rooms[idx]
-              const hasLoadedMessages = (roomMessages[nextRoom.id] || []).length > 0
 
               setCurrentRoomIndex(idx)
               fetchMessagesForRoom(nextRoom)
               subscribeToRoom(nextRoom)
-
-              if (hasLoadedMessages) {
-                requestAnimationFrame(() => {
-                  triggerRevealsForRoom(nextRoom.id)
-                })
-              }
             }
           }
         }
@@ -439,8 +426,12 @@ export default function GlobalChat() {
       }
     )
 
+    containerRef.current
+      ?.querySelectorAll<HTMLElement>('[data-room-index]')
+      .forEach((roomPanel) => observer.observe(roomPanel))
+
     return () => observer.disconnect()
-  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed, roomMessages, triggerRevealsForRoom])
+  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed])
 
   useEffect(() => {
     const endEl = messageEndRefs.current[currentRoomIndex]
@@ -448,7 +439,7 @@ export default function GlobalChat() {
     if (scrollEl) {
       scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' })
     }
-  }, [roomMessages, currentRoomIndex, visibleMessageIds])
+  }, [roomMessages, currentRoomIndex, visibleMessageIdsByRoom])
 
   const pushFriendRequest = useCallback((request: FriendRequest) => {
     if (request.created_at) {
@@ -709,7 +700,7 @@ export default function GlobalChat() {
     }
 
     // Reveal immediately for user's own message
-    scheduleReveal(tempId, 0)
+    scheduleReveal(roomId, tempId, 0)
 
     setRoomMessages(prev => ({
       ...prev,
@@ -743,7 +734,7 @@ export default function GlobalChat() {
       }))
 
       // Ensure the server-returned success message is also revealed
-      scheduleReveal(serverMessage.id, 0)
+      scheduleReveal(roomId, serverMessage.id, 0)
     }
   }
 
@@ -791,6 +782,7 @@ export default function GlobalChat() {
         {rooms.map((room, index) => {
           const messages = roomMessages[room.id] || []
           const inputText = inputTexts[room.id] || ''
+          const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
 
           return (
             <div

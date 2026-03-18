@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const OPENROUTER_MODEL = 'arcee-ai/trinity-large-preview:free'
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent'
+const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview'
 const MAX_TOKENS = 256
 
 type GhostRequestPayload = {
@@ -10,10 +10,12 @@ type GhostRequestPayload = {
   ghostCollege?: string
 }
 
-type OpenRouterChatResponse = {
-  choices?: Array<{
-    message?: {
-      content?: string
+type GeminiGenerateContentResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string
+      }>
     }
   }>
 }
@@ -24,10 +26,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ enabled: false }, { status: 200 })
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY
+  const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
-    console.error('[Ghost] Missing OPENROUTER_API_KEY')
-    return NextResponse.json({ error: 'Missing OPENROUTER_API_KEY' }, { status: 500 })
+    console.error('[Ghost] Missing GEMINI_API_KEY')
+    return NextResponse.json({ error: 'Missing GEMINI_API_KEY' }, { status: 500 })
   }
 
   let payload: GhostRequestPayload
@@ -53,7 +55,7 @@ export async function POST(request: Request) {
     ghostCollege,
   })
 
-  const model = OPENROUTER_MODEL
+  const model = GEMINI_MODEL
   const systemPrompt = [
     `you are ${ghostName}, a real indian college student in a group chat.`,
     `you study at ${ghostCollege}.`,
@@ -74,49 +76,45 @@ export async function POST(request: Request) {
 
   let response: Response
   try {
-    console.log('[Ghost] Calling OpenRouter model', { model })
-    response = await fetch(OPENROUTER_API_URL, {
+    console.log('[Ghost] Calling Gemini model', { model })
+    response = await fetch(`${GEMINI_API_URL}?key=${encodeURIComponent(apiKey)}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message },
-        ],
-        temperature: 0.9,
-        max_tokens: MAX_TOKENS,
-        reasoning: { exclude: true },
-        stream: false,
+        contents: [{ role: 'user', parts: [{ text: message }] }],
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: MAX_TOKENS,
+        },
       }),
     })
   } catch (error) {
-    console.error('[Ghost] OpenRouter fetch failed', error)
-    return NextResponse.json({ error: 'OpenRouter request failed' }, { status: 502 })
+    console.error('[Ghost] Gemini fetch failed', error)
+    return NextResponse.json({ error: 'Gemini request failed' }, { status: 502 })
   }
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('[Ghost] OpenRouter response error', {
+    console.error('[Ghost] Gemini response error', {
       status: response.status,
       statusText: response.statusText,
       errorText,
     })
-    return NextResponse.json({ error: errorText || 'OpenRouter request failed' }, { status: 502 })
+    return NextResponse.json({ error: errorText || 'Gemini request failed' }, { status: 502 })
   }
 
-  const data = (await response.json()) as OpenRouterChatResponse
-  const content = data?.choices?.[0]?.message?.content
+  const data = (await response.json()) as GeminiGenerateContentResponse
+  const content = data?.candidates?.[0]?.content?.parts?.[0]?.text
   const text = typeof content === 'string' ? content.trim() : ''
 
   if (!text) {
-    console.warn('[Ghost] Empty OpenRouter response', { data })
+    console.warn('[Ghost] Empty Gemini response', { data })
     return NextResponse.json({ error: 'Empty response' }, { status: 502 })
   }
 
-  console.log('[Ghost] OpenRouter response ok', { preview: text.slice(0, 120) })
+  console.log('[Ghost] Gemini response ok', { preview: text.slice(0, 120) })
   return NextResponse.json({ text })
 }

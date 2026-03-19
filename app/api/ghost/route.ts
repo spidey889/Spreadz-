@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const OPENROUTER_MODEL = 'openrouter/hunter-alpha'
+const OPENROUTER_MODEL = 'stepfun/step-3.5-flash:free'
 const MAX_TOKENS = 256
 
 type GhostRequestPayload = {

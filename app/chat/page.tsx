@@ -140,6 +140,8 @@ export default function GlobalChat() {
   const [tempProfileCollege, setTempProfileCollege] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
+  const [profileSheetOffsetY, setProfileSheetOffsetY] = useState(0)
+  const [profileSheetDragging, setProfileSheetDragging] = useState(false)
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [interestDismissed, setInterestDismissed] = useState(false)
   const [visibleMessageIdsByRoom, setVisibleMessageIdsByRoom] = useState<Record<string, Set<string>>>({})
@@ -164,7 +166,9 @@ export default function GlobalChat() {
   const prevRoomIndexRef = useRef<number>(0)
   const inputHadContentRef = useRef<Record<string, boolean>>({})
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const profileSheetRef = useRef<HTMLFormElement>(null)
   const profileSheetTouchStartYRef = useRef<number | null>(null)
+  const profileSheetCloseTimeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -237,6 +241,30 @@ export default function GlobalChat() {
 
   useEffect(() => {
     setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!showProfileModal) {
+      if (profileSheetCloseTimeoutRef.current !== null) {
+        window.clearTimeout(profileSheetCloseTimeoutRef.current)
+        profileSheetCloseTimeoutRef.current = null
+      }
+      profileSheetTouchStartYRef.current = null
+      setProfileSheetDragging(false)
+      setProfileSheetOffsetY(0)
+      return
+    }
+
+    setProfileSheetDragging(false)
+    setProfileSheetOffsetY(0)
+  }, [showProfileModal])
+
+  useEffect(() => {
+    return () => {
+      if (profileSheetCloseTimeoutRef.current !== null) {
+        window.clearTimeout(profileSheetCloseTimeoutRef.current)
+      }
+    }
   }, [])
 
   // Load user profile
@@ -811,6 +839,13 @@ export default function GlobalChat() {
 
   const closeProfileModal = () => {
     if (avatarUploading) return
+    if (profileSheetCloseTimeoutRef.current !== null) {
+      window.clearTimeout(profileSheetCloseTimeoutRef.current)
+      profileSheetCloseTimeoutRef.current = null
+    }
+    profileSheetTouchStartYRef.current = null
+    setProfileSheetDragging(false)
+    setProfileSheetOffsetY(0)
     setShowProfileModal(false)
     setTempProfileName('')
     setTempProfileCollege('')
@@ -869,16 +904,49 @@ export default function GlobalChat() {
   }
 
   const handleProfileSheetTouchStart = (e: React.TouchEvent<HTMLFormElement>) => {
+    if (profileSheetCloseTimeoutRef.current !== null) {
+      window.clearTimeout(profileSheetCloseTimeoutRef.current)
+      profileSheetCloseTimeoutRef.current = null
+    }
     profileSheetTouchStartYRef.current = e.touches[0]?.clientY ?? null
+    setProfileSheetDragging(true)
+  }
+
+  const handleProfileSheetTouchMove = (e: React.TouchEvent<HTMLFormElement>) => {
+    const startY = profileSheetTouchStartYRef.current
+    const currentY = e.touches[0]?.clientY
+
+    if (startY === null || currentY === undefined) return
+
+    const nextOffset = Math.max(0, currentY - startY)
+    setProfileSheetOffsetY(nextOffset)
+
+    if (nextOffset > 0) e.preventDefault()
   }
 
   const handleProfileSheetTouchEnd = (e: React.TouchEvent<HTMLFormElement>) => {
     const startY = profileSheetTouchStartYRef.current
     const endY = e.changedTouches[0]?.clientY
     profileSheetTouchStartYRef.current = null
+    setProfileSheetDragging(false)
 
     if (startY === null || endY === undefined) return
-    if (endY - startY > 80) closeProfileModal()
+
+    const dragDistance = Math.max(0, endY - startY)
+    const sheetHeight = profileSheetRef.current?.offsetHeight ?? 0
+    const closeThreshold = sheetHeight > 0 ? sheetHeight / 2 : 80
+
+    if (dragDistance > closeThreshold) {
+      const closeDistance = Math.max(sheetHeight + 96, dragDistance)
+      setProfileSheetOffsetY(closeDistance)
+      profileSheetCloseTimeoutRef.current = window.setTimeout(() => {
+        profileSheetCloseTimeoutRef.current = null
+        closeProfileModal()
+      }, 280)
+      return
+    }
+
+    setProfileSheetOffsetY(0)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, roomId: string) => {
@@ -1053,14 +1121,19 @@ export default function GlobalChat() {
           }}
         >
           <form
-            className="profile-sheet"
+            ref={profileSheetRef}
+            className={`profile-sheet${profileSheetDragging ? ' dragging' : ''}`}
             onSubmit={handleProfileSubmit}
             onClick={(e) => e.stopPropagation()}
             onTouchStart={handleProfileSheetTouchStart}
+            onTouchMove={handleProfileSheetTouchMove}
             onTouchEnd={handleProfileSheetTouchEnd}
             onTouchCancel={() => {
               profileSheetTouchStartYRef.current = null
+              setProfileSheetDragging(false)
+              setProfileSheetOffsetY(0)
             }}
+            style={{ transform: `translate3d(0, ${profileSheetOffsetY}px, 0)` }}
           >
             <div className="profile-avatar-section">
               <div

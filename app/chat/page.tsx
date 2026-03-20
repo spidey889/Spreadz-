@@ -63,6 +63,67 @@ const USERNAME_STORAGE_KEY = 'spreadz_username'
 const COLLEGE_STORAGE_KEY = 'spreadz_college'
 const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
+const AVATAR_MAX_BYTES = 200 * 1024
+const AVATAR_MAX_DIMENSION = 400
+const AVATAR_QUALITY_STEPS = [0.7, 0.6, 0.5, 0.4, 0.3]
+
+const canvasToBlob = (canvas: HTMLCanvasElement, quality: number) => {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        resolve(blob)
+        return
+      }
+      reject(new Error('Avatar compression failed'))
+    }, 'image/jpeg', quality)
+  })
+}
+
+const compressAvatarFile = async (file: File) => {
+  const objectUrl = URL.createObjectURL(file)
+
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const nextImage = new window.Image()
+      nextImage.onload = () => resolve(nextImage)
+      nextImage.onerror = () => reject(new Error('Avatar image load failed'))
+      nextImage.src = objectUrl
+    })
+
+    const scale = Math.min(1, AVATAR_MAX_DIMENSION / Math.max(image.width, image.height))
+    let width = Math.max(1, Math.round(image.width * scale))
+    let height = Math.max(1, Math.round(image.height * scale))
+    let blob: Blob | null = null
+
+    while (!blob || blob.size > AVATAR_MAX_BYTES) {
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error('Avatar canvas unavailable')
+
+      context.fillStyle = '#ffffff'
+      context.fillRect(0, 0, width, height)
+      context.drawImage(image, 0, 0, width, height)
+
+      blob = await canvasToBlob(canvas, AVATAR_QUALITY_STEPS[0])
+      for (const quality of AVATAR_QUALITY_STEPS.slice(1)) {
+        if (blob.size <= AVATAR_MAX_BYTES) break
+        blob = await canvasToBlob(canvas, quality)
+      }
+
+      if (blob.size <= AVATAR_MAX_BYTES || (width <= 120 && height <= 120)) break
+
+      width = Math.max(120, Math.round(width * 0.85))
+      height = Math.max(120, Math.round(height * 0.85))
+    }
+
+    return blob
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
+}
 
 export default function GlobalChat() {
   const [rooms, setRooms] = useState<Room[]>([])
@@ -77,6 +138,8 @@ export default function GlobalChat() {
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [tempProfileName, setTempProfileName] = useState('')
   const [tempProfileCollege, setTempProfileCollege] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [avatarUploading, setAvatarUploading] = useState(false)
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [interestDismissed, setInterestDismissed] = useState(false)
   const [visibleMessageIdsByRoom, setVisibleMessageIdsByRoom] = useState<Record<string, Set<string>>>({})
@@ -100,6 +163,7 @@ export default function GlobalChat() {
   const pendingSendRef = useRef<{ roomId: string } | null>(null)
   const prevRoomIndexRef = useRef<number>(0)
   const inputHadContentRef = useRef<Record<string, boolean>>({})
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -208,6 +272,18 @@ export default function GlobalChat() {
       ).then(({ error }) => {
         if (error) console.error('[Users] upsert failed:', error)
       })
+      supabase
+        .from('users')
+        .select('avatar_url')
+        .eq('uuid', storedUserId)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('[Users] avatar fetch failed:', error)
+            return
+          }
+          setAvatarUrl(data?.avatar_url || '')
+        })
       supabase
         .from('friends')
         .select('id, requester_uuid, addressee_uuid, status')
@@ -721,7 +797,7 @@ export default function GlobalChat() {
     setTempProfileCollege('')
     const userId = getCurrentUserId()
     const { error } = await supabase.from('users').upsert(
-      { uuid: userId, display_name: name, college: college || null },
+      { uuid: userId, display_name: name, college: college || null, avatar_url: avatarUrl || null },
       { onConflict: 'uuid' }
     )
     if (error) console.error('[Users] update failed:', error)
@@ -732,10 +808,63 @@ export default function GlobalChat() {
     }
   }
 
+  const closeProfileModal = () => {
+    if (avatarUploading) return
+    setShowProfileModal(false)
+    setTempProfileName('')
+    setTempProfileCollege('')
+  }
+
   const handleProfileButtonClick = () => {
     setTempProfileName(username)
     setTempProfileCollege(university)
     setShowProfileModal(true)
+  }
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const userId = getCurrentUserId()
+    if (!userId) {
+      e.target.value = ''
+      return
+    }
+
+    setAvatarUploading(true)
+    try {
+      const compressedFile = await compressAvatarFile(file)
+      const filePath = `${userId}.jpg`
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, compressedFile, {
+          upsert: true,
+          contentType: 'image/jpeg',
+        })
+
+      if (uploadError) {
+        console.error('[Users] avatar upload failed:', uploadError)
+        return
+      }
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+      const nextAvatarUrl = `${data.publicUrl}?t=${Date.now()}`
+      const { error: userError } = await supabase
+        .from('users')
+        .upsert({ uuid: userId, avatar_url: nextAvatarUrl }, { onConflict: 'uuid' })
+
+      if (userError) {
+        console.error('[Users] avatar update failed:', userError)
+        return
+      }
+
+      setAvatarUrl(nextAvatarUrl)
+    } catch (error) {
+      console.error('[Users] avatar processing failed:', error)
+    } finally {
+      setAvatarUploading(false)
+      e.target.value = ''
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, roomId: string) => {
@@ -747,6 +876,11 @@ export default function GlobalChat() {
   }
 
   if (!isMounted || !authReady) return null
+
+  const hasSavedProfileName = Boolean(username.trim())
+  const profilePreviewName = tempProfileName.trim() || username.trim() || 'User'
+  const profilePreviewInitials = getInitials(profilePreviewName)
+  const profilePreviewColor = getUserColor(profilePreviewName)
 
   return (
     <>
@@ -771,12 +905,15 @@ export default function GlobalChat() {
                 </div>
                 <button
                   type="button"
-                  className={`profile-avatar-btn${username.trim() ? '' : ' empty'}`}
-                  style={username.trim() ? { backgroundColor: getUserColor(username) } : undefined}
+                  className={`profile-avatar-btn${!avatarUrl && !username.trim() ? ' empty' : ''}`}
+                  style={!avatarUrl && username.trim() ? { backgroundColor: getUserColor(username) } : undefined}
                   aria-label="Open profile"
                   onClick={handleProfileButtonClick}
                 >
-                  {username.trim() ? (
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarUrl} alt="Your profile" className="profile-avatar-image" />
+                  ) : username.trim() ? (
                     getInitials(username)
                   ) : (
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -885,36 +1022,94 @@ export default function GlobalChat() {
       </div>
 
       {showProfileModal && (
-        <div className="profile-overlay">
-          <form className="profile-sheet" onSubmit={handleProfileSubmit}>
+        <div
+          className="profile-overlay"
+          onClick={() => {
+            if (hasSavedProfileName) closeProfileModal()
+          }}
+        >
+          <form className="profile-sheet" onSubmit={handleProfileSubmit} onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
+            <div className="profile-avatar-section">
+              <div
+                className="profile-avatar-preview"
+                style={!avatarUrl ? { backgroundColor: profilePreviewColor } : undefined}
+              >
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="Your profile" className="profile-avatar-image" />
+                ) : (
+                  <span>{profilePreviewInitials}</span>
+                )}
+                <button
+                  type="button"
+                  className="profile-avatar-camera"
+                  aria-label={avatarUploading ? 'Uploading photo' : 'Upload profile photo'}
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                >
+                  {avatarUploading ? (
+                    <span className="profile-avatar-spinner" />
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 7h4l2-2h4l2 2h4v12H4Z" />
+                      <circle cx="12" cy="13" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="profile-avatar-input"
+                onChange={handleAvatarFileChange}
+              />
+              {avatarUploading && <div className="profile-avatar-status">Uploading photo...</div>}
+            </div>
             <div className="profile-title">Your Profile</div>
             <div className="profile-sub">Update your display name and college</div>
-            <div className="profile-field">
-              <label className="profile-label" htmlFor="display-name">Display name</label>
-              <input
-                id="display-name"
-                type="text"
-                placeholder="Your name"
-                value={tempProfileName}
-                onChange={(e) => setTempProfileName(e.target.value)}
-                autoFocus
-                required
-                className="profile-input"
-              />
-            </div>
-            <div className="profile-field">
-              <label className="profile-label" htmlFor="college-name">College (optional)</label>
-              <input
-                id="college-name"
-                type="text"
-                placeholder="e.g. MIT, Stanford..."
-                value={tempProfileCollege}
-                onChange={(e) => setTempProfileCollege(e.target.value)}
-                className="profile-input"
-              />
-            </div>
-            <button type="submit" className="profile-submit">Save</button>
+            {hasSavedProfileName ? (
+              <>
+                <div className="profile-field">
+                  <label className="profile-label">Display name</label>
+                  <div className="profile-locked-value">{username}</div>
+                </div>
+                <div className="profile-field">
+                  <label className="profile-label">College</label>
+                  <div className="profile-locked-value">{university || 'Not added yet'}</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="profile-field">
+                  <label className="profile-label" htmlFor="display-name">Display name</label>
+                  <input
+                    id="display-name"
+                    type="text"
+                    placeholder="Your name"
+                    value={tempProfileName}
+                    onChange={(e) => setTempProfileName(e.target.value)}
+                    autoFocus
+                    required
+                    className="profile-input"
+                  />
+                  <div className="profile-warning">Use your real name — we verify users. You get one name, one account.</div>
+                </div>
+                <div className="profile-field">
+                  <label className="profile-label" htmlFor="college-name">College (optional)</label>
+                  <input
+                    id="college-name"
+                    type="text"
+                    placeholder="e.g. MIT, Stanford..."
+                    value={tempProfileCollege}
+                    onChange={(e) => setTempProfileCollege(e.target.value)}
+                    className="profile-input"
+                  />
+                </div>
+                <button type="submit" className="profile-submit">Save</button>
+              </>
+            )}
           </form>
         </div>
       )}

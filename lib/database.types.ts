@@ -14,6 +14,7 @@ export type Database = {
           uuid: string
           display_name: string | null
           college: string | null
+          avatar_url: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -21,6 +22,7 @@ export type Database = {
           uuid: string
           display_name?: string | null
           college?: string | null
+          avatar_url?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -28,6 +30,7 @@ export type Database = {
           uuid?: string
           display_name?: string | null
           college?: string | null
+          avatar_url?: string | null
           created_at?: string | null
           updated_at?: string | null
         }

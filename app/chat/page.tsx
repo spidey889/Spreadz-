@@ -934,7 +934,7 @@ export default function GlobalChat() {
 
     const dragDistance = Math.max(0, endY - startY)
     const sheetHeight = profileSheetRef.current?.offsetHeight ?? 0
-    const closeThreshold = sheetHeight > 0 ? sheetHeight * 0.35 : 80
+    const closeThreshold = sheetHeight > 0 ? sheetHeight * 0.2 : 80
 
     if (dragDistance > closeThreshold) {
       const closeDistance = Math.max(sheetHeight + 96, dragDistance)

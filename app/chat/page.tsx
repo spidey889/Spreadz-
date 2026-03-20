@@ -984,28 +984,31 @@ export default function GlobalChat() {
             >
               {/* Header */}
               <div className={`header${isKeyboardOpen ? ' hidden' : ''}`}>
+                <div className="header-side" aria-hidden="true" />
                 <div className="logo">
-                  <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={180} height={90} priority />
+                  <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={216} height={108} priority />
                 </div>
-                <button
-                  type="button"
-                  className={`profile-avatar-btn${!hasAvatarPhoto && !username.trim() ? ' empty' : ''}`}
-                  style={!hasAvatarPhoto && username.trim() ? { backgroundColor: getUserColor(username) } : undefined}
-                  aria-label="Open profile"
-                  onClick={handleProfileButtonClick}
-                >
-                  {hasAvatarPhoto ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img key={currentAvatarUrl} src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" />
-                  ) : username.trim() ? (
-                    getInitials(username)
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 20a6 6 0 0 0-12 0" />
-                      <circle cx="12" cy="10" r="4" />
-                    </svg>
-                  )}
-                </button>
+                <div className="header-side">
+                  <button
+                    type="button"
+                    className={`profile-avatar-btn${!hasAvatarPhoto && !username.trim() ? ' empty' : ''}`}
+                    style={!hasAvatarPhoto && username.trim() ? { backgroundColor: getUserColor(username) } : undefined}
+                    aria-label="Open profile"
+                    onClick={handleProfileButtonClick}
+                  >
+                    {hasAvatarPhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={currentAvatarUrl} src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" />
+                    ) : username.trim() ? (
+                      getInitials(username)
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 20a6 6 0 0 0-12 0" />
+                        <circle cx="12" cy="10" r="4" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Headline card */}

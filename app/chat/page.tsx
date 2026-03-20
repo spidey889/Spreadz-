@@ -1039,7 +1039,6 @@ export default function GlobalChat() {
           }}
         >
           <form className="profile-sheet" onSubmit={handleProfileSubmit} onClick={(e) => e.stopPropagation()}>
-            <div className="sheet-handle" />
             <div className="profile-avatar-section">
               <div
                 className="profile-avatar-preview"
@@ -1084,17 +1083,19 @@ export default function GlobalChat() {
               />
               {avatarUploading && <div className="profile-avatar-status">Uploading photo...</div>}
             </div>
+            <div className="sheet-handle" />
             <div className="profile-title">Your Profile</div>
-            <div className="profile-sub">Update your display name and college</div>
             {hasSavedProfileName ? (
               <>
                 <div className="profile-field">
                   <label className="profile-label">Display name</label>
                   <div className="profile-locked-value">{username}</div>
+                  <div className="profile-locked-note">Your name is set in stone. No take-backs. 🪨</div>
                 </div>
                 <div className="profile-field">
                   <label className="profile-label">College</label>
                   <div className="profile-locked-value">{university || 'Not added yet'}</div>
+                  <div className="profile-locked-note">College locked too. Own it.</div>
                 </div>
               </>
             ) : (

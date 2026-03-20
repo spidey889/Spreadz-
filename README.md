@@ -1,31 +1,17 @@
-﻿# Spreadz
+# Spreadz
 
-Real-time global chat where strangers discuss trending topics together.
-Swipe to find new people and fresh discussions — no commitment, no friend requests.
+**Welcome to Spreadz.**
 
-## What's built
-- Live messaging with Supabase real-time
-- TikTok-style room swiping
-- Discussion headlines per room
-- User profiles with college tags
-- FRIDAY personalization engine running in background
-- Mobile-first, clean UI
+Spreadz is a social media built 'only' for college students. Your professors are not welcome here. 🚪
 
-## Tech stack
-- Next.js 14 + TypeScript
-- Supabase
-- Tailwind CSS
-- Vercel
+You can use Spreadz to:
+- Talk to other college students in real time 👀
+- Spill and catch the latest gossip and news ☕🔥
+- Swipe to new rooms and meet new students
+- Stay anonymous — no profiles, no pressure
 
-## Run locally
-1. Clone the repo
-2. Create `.env.local` with your Supabase URL and anon key
-3. `npm install`
-4. `npm run dev`
+To get started, open the app and pick a room. No sign up needed.
 
-## Progress log
-- March 15, 2026 — Hit 101 pushes; shipped identity, reporting, PWA install flow, and UI polish.
-- March 15, 2026 — Crossed 100+ commits and kept shipping consistently.
-- Early build — Real-time chat, swipe rooms, discussion headlines, and FRIDAY personalization.
+**[spreadz.vercel.app](https://spreadz.vercel.app)**
 
-
+*Spreadz is currently open to 'only' Indian colleges.*

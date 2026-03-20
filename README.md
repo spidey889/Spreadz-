@@ -8,7 +8,8 @@ You can use Spreadz to:
 - Talk to other college students in real time 👀
 - Spill and catch the latest gossip and news ☕🔥
 - Swipe to new rooms and meet new students
-- Stay anonymous — no profiles, no pressure
+- Everyone here is actually from college 🎓
+- People know you here. Act accordingly. 😏
 
 To get started, open the app and pick a room. No sign up needed.
 

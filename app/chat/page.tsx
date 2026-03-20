@@ -591,39 +591,6 @@ export default function GlobalChat() {
     closeSheet()
   }
 
-  const handleAddFriend = async () => {
-    if (!reportSheetMessage) return
-    const receiverUuid = reportSheetMessage.user_uuid
-    if (!receiverUuid) {
-      closeSheet()
-      return
-    }
-    const senderUuid = getCurrentUserId()
-    if (!senderUuid || receiverUuid === senderUuid) {
-      closeSheet()
-      return
-    }
-    if (friends.some(friend => friend.id === receiverUuid)) {
-      closeSheet()
-      return
-    }
-    const senderName = username || localStorage.getItem(USERNAME_STORAGE_KEY) || 'Anonymous'
-    const { error } = await supabase.from('friends').insert({
-      requester_uuid: senderUuid,
-      addressee_uuid: receiverUuid,
-      sender_name: senderName,
-      status: null,
-    })
-
-    if (error) {
-      console.error('[FriendRequests] insert failed:', error)
-      closeSheet()
-      return
-    }
-
-    closeSheet()
-  }
-
   const handleAcceptFriendRequest = async () => {
     if (!activeFriendRequest) return
     const userId = getCurrentUserId()
@@ -979,19 +946,6 @@ export default function GlobalChat() {
         <div className={`sheet-overlay${sheetClosing ? ' closing' : ''}`} onClick={closeSheet}>
           <div className={`sheet${sheetClosing ? ' closing' : ''}`} onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
-            <button
-              className="sheet-item sheet-item-friend"
-              onClick={handleAddFriend}
-            >
-              <span className="sheet-icon" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="6" x2="12" y2="18" />
-                  <line x1="6" y1="12" x2="18" y2="12" />
-                </svg>
-              </span>
-              <span>Add Friend</span>
-            </button>
-            <div className="sheet-divider" />
             <button
               className="sheet-item sheet-item-report"
               onClick={handleReport}

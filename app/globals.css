@@ -248,6 +248,7 @@ body {
           font-weight: 700;
           position: relative;
           overflow: hidden;
+          cursor: pointer;
         }
         .profile-avatar-camera {
           position: absolute;
@@ -273,6 +274,11 @@ body {
         .profile-avatar-status {
           font-size: 12px;
           color: #9aa0a6;
+        }
+        .profile-avatar-note {
+          font-size: 12px;
+          color: #9aa0a6;
+          line-height: 1.4;
         }
         .profile-avatar-spinner {
           width: 12px;

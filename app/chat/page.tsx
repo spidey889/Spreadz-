@@ -1044,6 +1044,9 @@ export default function GlobalChat() {
               <div
                 className="profile-avatar-preview"
                 style={!hasAvatarPhoto ? { backgroundColor: profilePreviewColor } : undefined}
+                onClick={() => {
+                  if (!avatarUploading) avatarInputRef.current?.click()
+                }}
               >
                 {hasAvatarPhoto ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -1055,7 +1058,10 @@ export default function GlobalChat() {
                   type="button"
                   className="profile-avatar-camera"
                   aria-label={avatarUploading ? 'Uploading photo' : 'Upload profile photo'}
-                  onClick={() => avatarInputRef.current?.click()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    avatarInputRef.current?.click()
+                  }}
                   disabled={avatarUploading}
                 >
                   {avatarUploading ? (
@@ -1068,6 +1074,7 @@ export default function GlobalChat() {
                   )}
                 </button>
               </div>
+              <div className="profile-avatar-note">Faceless is sus. Just saying 👀</div>
               <input
                 ref={avatarInputRef}
                 type="file"

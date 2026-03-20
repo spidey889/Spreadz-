@@ -1014,8 +1014,15 @@ export default function GlobalChat() {
               {/* Headline card */}
               <div className={`ai-card-wrap${isKeyboardOpen ? ' hidden' : ''}`}>
                 <div className="ai-card">
-                  <div className="card-label">LIVE DISCUSSION</div>
+                  <div className="card-row">
+                    <div className="card-label">
+                      <span className="card-status-dot" aria-hidden="true" />
+                      LIVE DISCUSSION
+                    </div>
+                    <div className="card-kicker">Swipe up for the next room</div>
+                  </div>
                   <div className="ai-headline">{room.headline}</div>
+                  <div className="card-support">Fresh takes from verified students, happening right now.</div>
                 </div>
               </div>
 
@@ -1056,8 +1063,10 @@ export default function GlobalChat() {
                               </div>
                               <div className="msg-content">
                                 <div className="msg-header">
-                                  <span className="msg-username">{msg.username}</span>
-                                  {msg.university && <span className="msg-university">{msg.university}</span>}
+                                  <div className="msg-author">
+                                    <span className="msg-username">{msg.username}</span>
+                                    {msg.university && <span className="msg-university">{msg.university}</span>}
+                                  </div>
                                   <span className="msg-timestamp">{msg.timestamp}</span>
                                 </div>
                                 <div className="msg-text">{msg.text}</div>

@@ -11,7 +11,7 @@ You can use Spreadz to:
 - Everyone here is actually from college 🎓
 - People know you here. Act accordingly. 😏
 
-To get started, open the app and pick a room. No sign up needed.
+To get started, open the app and done. No sign up needed.
 
 **[spreadz.vercel.app](https://spreadz.vercel.app)**
 

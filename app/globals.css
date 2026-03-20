@@ -222,8 +222,8 @@ body {
           max-width: 520px;
           background: #1a1a1a;
           border-radius: 22px 22px 0 0;
-          padding: 98px 20px 22px;
-          margin-top: 56px;
+          padding: 114px 20px 22px;
+          margin-top: 64px;
           box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.45);
           animation: sheetUp 0.18s ease-out;
           display: flex;
@@ -234,7 +234,7 @@ body {
         }
         .profile-avatar-section {
           position: absolute;
-          top: -40px;
+          top: -48px;
           left: 50%;
           transform: translateX(-50%);
           width: calc(100% - 40px);
@@ -245,8 +245,8 @@ body {
           z-index: 1;
         }
         .profile-avatar-preview {
-          width: 80px;
-          height: 80px;
+          width: 96px;
+          height: 96px;
           border-radius: 50%;
           display: flex;
           align-items: center;

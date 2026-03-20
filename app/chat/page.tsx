@@ -164,6 +164,7 @@ export default function GlobalChat() {
   const prevRoomIndexRef = useRef<number>(0)
   const inputHadContentRef = useRef<Record<string, boolean>>({})
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const profileSheetTouchStartYRef = useRef<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -867,6 +868,19 @@ export default function GlobalChat() {
     }
   }
 
+  const handleProfileSheetTouchStart = (e: React.TouchEvent<HTMLFormElement>) => {
+    profileSheetTouchStartYRef.current = e.touches[0]?.clientY ?? null
+  }
+
+  const handleProfileSheetTouchEnd = (e: React.TouchEvent<HTMLFormElement>) => {
+    const startY = profileSheetTouchStartYRef.current
+    const endY = e.changedTouches[0]?.clientY
+    profileSheetTouchStartYRef.current = null
+
+    if (startY === null || endY === undefined) return
+    if (endY - startY > 80) closeProfileModal()
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, roomId: string) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -1038,7 +1052,16 @@ export default function GlobalChat() {
             if (hasSavedProfileName) closeProfileModal()
           }}
         >
-          <form className="profile-sheet" onSubmit={handleProfileSubmit} onClick={(e) => e.stopPropagation()}>
+          <form
+            className="profile-sheet"
+            onSubmit={handleProfileSubmit}
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={handleProfileSheetTouchStart}
+            onTouchEnd={handleProfileSheetTouchEnd}
+            onTouchCancel={() => {
+              profileSheetTouchStartYRef.current = null
+            }}
+          >
             <div className="profile-avatar-section">
               <div
                 className="profile-avatar-preview"

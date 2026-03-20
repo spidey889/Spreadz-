@@ -732,6 +732,12 @@ export default function GlobalChat() {
     }
   }
 
+  const handleProfileButtonClick = () => {
+    setTempProfileName(username)
+    setTempProfileCollege(university)
+    setShowProfileModal(true)
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, roomId: string) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -763,12 +769,21 @@ export default function GlobalChat() {
                 <div className="logo">
                   <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={180} height={90} priority />
                 </div>
-                <button className="settings-btn" aria-label="Menu" onClick={() => setMenuOpen(true)}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="4" y1="5" x2="20" y2="5" />
-                    <line x1="4" y1="12" x2="20" y2="12" />
-                    <line x1="4" y1="19" x2="20" y2="19" />
-                  </svg>
+                <button
+                  type="button"
+                  className={`profile-avatar-btn${username.trim() ? '' : ' empty'}`}
+                  style={username.trim() ? { backgroundColor: getUserColor(username) } : undefined}
+                  aria-label="Open profile"
+                  onClick={handleProfileButtonClick}
+                >
+                  {username.trim() ? (
+                    getInitials(username)
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 20a6 6 0 0 0-12 0" />
+                      <circle cx="12" cy="10" r="4" />
+                    </svg>
+                  )}
                 </button>
               </div>
 
@@ -873,8 +888,8 @@ export default function GlobalChat() {
         <div className="profile-overlay">
           <form className="profile-sheet" onSubmit={handleProfileSubmit}>
             <div className="sheet-handle" />
-            <div className="profile-title">Introduce yourself</div>
-            <div className="profile-sub">Set a display name to join the chat.</div>
+            <div className="profile-title">Your Profile</div>
+            <div className="profile-sub">Update your display name and college</div>
             <div className="profile-field">
               <label className="profile-label" htmlFor="display-name">Display name</label>
               <input
@@ -899,7 +914,7 @@ export default function GlobalChat() {
                 className="profile-input"
               />
             </div>
-            <button type="submit" className="profile-submit">Continue</button>
+            <button type="submit" className="profile-submit">Save</button>
           </form>
         </div>
       )}

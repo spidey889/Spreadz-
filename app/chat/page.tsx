@@ -878,6 +878,8 @@ export default function GlobalChat() {
   if (!isMounted || !authReady) return null
 
   const hasSavedProfileName = Boolean(username.trim())
+  const currentAvatarUrl = avatarUrl.trim()
+  const hasAvatarPhoto = Boolean(currentAvatarUrl)
   const profilePreviewName = tempProfileName.trim() || username.trim() || 'User'
   const profilePreviewInitials = getInitials(profilePreviewName)
   const profilePreviewColor = getUserColor(profilePreviewName)
@@ -905,14 +907,14 @@ export default function GlobalChat() {
                 </div>
                 <button
                   type="button"
-                  className={`profile-avatar-btn${!avatarUrl && !username.trim() ? ' empty' : ''}`}
-                  style={!avatarUrl && username.trim() ? { backgroundColor: getUserColor(username) } : undefined}
+                  className={`profile-avatar-btn${!hasAvatarPhoto && !username.trim() ? ' empty' : ''}`}
+                  style={!hasAvatarPhoto && username.trim() ? { backgroundColor: getUserColor(username) } : undefined}
                   aria-label="Open profile"
                   onClick={handleProfileButtonClick}
                 >
-                  {avatarUrl ? (
+                  {hasAvatarPhoto ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatarUrl} alt="Your profile" className="profile-avatar-image" />
+                    <img key={currentAvatarUrl} src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" />
                   ) : username.trim() ? (
                     getInitials(username)
                   ) : (
@@ -1033,11 +1035,11 @@ export default function GlobalChat() {
             <div className="profile-avatar-section">
               <div
                 className="profile-avatar-preview"
-                style={!avatarUrl ? { backgroundColor: profilePreviewColor } : undefined}
+                style={!hasAvatarPhoto ? { backgroundColor: profilePreviewColor } : undefined}
               >
-                {avatarUrl ? (
+                {hasAvatarPhoto ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt="Your profile" className="profile-avatar-image" />
+                  <img key={`modal-${currentAvatarUrl}`} src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" />
                 ) : (
                   <span>{profilePreviewInitials}</span>
                 )}

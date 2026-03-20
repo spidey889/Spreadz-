@@ -945,6 +945,7 @@ export default function GlobalChat() {
                     const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id))
                     const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
                     const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
+                    const showOwnMessageAvatar = msg.user_uuid === getCurrentUserId() && hasAvatarPhoto
 
                     return (
                       <div key={msg.id} className="msg-reveal"
@@ -960,7 +961,14 @@ export default function GlobalChat() {
                         <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
                           {isFirstInGroup ? (
                             <>
-                              <div className="avatar" style={{ backgroundColor: getUserColor(msg.username) }}>{msg.initials}</div>
+                              <div className="avatar" style={showOwnMessageAvatar ? undefined : { backgroundColor: getUserColor(msg.username) }}>
+                                {showOwnMessageAvatar ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" style={{ borderRadius: '50%' }} />
+                                ) : (
+                                  msg.initials
+                                )}
+                              </div>
                               <div className="msg-content">
                                 <div className="msg-header">
                                   <span className="msg-username">{msg.username}</span>

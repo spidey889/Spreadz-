@@ -147,7 +147,7 @@ body {
         .header {
           display: flex;
           align-items: center;
-          padding: calc(env(safe-area-inset-top, 0px) + 10px) 20px 10px;
+          padding: calc(env(safe-area-inset-top, 0px) + 6px) 20px 4px;
           background: linear-gradient(180deg, rgba(17,18,20,0.98), rgba(17,18,20,0.92) 72%, rgba(17,18,20,0));
           z-index: 10;
           flex-shrink: 0;
@@ -162,10 +162,10 @@ body {
           background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
         }
         .header-side { width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-        .logo { flex: 1; display: flex; align-items: center; justify-content: flex-start; overflow: hidden; min-width: 0; transform: translate(-62px, 4px); }
+        .logo { flex: 1; display: flex; align-items: center; justify-content: flex-start; overflow: hidden; min-width: 0; transform: translate(-62px, 2px); }
         .logo-img {
           height: 116px;
-          margin: -24px 0 -20px;
+          margin: -36px 0 -30px;
           object-fit: contain;
           object-position: left center;
           filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.28));
@@ -201,7 +201,7 @@ body {
           border-radius: inherit;
         }
 
-        .ai-card-wrap { margin: 4px 18px 14px; flex-shrink: 0; }
+        .ai-card-wrap { margin: 0 18px 14px; flex-shrink: 0; }
         .ai-card {
           background:
             radial-gradient(circle at top right, rgba(124,255,183,0.14), transparent 34%),

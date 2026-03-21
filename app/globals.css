@@ -825,11 +825,15 @@ body {
         .interest-done-btn:disabled { opacity: 0.4; cursor: default; }
 
         @media (min-width: 768px) {
-          .rooms-container { padding: 0 20px; }
+          .rooms-container { padding: 0; }
           .room-panel {
-            width: min(100%, 620px);
-            margin: 0 auto;
+            width: 100%;
+            margin: 0;
           }
+          .header { padding-left: 32px; padding-right: 32px; }
+          .ai-card-wrap { margin-left: 28px; margin-right: 28px; }
+          .messages { padding-left: 28px; padding-right: 28px; }
+          .input-area { padding-left: 28px; padding-right: 28px; }
         }
 
         @media (max-width: 380px) {

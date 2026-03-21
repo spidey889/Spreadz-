@@ -162,7 +162,7 @@ body {
           background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
         }
         .header-side { width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-        .logo { flex: 1; display: flex; align-items: center; justify-content: flex-start; overflow: hidden; min-width: 0; }
+        .logo { flex: 1; display: flex; align-items: center; justify-content: flex-start; overflow: hidden; min-width: 0; transform: translateX(-68px); }
         .logo-img {
           height: 124px;
           margin: -28px 0 -24px;

@@ -1286,13 +1286,6 @@ export default function GlobalChat() {
               {/* Headline card */}
               <div className={`ai-card-wrap${isKeyboardOpen ? ' hidden' : ''}`}>
                 <div className="ai-card">
-                  <div className="card-row">
-                    <div className="card-label">
-                      <span className="card-status-dot" aria-hidden="true" />
-                      LIVE DISCUSSION
-                    </div>
-                    <div className="card-kicker" />
-                  </div>
                   <div className="ai-headline">{room.headline}</div>
                   <div className="card-support">Only college students are allowed here.... ya we block others. Have fun! 😉</div>
                 </div>

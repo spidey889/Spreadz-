@@ -1304,7 +1304,7 @@ export default function GlobalChat() {
                     <div className="card-kicker" />
                   </div>
                   <div className="ai-headline">{room.headline}</div>
-                  <div className="card-support">Only college students are allowed on the app.... yes we block others. Have fun! 😉</div>
+                  <div className="card-support">Only college students are allowed here.... ya we block others. Have fun! 😉</div>
                 </div>
               </div>
 

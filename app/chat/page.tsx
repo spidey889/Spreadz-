@@ -26,6 +26,7 @@ interface Message {
   text: string
   timestamp: string
   created_at?: string
+  room_name?: string | null
   room_id?: string | null
   senderUsername?: string | null
   reveal_delay?: number
@@ -52,8 +53,12 @@ const getInitials = (name: string) => {
 }
 
 const formatTime = (isoString?: string) => {
-  if (!isoString) return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const targetDate = isoString ? new Date(isoString) : new Date()
+  return targetDate.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Kolkata',
+  })
 }
 
 const INTEREST_OPTIONS = ['Tech & AI', 'Sports', 'Politics', 'Entertainment', 'Business', 'Science', 'Gaming', 'Campus Life']
@@ -195,6 +200,8 @@ export default function GlobalChat() {
   const [menuOpen, setMenuOpen] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
   const userIdRef = useRef<string>('')
+  const displayNameToUsernameRef = useRef<Record<string, string>>({})
+  const userMetricsRef = useRef({ messagesSent: 0, cameBack: 0 })
 
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
@@ -240,7 +247,7 @@ export default function GlobalChat() {
   }, [])
 
   const buildMessageFromRow = useCallback((m: any, fallbackUsername?: string): Message => {
-    const resolvedName = m.display_name || m.username || 'Anonymous'
+    const resolvedName = m.display_name || 'Anonymous'
     const resolvedCollege = m.college || ''
     return {
       id: m.id,
@@ -250,8 +257,9 @@ export default function GlobalChat() {
       text: m.content,
       timestamp: formatTime(m.created_at),
       created_at: m.created_at,
+      room_name: m.room_name ?? null,
       room_id: m.room_id,
-      senderUsername: m.username ?? fallbackUsername ?? null,
+      senderUsername: fallbackUsername ?? displayNameToUsernameRef.current[resolvedName] ?? null,
       reveal_delay: m.reveal_delay || 0,
     }
   }, [])
@@ -284,6 +292,42 @@ export default function GlobalChat() {
     return isGeneratedUsername(storedUsername) ? storedUsername : ''
   }, [accountUsername])
 
+  const cacheUsernamesForDisplayNames = useCallback(async (displayNames: Array<string | null | undefined>) => {
+    const missingNames = Array.from(new Set(displayNames
+      .map(name => name?.trim() || '')
+      .filter(name => name && !displayNameToUsernameRef.current[name])))
+
+    if (missingNames.length === 0) return
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('display_name, username')
+      .in('display_name', missingNames)
+
+    if (error) {
+      console.error('[Users] username cache fetch failed:', error)
+      return
+    }
+
+    data?.forEach((row) => {
+      if (row.display_name && row.username) {
+        displayNameToUsernameRef.current[row.display_name] = row.username
+      }
+    })
+  }, [])
+
+  const resolveUsernameForDisplayName = useCallback(async (name?: string | null) => {
+    const normalizedName = name?.trim() || ''
+    if (!normalizedName) return null
+
+    if (displayNameToUsernameRef.current[normalizedName]) {
+      return displayNameToUsernameRef.current[normalizedName]
+    }
+
+    await cacheUsernamesForDisplayNames([normalizedName])
+    return displayNameToUsernameRef.current[normalizedName] || null
+  }, [cacheUsernamesForDisplayNames])
+
   const persistProfileLocally = useCallback((profile: { displayName?: string; username?: string; college?: string }) => {
     if (profile.displayName !== undefined) {
       localStorage.setItem(DISPLAY_NAME_STORAGE_KEY, profile.displayName)
@@ -301,26 +345,33 @@ export default function GlobalChat() {
     username?: string
     college?: string
     avatarUrl?: string
+    messagesSent?: number
+    cameBack?: number
+    createdAt?: string
   }) => {
     const userId = getCurrentUserId()
     if (!userId) return
 
     const payload: {
       uuid: string
-      created_at: string
+      created_at?: string
       display_name?: string | null
       username?: string | null
       college?: string | null
       avatar_url?: string | null
+      messages_sent?: number | null
+      came_back?: number | null
     } = {
       uuid: userId,
-      created_at: new Date().toISOString(),
     }
 
+    if (profile.createdAt !== undefined) payload.created_at = profile.createdAt
     if (profile.displayName !== undefined) payload.display_name = profile.displayName || null
     if (profile.username !== undefined) payload.username = profile.username || null
     if (profile.college !== undefined) payload.college = profile.college || null
     if (profile.avatarUrl !== undefined) payload.avatar_url = profile.avatarUrl || null
+    if (profile.messagesSent !== undefined) payload.messages_sent = profile.messagesSent
+    if (profile.cameBack !== undefined) payload.came_back = profile.cameBack
 
     const { error } = await supabase.from('users').upsert(payload, { onConflict: 'uuid' })
     if (error) console.error('[Users] upsert failed:', error)
@@ -332,6 +383,7 @@ export default function GlobalChat() {
     if (!name.trim()) return ''
 
     const nextUsername = generateUsernameFromDisplayName(name)
+    displayNameToUsernameRef.current[name] = nextUsername
     setAccountUsername(nextUsername)
     persistProfileLocally({ username: nextUsername })
     await upsertUserProfile({
@@ -339,13 +391,30 @@ export default function GlobalChat() {
       username: nextUsername,
       college: college ?? university,
       avatarUrl,
+      messagesSent: userMetricsRef.current.messagesSent,
+      cameBack: userMetricsRef.current.cameBack,
     })
     return nextUsername
   }, [avatarUrl, getCurrentUsername, persistProfileLocally, university, upsertUserProfile])
 
+  const incrementUserMessagesSent = useCallback(async () => {
+    const nextMessagesSent = userMetricsRef.current.messagesSent + 1
+    userMetricsRef.current.messagesSent = nextMessagesSent
+    await upsertUserProfile({
+      messagesSent: nextMessagesSent,
+      cameBack: userMetricsRef.current.cameBack,
+    })
+  }, [upsertUserProfile])
+
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (displayName.trim() && accountUsername.trim()) {
+      displayNameToUsernameRef.current[displayName.trim()] = accountUsername.trim()
+    }
+  }, [accountUsername, displayName])
 
   useEffect(() => {
     if (!showProfileModal) {
@@ -397,7 +466,7 @@ export default function GlobalChat() {
 
       const { data: userRow, error: userError } = await supabase
         .from('users')
-        .select('display_name, college, avatar_url, username')
+        .select('display_name, college, avatar_url, username, messages_sent, came_back')
         .eq('uuid', storedUserId)
         .maybeSingle()
 
@@ -408,11 +477,20 @@ export default function GlobalChat() {
       const nextDisplayName = storedProfile.displayName || userRow?.display_name || ''
       const nextCollege = storedProfile.college || userRow?.college || ''
       const nextUsername = storedProfile.username || userRow?.username || (nextDisplayName ? generateUsernameFromDisplayName(nextDisplayName) : '')
+      const nextMessagesSent = userRow?.messages_sent ?? 0
+      const nextCameBack = userRow ? (userRow.came_back ?? 0) + 1 : 0
 
       setDisplayName(nextDisplayName)
       setUniversity(nextCollege)
       setAvatarUrl(userRow?.avatar_url || '')
       setAccountUsername(nextUsername)
+      userMetricsRef.current = {
+        messagesSent: nextMessagesSent,
+        cameBack: nextCameBack,
+      }
+      if (nextDisplayName && nextUsername) {
+        displayNameToUsernameRef.current[nextDisplayName] = nextUsername
+      }
       persistProfileLocally({
         displayName: nextDisplayName,
         username: nextUsername,
@@ -422,6 +500,9 @@ export default function GlobalChat() {
         displayName: nextDisplayName,
         username: nextUsername,
         college: nextCollege,
+        messagesSent: nextMessagesSent,
+        cameBack: nextCameBack,
+        createdAt: userRow ? undefined : new Date().toISOString(),
       })
 
       const { data, error } = await supabase
@@ -450,34 +531,11 @@ export default function GlobalChat() {
         console.error('[Friends] profiles fetch failed:', profileError)
       }
 
-      const missingUsernames = (profiles || [])
-        .filter(profile => !profile.display_name && profile.username)
-        .map(profile => profile.username as string)
-
-      const fallbackNames = new Map<string, string>()
-      if (missingUsernames.length > 0) {
-        const { data: messageNames, error: messageError } = await supabase
-          .from('messages')
-          .select('username, display_name, created_at')
-          .in('username', missingUsernames)
-          .order('created_at', { ascending: false })
-
-        if (messageError) {
-          console.error('[Friends] message names fetch failed:', messageError)
-        } else {
-          messageNames?.forEach(row => {
-            if (row.username && !fallbackNames.has(row.username) && row.display_name) {
-              fallbackNames.set(row.username, row.display_name)
-            }
-          })
-        }
-      }
-
       const remoteFriends = friendUuids.map(friendUuid => {
         const profile = profiles?.find(p => p.uuid === friendUuid)
         return {
           id: friendUuid,
-          username: profile?.display_name || (profile?.username ? fallbackNames.get(profile.username) : undefined) || 'Anonymous',
+          username: profile?.display_name || (profile?.username ? `@${profile.username}` : 'Anonymous'),
         }
       })
 
@@ -511,7 +569,9 @@ export default function GlobalChat() {
       if (data && data.length > 0) {
         // Set rooms in default order immediately
         setRooms(data)
-        trackRoomEnter(data[0]?.id || '')
+        if (data[0]) {
+          trackRoomEnter(data[0].id, data[0].headline)
+        }
 
 
       }
@@ -567,6 +627,7 @@ export default function GlobalChat() {
       .order('created_at', { ascending: true })
 
     if (data) {
+      await cacheUsernamesForDisplayNames(data.map((message: any) => message.display_name))
       const msgs = data.map((m: any) => buildMessageFromRow(m))
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
 
@@ -574,7 +635,7 @@ export default function GlobalChat() {
         triggerRevealsForMessages(room.id, msgs)
       })
     }
-  }, [buildMessageFromRow, triggerRevealsForMessages])
+  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, triggerRevealsForMessages])
 
   // Subscribe to realtime for a room
   const subscribeToRoom = useCallback((room: Room) => {
@@ -590,22 +651,25 @@ export default function GlobalChat() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${room.id}` },
         (payload) => {
-          const m = payload.new
-          const newMessage = buildMessageFromRow(m)
+          void (async () => {
+            const m = payload.new
+            await cacheUsernamesForDisplayNames([m.display_name])
+            const newMessage = buildMessageFromRow(m)
 
-          // Trigger reveal for realtime message
-          scheduleReveal(room.id, newMessage.id, newMessage.reveal_delay || 0)
-          setRoomMessages(prev => {
-            const existing = prev[room.id] || []
-            if (existing.some(msg => msg.id === m.id)) return prev
-            return { ...prev, [room.id]: [...existing, newMessage] }
-          })
-    }
-  )
+            // Trigger reveal for realtime message
+            scheduleReveal(room.id, newMessage.id, newMessage.reveal_delay || 0)
+            setRoomMessages(prev => {
+              const existing = prev[room.id] || []
+              if (existing.some(msg => msg.id === m.id)) return prev
+              return { ...prev, [room.id]: [...existing, newMessage] }
+            })
+          })()
+        }
+      )
       .subscribe()
 
     channelRef.current = channel
-  }, [buildMessageFromRow, scheduleReveal])
+  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, scheduleReveal])
 
 
   // When rooms load, fetch + subscribe for room index 0
@@ -634,7 +698,7 @@ export default function GlobalChat() {
               // FRIDAY: synchronous memory-only tracking
               const prevRoom = rooms[prevRoomIndexRef.current]
               if (prevRoom) trackRoomLeave(prevRoom.id)
-              trackRoomEnter(rooms[idx].id)
+              trackRoomEnter(rooms[idx].id, rooms[idx].headline)
               prevRoomIndexRef.current = idx
 
               const nextRoom = rooms[idx]
@@ -793,12 +857,24 @@ export default function GlobalChat() {
     if (!reportSheetMessage) return
     setReportStatus('submitting')
     const roomId = reportSheetMessage.room_id ?? rooms[currentRoomIndex]?.id ?? null
-    const reportedId = reportSheetMessage.senderUsername || reportSheetMessage.username
+    const roomName = reportSheetMessage.room_name ?? rooms[currentRoomIndex]?.headline ?? null
+    const reporterUsername = getCurrentUsername()
+    const reportedUsername = reportSheetMessage.senderUsername || await resolveUsernameForDisplayName(reportSheetMessage.username)
+
+    if (!reporterUsername || !reportedUsername) {
+      setReportStatus('error')
+      setTimeout(() => {
+        setReportStatus('idle')
+      }, 1400)
+      return
+    }
+
     const { error } = await supabase.from('reports').insert([
       {
-        reporter_id: getCurrentUserId(),
-        reported_id: reportedId,
-        reported_message: reportSheetMessage.text,
+        reporter_username: reporterUsername,
+        reported_username: reportedUsername,
+        content: reportSheetMessage.text,
+        room_name: roomName,
         room_id: roomId,
         created_at: new Date().toISOString(),
       }
@@ -879,6 +955,7 @@ export default function GlobalChat() {
     const activeCollege = overrideCollege !== undefined ? overrideCollege : (university || localStorage.getItem(COLLEGE_STORAGE_KEY) || '')
     const activeUsername = await ensureAccountUsername(activeDisplayName, activeCollege)
     if (!activeUsername) return
+    const activeRoomName = rooms.find(room => room.id === roomId)?.headline || ''
     const tempId = `temp-${Date.now()}`
 
     const optimisticMsg: Message = {
@@ -888,6 +965,7 @@ export default function GlobalChat() {
       university: activeCollege,
       text,
       timestamp: formatTime(),
+      room_name: activeRoomName,
       room_id: roomId,
       senderUsername: activeUsername,
       reveal_delay: 0,
@@ -902,12 +980,9 @@ export default function GlobalChat() {
     }))
     setInputTexts(prev => ({ ...prev, [roomId]: '' }))
 
-    // FRIDAY: synchronous memory-only tracking
-    trackMessageSent(roomId)
-
     const { data, error } = await supabase
       .from('messages')
-      .insert({ content: text, display_name: activeDisplayName, college: activeCollege, room_id: roomId, username: activeUsername })
+      .insert({ content: text, display_name: activeDisplayName, college: activeCollege, room_name: activeRoomName, room_id: roomId })
       .select()
 
     if (error) {
@@ -928,6 +1003,8 @@ export default function GlobalChat() {
 
       // Ensure the server-returned success message is also revealed
       scheduleReveal(roomId, serverMessage.id, 0)
+      trackMessageSent(roomId, activeRoomName)
+      await incrementUserMessagesSent()
     }
   }
 

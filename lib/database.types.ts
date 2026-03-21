@@ -16,8 +16,9 @@ export type Database = {
           username: string | null
           college: string | null
           avatar_url: string | null
+          messages_sent: number | null
+          came_back: number | null
           created_at?: string | null
-          updated_at?: string | null
         }
         Insert: {
           uuid: string
@@ -25,8 +26,9 @@ export type Database = {
           username?: string | null
           college?: string | null
           avatar_url?: string | null
+          messages_sent?: number | null
+          came_back?: number | null
           created_at?: string | null
-          updated_at?: string | null
         }
         Update: {
           uuid?: string
@@ -34,8 +36,9 @@ export type Database = {
           username?: string | null
           college?: string | null
           avatar_url?: string | null
+          messages_sent?: number | null
+          came_back?: number | null
           created_at?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }
@@ -70,50 +73,53 @@ export type Database = {
         Row: {
           id: string
           content: string
-          display_name: string | null
-          username: string | null
-          college: string | null
-          room_id: string | null
           created_at: string
+          display_name: string | null
+          college: string | null
+          room_name: string | null
+          room_id: string | null
         }
         Insert: {
           content: string
-          display_name?: string | null
-          username?: string | null
-          college?: string | null
-          room_id?: string | null
           created_at?: string
+          display_name?: string | null
+          college?: string | null
+          room_name?: string | null
+          room_id?: string | null
         }
         Update: {
           content?: string
-          display_name?: string | null
-          username?: string | null
-          college?: string | null
-          room_id?: string | null
           created_at?: string
+          display_name?: string | null
+          college?: string | null
+          room_name?: string | null
+          room_id?: string | null
         }
         Relationships: []
       }
       reports: {
         Row: {
           id: string
-          reported_id: string | null
-          reported_message: string | null
-          reporter_id: string | null
+          reporter_username: string | null
+          reported_username: string | null
+          content: string | null
+          room_name: string | null
           room_id: string | null
           created_at: string | null
         }
         Insert: {
-          reported_id?: string | null
-          reported_message?: string | null
-          reporter_id?: string | null
+          reporter_username?: string | null
+          reported_username?: string | null
+          content?: string | null
+          room_name?: string | null
           room_id?: string | null
           created_at?: string | null
         }
         Update: {
-          reported_id?: string | null
-          reported_message?: string | null
-          reporter_id?: string | null
+          reporter_username?: string | null
+          reported_username?: string | null
+          content?: string | null
+          room_name?: string | null
           room_id?: string | null
           created_at?: string | null
         }
@@ -141,24 +147,33 @@ export type Database = {
         Row: {
           id: string
           username: string
-          room_id: string
-          seconds_spent: number
+          room_name: string
           messages_sent: number
+          room_id: string
+          time_spent_minutes: number
+          time_spent_seconds: number
           visited_at?: string | null
+          came_back: number
         }
         Insert: {
           username: string
-          room_id: string
-          seconds_spent?: number
+          room_name: string
           messages_sent?: number
+          room_id: string
+          time_spent_minutes?: number
+          time_spent_seconds?: number
           visited_at?: string | null
+          came_back?: number
         }
         Update: {
           username?: string
-          room_id?: string
-          seconds_spent?: number
+          room_name?: string
           messages_sent?: number
+          room_id?: string
+          time_spent_minutes?: number
+          time_spent_seconds?: number
           visited_at?: string | null
+          came_back?: number
         }
         Relationships: []
       }

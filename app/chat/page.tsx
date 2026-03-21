@@ -25,6 +25,7 @@ interface Message {
   university: string
   text: string
   timestamp: string
+  avatarUrl?: string | null
   created_at?: string
   room_name?: string | null
   room_id?: string | null
@@ -202,6 +203,7 @@ export default function GlobalChat() {
   const longPressTimerRef = useRef<number | null>(null)
   const userIdRef = useRef<string>('')
   const displayNameToUsernameRef = useRef<Record<string, string>>({})
+  const displayNameToAvatarUrlRef = useRef<Record<string, string>>({})
   const sentRoomIdsRef = useRef<Set<string>>(new Set())
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
@@ -256,6 +258,7 @@ export default function GlobalChat() {
       university: resolvedCollege,
       text: m.content,
       timestamp: formatTime(m.created_at),
+      avatarUrl: m.avatar_url ?? displayNameToAvatarUrlRef.current[resolvedName] ?? null,
       created_at: m.created_at,
       room_name: m.room_name ?? null,
       room_id: m.room_id,
@@ -313,24 +316,28 @@ export default function GlobalChat() {
   }, [getSentRoomIdsStorageKey])
 
   const cacheUsernamesForDisplayNames = useCallback(async (displayNames: Array<string | null | undefined>) => {
-    const missingNames = Array.from(new Set(displayNames
+    const namesToFetch = Array.from(new Set(displayNames
       .map(name => name?.trim() || '')
-      .filter(name => name && !displayNameToUsernameRef.current[name])))
+      .filter(Boolean)))
 
-    if (missingNames.length === 0) return
+    if (namesToFetch.length === 0) return
 
     const { data, error } = await supabase
       .from('users')
-      .select('display_name, username')
-      .in('display_name', missingNames)
+      .select('display_name, username, avatar_url')
+      .in('display_name', namesToFetch)
 
     if (error) {
-      console.error('[Users] username cache fetch failed:', error)
+      console.error('[Users] profile cache fetch failed:', error)
       return
     }
 
     data?.forEach((row) => {
-      if (row.display_name && row.username) {
+      if (!row.display_name) return
+
+      displayNameToAvatarUrlRef.current[row.display_name] = row.avatar_url || ''
+
+      if (row.username) {
         displayNameToUsernameRef.current[row.display_name] = row.username
       }
     })
@@ -556,6 +563,9 @@ export default function GlobalChat() {
       sentRoomIdsRef.current = readStoredSentRoomIds(nextUsername)
       if (nextDisplayName && nextUsername) {
         displayNameToUsernameRef.current[nextDisplayName] = nextUsername
+      }
+      if (nextDisplayName) {
+        displayNameToAvatarUrlRef.current[nextDisplayName] = userRow?.avatar_url || ''
       }
       persistProfileLocally({
         displayName: nextDisplayName,
@@ -1166,6 +1176,9 @@ export default function GlobalChat() {
       }
 
       setAvatarUrl(nextAvatarUrl)
+      if (displayName.trim()) {
+        displayNameToAvatarUrlRef.current[displayName.trim()] = nextAvatarUrl
+      }
     } catch (error) {
       console.error('[Users] avatar processing failed:', error)
     } finally {
@@ -1309,6 +1322,7 @@ export default function GlobalChat() {
                     const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
                     const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
                     const showOwnMessageAvatar = msg.senderUsername === getCurrentUsername() && hasAvatarPhoto
+                    const messageAvatarUrl = showOwnMessageAvatar ? currentAvatarUrl : (msg.avatarUrl?.trim() || '')
 
                     return (
                       <div key={msg.id} className="msg-reveal"
@@ -1324,10 +1338,10 @@ export default function GlobalChat() {
                         <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
                           {isFirstInGroup ? (
                             <>
-                              <div className="avatar" style={showOwnMessageAvatar ? undefined : { backgroundColor: getUserColor(msg.username) }}>
-                                {showOwnMessageAvatar ? (
+                              <div className="avatar" style={messageAvatarUrl ? undefined : { backgroundColor: getUserColor(msg.username) }}>
+                                {messageAvatarUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" style={{ borderRadius: '50%' }} />
+                                  <img src={messageAvatarUrl} alt={`${msg.username} profile`} className="profile-avatar-image" style={{ borderRadius: '50%' }} />
                                 ) : (
                                   msg.initials
                                 )}

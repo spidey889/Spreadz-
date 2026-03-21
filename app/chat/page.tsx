@@ -7,7 +7,6 @@ import {
   trackRoomEnter,
   trackRoomLeave,
   trackMessageSent,
-  trackTypedNotSent,
   flushToSupabase,
   saveInterests,
   getInterests,
@@ -28,7 +27,7 @@ interface Message {
   timestamp: string
   created_at?: string
   room_id?: string | null
-  user_uuid?: string | null
+  senderUsername?: string | null
   reveal_delay?: number
 }
 
@@ -59,6 +58,7 @@ const formatTime = (isoString?: string) => {
 
 const INTEREST_OPTIONS = ['Tech & AI', 'Sports', 'Politics', 'Entertainment', 'Business', 'Science', 'Gaming', 'Campus Life']
 const USER_UUID_STORAGE_KEY = 'spreadz_user_uuid'
+const DISPLAY_NAME_STORAGE_KEY = 'spreadz_display_name'
 const USERNAME_STORAGE_KEY = 'spreadz_username'
 const COLLEGE_STORAGE_KEY = 'spreadz_college'
 const FRIENDS_STORAGE_KEY = 'spreadz_friends'
@@ -66,6 +66,45 @@ const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const AVATAR_MAX_BYTES = 200 * 1024
 const AVATAR_MAX_DIMENSION = 400
 const AVATAR_QUALITY_STEPS = [0.7, 0.6, 0.5, 0.4, 0.3]
+const GENERATED_USERNAME_REGEX = /^[a-z0-9_]{1,20}_[0-9]{4}$/
+
+const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
+
+const generateUsernameFromDisplayName = (displayName: string) => {
+  const normalized = displayName
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+
+  const base = (normalized || 'user').slice(0, 20).replace(/_+$/g, '') || 'user'
+  const suffix = Math.floor(1000 + Math.random() * 9000)
+  return `${base}_${suffix}`
+}
+
+const readStoredProfile = () => {
+  const rawStoredUsername = localStorage.getItem(USERNAME_STORAGE_KEY)?.trim() || ''
+  const storedDisplayName = localStorage.getItem(DISPLAY_NAME_STORAGE_KEY)?.trim() || ''
+  const storedCollege = localStorage.getItem(COLLEGE_STORAGE_KEY)?.trim() || ''
+
+  if (!storedDisplayName && rawStoredUsername && !isGeneratedUsername(rawStoredUsername)) {
+    return {
+      displayName: rawStoredUsername,
+      username: '',
+      college: storedCollege,
+    }
+  }
+
+  return {
+    displayName: storedDisplayName,
+    username: rawStoredUsername,
+    college: storedCollege,
+  }
+}
 
 const canvasToBlob = (canvas: HTMLCanvasElement, quality: number) => {
   return new Promise<Blob>((resolve, reject) => {
@@ -133,7 +172,8 @@ export default function GlobalChat() {
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [authReady, setAuthReady] = useState(false)
-  const [username, setUsername] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [accountUsername, setAccountUsername] = useState('')
   const [university, setUniversity] = useState('')
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [tempProfileName, setTempProfileName] = useState('')
@@ -164,7 +204,6 @@ export default function GlobalChat() {
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string } | null>(null)
   const prevRoomIndexRef = useRef<number>(0)
-  const inputHadContentRef = useRef<Record<string, boolean>>({})
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const profileSheetRef = useRef<HTMLFormElement>(null)
   const profileSheetTouchStartYRef = useRef<number | null>(null)
@@ -200,8 +239,8 @@ export default function GlobalChat() {
     }
   }, [])
 
-  const buildMessageFromRow = useCallback((m: any, fallbackUserId?: string): Message => {
-    const resolvedName = m.display_name || 'Anonymous'
+  const buildMessageFromRow = useCallback((m: any, fallbackUsername?: string): Message => {
+    const resolvedName = m.display_name || m.username || 'Anonymous'
     const resolvedCollege = m.college || ''
     return {
       id: m.id,
@@ -212,7 +251,7 @@ export default function GlobalChat() {
       timestamp: formatTime(m.created_at),
       created_at: m.created_at,
       room_id: m.room_id,
-      user_uuid: m.user_uuid ?? fallbackUserId ?? null,
+      senderUsername: m.username ?? fallbackUsername ?? null,
       reveal_delay: m.reveal_delay || 0,
     }
   }, [])
@@ -238,6 +277,71 @@ export default function GlobalChat() {
     }
     return ''
   }, [])
+
+  const getCurrentUsername = useCallback(() => {
+    if (accountUsername.trim()) return accountUsername.trim()
+    const storedUsername = localStorage.getItem(USERNAME_STORAGE_KEY)?.trim() || ''
+    return isGeneratedUsername(storedUsername) ? storedUsername : ''
+  }, [accountUsername])
+
+  const persistProfileLocally = useCallback((profile: { displayName?: string; username?: string; college?: string }) => {
+    if (profile.displayName !== undefined) {
+      localStorage.setItem(DISPLAY_NAME_STORAGE_KEY, profile.displayName)
+    }
+    if (profile.username !== undefined) {
+      localStorage.setItem(USERNAME_STORAGE_KEY, profile.username)
+    }
+    if (profile.college !== undefined) {
+      localStorage.setItem(COLLEGE_STORAGE_KEY, profile.college)
+    }
+  }, [])
+
+  const upsertUserProfile = useCallback(async (profile: {
+    displayName?: string
+    username?: string
+    college?: string
+    avatarUrl?: string
+  }) => {
+    const userId = getCurrentUserId()
+    if (!userId) return
+
+    const payload: {
+      uuid: string
+      created_at: string
+      display_name?: string | null
+      username?: string | null
+      college?: string | null
+      avatar_url?: string | null
+    } = {
+      uuid: userId,
+      created_at: new Date().toISOString(),
+    }
+
+    if (profile.displayName !== undefined) payload.display_name = profile.displayName || null
+    if (profile.username !== undefined) payload.username = profile.username || null
+    if (profile.college !== undefined) payload.college = profile.college || null
+    if (profile.avatarUrl !== undefined) payload.avatar_url = profile.avatarUrl || null
+
+    const { error } = await supabase.from('users').upsert(payload, { onConflict: 'uuid' })
+    if (error) console.error('[Users] upsert failed:', error)
+  }, [getCurrentUserId])
+
+  const ensureAccountUsername = useCallback(async (name: string, college?: string) => {
+    const existingUsername = getCurrentUsername()
+    if (existingUsername) return existingUsername
+    if (!name.trim()) return ''
+
+    const nextUsername = generateUsernameFromDisplayName(name)
+    setAccountUsername(nextUsername)
+    persistProfileLocally({ username: nextUsername })
+    await upsertUserProfile({
+      displayName: name,
+      username: nextUsername,
+      college: college ?? university,
+      avatarUrl,
+    })
+    return nextUsername
+  }, [avatarUrl, getCurrentUsername, persistProfileLocally, university, upsertUserProfile])
 
   useEffect(() => {
     setIsMounted(true)
@@ -270,113 +374,130 @@ export default function GlobalChat() {
   // Load user profile
   useEffect(() => {
     if (!authReady) return
-    const storedName = localStorage.getItem(USERNAME_STORAGE_KEY)
-    const storedCollege = localStorage.getItem(COLLEGE_STORAGE_KEY)
-    const storedUserId = localStorage.getItem(USER_UUID_STORAGE_KEY)
-    if (!storedUserId) return
-    userIdRef.current = storedUserId
-    const storedFriends = localStorage.getItem(FRIENDS_STORAGE_KEY)
-    let localFriends: { id: string; username: string }[] = []
-    if (storedFriends) {
-      try {
-        const parsed = JSON.parse(storedFriends) as { id: string; username: string }[]
-        if (Array.isArray(parsed)) localFriends = parsed
-      } catch {
-        // Ignore corrupted local storage
+    const loadProfile = async () => {
+      const storedUserId = localStorage.getItem(USER_UUID_STORAGE_KEY)
+      if (!storedUserId) return
+
+      userIdRef.current = storedUserId
+
+      const storedProfile = readStoredProfile()
+      const storedFriends = localStorage.getItem(FRIENDS_STORAGE_KEY)
+      let localFriends: { id: string; username: string }[] = []
+
+      if (storedFriends) {
+        try {
+          const parsed = JSON.parse(storedFriends) as { id: string; username: string }[]
+          if (Array.isArray(parsed)) localFriends = parsed
+        } catch {
+          // Ignore corrupted local storage
+        }
       }
-    }
-    if (localFriends.length > 0) setFriends(localFriends)
-    if (storedName) setUsername(storedName)
-    if (storedCollege) setUniversity(storedCollege)
-    if (storedUserId) {
-      const userPayload: { uuid: string; created_at: string; display_name?: string; college?: string } = {
-        uuid: storedUserId,
-        created_at: new Date().toISOString(),
-      }
-      if (storedName) userPayload.display_name = storedName
-      if (storedCollege) userPayload.college = storedCollege
-      supabase.from('users').upsert(
-        userPayload,
-        { onConflict: 'uuid' }
-      ).then(({ error }) => {
-        if (error) console.error('[Users] upsert failed:', error)
-      })
-      supabase
+
+      if (localFriends.length > 0) setFriends(localFriends)
+
+      const { data: userRow, error: userError } = await supabase
         .from('users')
-        .select('avatar_url')
+        .select('display_name, college, avatar_url, username')
         .eq('uuid', storedUserId)
         .maybeSingle()
-        .then(({ data, error }) => {
-          if (error) {
-            console.error('[Users] avatar fetch failed:', error)
-            return
-          }
-          setAvatarUrl(data?.avatar_url || '')
-        })
-      supabase
+
+      if (userError) {
+        console.error('[Users] profile fetch failed:', userError)
+      }
+
+      const nextDisplayName = storedProfile.displayName || userRow?.display_name || ''
+      const nextCollege = storedProfile.college || userRow?.college || ''
+      const nextUsername = storedProfile.username || userRow?.username || (nextDisplayName ? generateUsernameFromDisplayName(nextDisplayName) : '')
+
+      setDisplayName(nextDisplayName)
+      setUniversity(nextCollege)
+      setAvatarUrl(userRow?.avatar_url || '')
+      setAccountUsername(nextUsername)
+      persistProfileLocally({
+        displayName: nextDisplayName,
+        username: nextUsername,
+        college: nextCollege,
+      })
+      await upsertUserProfile({
+        displayName: nextDisplayName,
+        username: nextUsername,
+        college: nextCollege,
+      })
+
+      const { data, error } = await supabase
         .from('friends')
         .select('id, requester_uuid, addressee_uuid, status')
         .or(`requester_uuid.eq.${storedUserId},addressee_uuid.eq.${storedUserId}`)
         .eq('status', 'accepted')
-        .then(async ({ data, error }) => {
-          if (error) {
-            console.error('[Friends] fetch failed:', error)
-            return
-          }
-          const friendUuids = Array.from(new Set((data || [])
-            .map(row => row.requester_uuid === storedUserId ? row.addressee_uuid : row.requester_uuid)
-            .filter(Boolean)))
-          if (friendUuids.length === 0) return
-          const { data: profiles, error: profileError } = await supabase
-            .from('users')
-            .select('uuid, display_name')
-            .in('uuid', friendUuids)
-          if (profileError) {
-            console.error('[Friends] profiles fetch failed:', profileError)
-          }
-          const missingUuids = friendUuids.filter(friendUuid => {
-            const profile = profiles?.find(p => p.uuid === friendUuid)
-            return !profile?.display_name
-          })
-          const fallbackNames = new Map<string, string>()
-          if (missingUuids.length > 0) {
-            const { data: messageNames, error: messageError } = await supabase
-              .from('messages')
-              .select('user_uuid, display_name, created_at')
-              .in('user_uuid', missingUuids)
-              .order('created_at', { ascending: false })
-            if (messageError) {
-              console.error('[Friends] message names fetch failed:', messageError)
-            } else {
-              messageNames?.forEach(row => {
-                if (row.user_uuid && !fallbackNames.has(row.user_uuid) && row.display_name) {
-                  fallbackNames.set(row.user_uuid, row.display_name)
-                }
-              })
-            }
-          }
-          const remoteFriends = friendUuids.map(friendUuid => {
-            const profile = profiles?.find(p => p.uuid === friendUuid)
-            return {
-              id: friendUuid,
-              username: profile?.display_name || fallbackNames.get(friendUuid) || 'Anonymous',
+
+      if (error) {
+        console.error('[Friends] fetch failed:', error)
+        return
+      }
+
+      const friendUuids = Array.from(new Set((data || [])
+        .map(row => row.requester_uuid === storedUserId ? row.addressee_uuid : row.requester_uuid)
+        .filter(Boolean)))
+
+      if (friendUuids.length === 0) return
+
+      const { data: profiles, error: profileError } = await supabase
+        .from('users')
+        .select('uuid, display_name, username')
+        .in('uuid', friendUuids)
+
+      if (profileError) {
+        console.error('[Friends] profiles fetch failed:', profileError)
+      }
+
+      const missingUsernames = (profiles || [])
+        .filter(profile => !profile.display_name && profile.username)
+        .map(profile => profile.username as string)
+
+      const fallbackNames = new Map<string, string>()
+      if (missingUsernames.length > 0) {
+        const { data: messageNames, error: messageError } = await supabase
+          .from('messages')
+          .select('username, display_name, created_at')
+          .in('username', missingUsernames)
+          .order('created_at', { ascending: false })
+
+        if (messageError) {
+          console.error('[Friends] message names fetch failed:', messageError)
+        } else {
+          messageNames?.forEach(row => {
+            if (row.username && !fallbackNames.has(row.username) && row.display_name) {
+              fallbackNames.set(row.username, row.display_name)
             }
           })
-          const mergedMap = new Map<string, { id: string; username: string }>()
-          localFriends.forEach(friend => mergedMap.set(friend.id, friend))
-          remoteFriends.forEach(friend => {
-            if (!mergedMap.has(friend.id)) {
-              mergedMap.set(friend.id, friend)
-            } else if (friend.username && friend.username !== 'Anonymous') {
-              mergedMap.set(friend.id, friend)
-            }
-          })
-          const merged = Array.from(mergedMap.values())
-          setFriends(merged)
-          localStorage.setItem(FRIENDS_STORAGE_KEY, JSON.stringify(merged))
-        })
+        }
+      }
+
+      const remoteFriends = friendUuids.map(friendUuid => {
+        const profile = profiles?.find(p => p.uuid === friendUuid)
+        return {
+          id: friendUuid,
+          username: profile?.display_name || (profile?.username ? fallbackNames.get(profile.username) : undefined) || 'Anonymous',
+        }
+      })
+
+      const mergedMap = new Map<string, { id: string; username: string }>()
+      localFriends.forEach(friend => mergedMap.set(friend.id, friend))
+      remoteFriends.forEach(friend => {
+        if (!mergedMap.has(friend.id)) {
+          mergedMap.set(friend.id, friend)
+        } else if (friend.username && friend.username !== 'Anonymous') {
+          mergedMap.set(friend.id, friend)
+        }
+      })
+
+      const merged = Array.from(mergedMap.values())
+      setFriends(merged)
+      localStorage.setItem(FRIENDS_STORAGE_KEY, JSON.stringify(merged))
     }
-  }, [authReady])
+
+    loadProfile()
+  }, [authReady, persistProfileLocally, upsertUserProfile])
 
   // Fetch rooms on mount
   useEffect(() => {
@@ -672,7 +793,7 @@ export default function GlobalChat() {
     if (!reportSheetMessage) return
     setReportStatus('submitting')
     const roomId = reportSheetMessage.room_id ?? rooms[currentRoomIndex]?.id ?? null
-    const reportedId = reportSheetMessage.user_uuid || reportSheetMessage.username
+    const reportedId = reportSheetMessage.senderUsername || reportSheetMessage.username
     const { error } = await supabase.from('reports').insert([
       {
         reporter_id: getCurrentUserId(),
@@ -746,9 +867,8 @@ export default function GlobalChat() {
     const text = (inputTexts[roomId] || '').trim()
     if (!text) return
 
-    const userId = getCurrentUserId()
-    const activeName = overrideName || username || localStorage.getItem(USERNAME_STORAGE_KEY)
-    if (!activeName) {
+    const activeDisplayName = overrideName || displayName || localStorage.getItem(DISPLAY_NAME_STORAGE_KEY)
+    if (!activeDisplayName) {
       pendingSendRef.current = { roomId }
       setTempProfileName('')
       setTempProfileCollege('')
@@ -757,17 +877,19 @@ export default function GlobalChat() {
     }
 
     const activeCollege = overrideCollege !== undefined ? overrideCollege : (university || localStorage.getItem(COLLEGE_STORAGE_KEY) || '')
+    const activeUsername = await ensureAccountUsername(activeDisplayName, activeCollege)
+    if (!activeUsername) return
     const tempId = `temp-${Date.now()}`
 
     const optimisticMsg: Message = {
       id: tempId,
-      username: activeName,
-      initials: getInitials(activeName),
+      username: activeDisplayName,
+      initials: getInitials(activeDisplayName),
       university: activeCollege,
       text,
       timestamp: formatTime(),
       room_id: roomId,
-      user_uuid: userId,
+      senderUsername: activeUsername,
       reveal_delay: 0,
     }
 
@@ -779,14 +901,13 @@ export default function GlobalChat() {
       [roomId]: [...(prev[roomId] || []), optimisticMsg]
     }))
     setInputTexts(prev => ({ ...prev, [roomId]: '' }))
-    inputHadContentRef.current[roomId] = false
 
     // FRIDAY: synchronous memory-only tracking
     trackMessageSent(roomId)
 
     const { data, error } = await supabase
       .from('messages')
-      .insert({ content: text, display_name: activeName, college: activeCollege, room_id: roomId, user_uuid: userId })
+      .insert({ content: text, display_name: activeDisplayName, college: activeCollege, room_id: roomId, username: activeUsername })
       .select()
 
     if (error) {
@@ -799,7 +920,7 @@ export default function GlobalChat() {
 
     if (data && data[0]) {
       const m = data[0]
-      const serverMessage = buildMessageFromRow(m, userId)
+      const serverMessage = buildMessageFromRow(m, activeUsername)
       setRoomMessages(prev => ({
         ...prev,
         [roomId]: (prev[roomId] || []).map(msg => msg.id === tempId ? serverMessage : msg)
@@ -817,19 +938,24 @@ export default function GlobalChat() {
     const college = tempProfileCollege.trim()
     if (!name) return
 
-    localStorage.setItem(USERNAME_STORAGE_KEY, name)
-    localStorage.setItem(COLLEGE_STORAGE_KEY, college)
-    setUsername(name)
+    const nextUsername = await ensureAccountUsername(name, college)
+    persistProfileLocally({
+      displayName: name,
+      username: nextUsername,
+      college,
+    })
+    setDisplayName(name)
+    setAccountUsername(nextUsername)
     setUniversity(college)
     setShowProfileModal(false)
     setTempProfileName('')
     setTempProfileCollege('')
-    const userId = getCurrentUserId()
-    const { error } = await supabase.from('users').upsert(
-      { uuid: userId, display_name: name, college: college || null, avatar_url: avatarUrl || null },
-      { onConflict: 'uuid' }
-    )
-    if (error) console.error('[Users] update failed:', error)
+    await upsertUserProfile({
+      displayName: name,
+      username: nextUsername,
+      college,
+      avatarUrl,
+    })
 
     if (pendingSendRef.current) {
       handleSend(pendingSendRef.current.roomId, name, college)
@@ -852,7 +978,7 @@ export default function GlobalChat() {
   }
 
   const handleProfileButtonClick = () => {
-    setTempProfileName(username)
+    setTempProfileName(displayName)
     setTempProfileCollege(university)
     setShowProfileModal(true)
   }
@@ -959,10 +1085,11 @@ export default function GlobalChat() {
 
   if (!isMounted || !authReady) return null
 
-  const hasSavedProfileName = Boolean(username.trim())
+  const hasSavedProfileName = Boolean(displayName.trim())
+  const profileHandle = accountUsername.trim()
   const currentAvatarUrl = avatarUrl.trim()
   const hasAvatarPhoto = Boolean(currentAvatarUrl)
-  const profilePreviewName = tempProfileName.trim() || username.trim() || 'User'
+  const profilePreviewName = tempProfileName.trim() || displayName.trim() || 'User'
   const profilePreviewInitials = getInitials(profilePreviewName)
   const profilePreviewColor = getUserColor(profilePreviewName)
 
@@ -991,16 +1118,16 @@ export default function GlobalChat() {
                 <div className="header-side">
                   <button
                     type="button"
-                    className={`profile-avatar-btn${!hasAvatarPhoto && !username.trim() ? ' empty' : ''}`}
-                    style={!hasAvatarPhoto && username.trim() ? { backgroundColor: getUserColor(username) } : undefined}
+                    className={`profile-avatar-btn${!hasAvatarPhoto && !displayName.trim() ? ' empty' : ''}`}
+                    style={!hasAvatarPhoto && displayName.trim() ? { backgroundColor: getUserColor(displayName) } : undefined}
                     aria-label="Open profile"
                     onClick={handleProfileButtonClick}
                   >
                     {hasAvatarPhoto ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img key={currentAvatarUrl} src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" />
-                    ) : username.trim() ? (
-                      getInitials(username)
+                    ) : displayName.trim() ? (
+                      getInitials(displayName)
                     ) : (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M18 20a6 6 0 0 0-12 0" />
@@ -1037,7 +1164,7 @@ export default function GlobalChat() {
                     const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id))
                     const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
                     const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
-                    const showOwnMessageAvatar = msg.user_uuid === getCurrentUserId() && hasAvatarPhoto
+                    const showOwnMessageAvatar = msg.senderUsername === getCurrentUsername() && hasAvatarPhoto
 
                     return (
                       <div key={msg.id} className="msg-reveal"
@@ -1097,20 +1224,11 @@ export default function GlobalChat() {
                     placeholder="What's on your mind?"
                     value={inputText}
                     onChange={(e) => {
-                      const val = e.target.value
-                      setInputTexts(prev => ({ ...prev, [room.id]: val }))
-                      if (val.trim()) inputHadContentRef.current[room.id] = true
+                      setInputTexts(prev => ({ ...prev, [room.id]: e.target.value }))
                     }}
                     onKeyDown={(e) => handleKeyDown(e, room.id)}
                     onFocus={() => setIsKeyboardOpen(true)}
-                    onBlur={() => {
-                      setIsKeyboardOpen(false)
-                      const currentText = (inputTexts[room.id] || '').trim()
-                      if (inputHadContentRef.current[room.id] && currentText.length > 0) {
-                        trackTypedNotSent(room.id)
-                      }
-                      inputHadContentRef.current[room.id] = false
-                    }}
+                    onBlur={() => setIsKeyboardOpen(false)}
                   />
                   <button className="send-btn" aria-label="Send" onClick={(e) => { e.preventDefault(); e.stopPropagation(); const btn = e.currentTarget as HTMLButtonElement; btn.blur(); handleSend(room.id); }}>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1192,12 +1310,13 @@ export default function GlobalChat() {
               {avatarUploading && <div className="profile-avatar-status">Uploading photo...</div>}
             </div>
             <div className="sheet-handle" />
+            {profileHandle && <div className="profile-username">@{profileHandle}</div>}
             <div className="profile-title">Your Profile</div>
             {hasSavedProfileName ? (
               <>
                 <div className="profile-field">
                   <label className="profile-label">Display name</label>
-                  <div className="profile-locked-value">{username}</div>
+                  <div className="profile-locked-value">{displayName}</div>
                   <div className="profile-locked-note">Your name is set in stone. No take-backs. 🪨</div>
                 </div>
                 <div className="profile-field">

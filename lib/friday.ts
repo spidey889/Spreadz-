@@ -8,6 +8,8 @@
 
 import { supabase } from './supabase'
 
+const USERNAME_STORAGE_KEY = 'spreadz_username'
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Room {
@@ -21,12 +23,8 @@ interface Room {
 const sessionData: Record<string, {
     secondsSpent: number
     messagesSent: number
-    typedNotSent: number
-    returnVisits: number
     entryTime: number | null
 }> = {}
-
-const visitedThisSession = new Set<string>()
 // ── Interest Keyword Map ───────────────────────────────────────────────────────
 
 const INTEREST_KEYWORDS: Record<string, string[]> = {
@@ -42,14 +40,9 @@ const INTEREST_KEYWORDS: Record<string, string[]> = {
 
 // ── User Identity ──────────────────────────────────────────────────────────────
 
-export function getUserId(): string {
-    if (typeof window === 'undefined') return 'server'
-    let id = localStorage.getItem('spreadz_user_uuid')
-    if (!id) {
-        id = crypto.randomUUID()
-        localStorage.setItem('spreadz_user_uuid', id)
-    }
-    return id
+function getUsername(): string {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem(USERNAME_STORAGE_KEY)?.trim() || ''
 }
 
 // ── Interest Management ────────────────────────────────────────────────────────
@@ -74,14 +67,9 @@ export function getInterests(): string[] {
 /** Called when user enters a room — pure memory, zero Supabase. */
 export function trackRoomEnter(roomId: string): void {
     if (!sessionData[roomId]) {
-        sessionData[roomId] = { secondsSpent: 0, messagesSent: 0, typedNotSent: 0, returnVisits: 0, entryTime: null }
+        sessionData[roomId] = { secondsSpent: 0, messagesSent: 0, entryTime: null }
     }
     sessionData[roomId].entryTime = Date.now()
-
-    if (visitedThisSession.has(roomId)) {
-        sessionData[roomId].returnVisits++
-    }
-    visitedThisSession.add(roomId)
 }
 
 /** Called when user leaves a room — pure memory, zero Supabase. */
@@ -96,17 +84,9 @@ export function trackRoomLeave(roomId: string): void {
 /** Pure memory. */
 export function trackMessageSent(roomId: string): void {
     if (!sessionData[roomId]) {
-        sessionData[roomId] = { secondsSpent: 0, messagesSent: 0, typedNotSent: 0, returnVisits: 0, entryTime: null }
+        sessionData[roomId] = { secondsSpent: 0, messagesSent: 0, entryTime: null }
     }
     sessionData[roomId].messagesSent++
-}
-
-/** Pure memory. */
-export function trackTypedNotSent(roomId: string): void {
-    if (!sessionData[roomId]) {
-        sessionData[roomId] = { secondsSpent: 0, messagesSent: 0, typedNotSent: 0, returnVisits: 0, entryTime: null }
-    }
-    sessionData[roomId].typedNotSent++
 }
 
 
@@ -118,7 +98,8 @@ export function trackTypedNotSent(roomId: string): void {
  * Called ONLY on window beforeunload or via 60-second interval.
  */
 export async function flushToSupabase(): Promise<void> {
-    const userId = getUserId()
+    const username = getUsername()
+    if (!username) return
     const roomIds = Object.keys(sessionData)
     if (roomIds.length === 0) return
 
@@ -130,8 +111,8 @@ export async function flushToSupabase(): Promise<void> {
             const today = new Date().toISOString().split('T')[0]
             const { data: existing } = await supabase
                 .from('user_behaviour')
-                .select('id, seconds_spent, messages_sent, typed_but_not_sent, returned_to_room')
-                .eq('user_uuid', userId)
+                .select('id, seconds_spent, messages_sent')
+                .eq('username', username)
                 .eq('room_id', roomId)
                 .gte('visited_at', `${today}T00:00:00.000Z`)
                 .limit(1)
@@ -140,18 +121,13 @@ export async function flushToSupabase(): Promise<void> {
                 await supabase.from('user_behaviour').update({
                     seconds_spent: existing[0].seconds_spent + d.secondsSpent,
                     messages_sent: existing[0].messages_sent + d.messagesSent,
-                    typed_but_not_sent: existing[0].typed_but_not_sent + d.typedNotSent,
-                    returned_to_room: existing[0].returned_to_room + d.returnVisits,
-                    updated_at: new Date().toISOString(),
                 }).eq('id', existing[0].id)
             } else {
                 await supabase.from('user_behaviour').insert({
-                    user_uuid: userId,
+                    username,
                     room_id: roomId,
                     seconds_spent: d.secondsSpent,
                     messages_sent: d.messagesSent,
-                    typed_but_not_sent: d.typedNotSent,
-                    returned_to_room: d.returnVisits,
                 })
             }
         }
@@ -168,7 +144,7 @@ export async function flushToSupabase(): Promise<void> {
  * Fetches this user's behaviour data from Supabase (from previous sessions)
  * and returns rooms reordered using FRIDAY scoring:
  *
- * Score = (seconds_spent * 0.4) + (messages_sent * 0.3) + (returned_to_room * 0.2) - (typed_but_not_sent * 0.1)
+ * Score = (seconds_spent * 0.4) + (messages_sent * 0.3)
  *
  * Then applies:
  * - Interest keyword boost: +20% if room headline matches saved interests
@@ -179,18 +155,17 @@ export async function rankRooms(rooms: Room[]): Promise<Room[]> {
     if (!rooms || rooms.length <= 1) return rooms
 
     try {
-        const userId = getUserId()
+        const username = getUsername()
+        if (!username) return rooms
         const { data: behaviourData } = await supabase
             .from('user_behaviour')
-            .select('*')
-            .eq('user_uuid', userId)
+            .select('room_id, seconds_spent, messages_sent')
+            .eq('username', username)
 
         // Aggregate behaviour by room
         const behaviourMap: Record<string, {
             seconds_spent: number
             messages_sent: number
-            typed_but_not_sent: number
-            returned_to_room: number
         }> = {}
 
         if (behaviourData) {
@@ -198,14 +173,10 @@ export async function rankRooms(rooms: Room[]): Promise<Room[]> {
                 if (behaviourMap[record.room_id]) {
                     behaviourMap[record.room_id].seconds_spent += record.seconds_spent
                     behaviourMap[record.room_id].messages_sent += record.messages_sent
-                    behaviourMap[record.room_id].typed_but_not_sent += record.typed_but_not_sent
-                    behaviourMap[record.room_id].returned_to_room += record.returned_to_room
                 } else {
                     behaviourMap[record.room_id] = {
                         seconds_spent: record.seconds_spent,
                         messages_sent: record.messages_sent,
-                        typed_but_not_sent: record.typed_but_not_sent,
-                        returned_to_room: record.returned_to_room,
                     }
                 }
             }
@@ -231,8 +202,7 @@ export async function rankRooms(rooms: Room[]): Promise<Room[]> {
             let score = 0
 
             if (b) {
-                score = (b.seconds_spent * 0.4) + (b.messages_sent * 0.3) +
-                    (b.returned_to_room * 0.2) - (b.typed_but_not_sent * 0.1)
+                score = (b.seconds_spent * 0.4) + (b.messages_sent * 0.3)
             }
 
             // Interest keyword boost

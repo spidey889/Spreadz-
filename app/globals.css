@@ -501,6 +501,14 @@ body {
           line-height: 1.4;
           text-align: center;
         }
+        .profile-username {
+          font-size: 12px;
+          color: var(--text-secondary);
+          line-height: 1.2;
+          text-align: center;
+          letter-spacing: 0.01em;
+          margin-top: 2px;
+        }
         .profile-avatar-spinner {
           width: 12px;
           height: 12px;

@@ -13,6 +13,7 @@ export type Database = {
         Row: {
           uuid: string
           display_name: string | null
+          username: string | null
           college: string | null
           avatar_url: string | null
           created_at?: string | null
@@ -21,6 +22,7 @@ export type Database = {
         Insert: {
           uuid: string
           display_name?: string | null
+          username?: string | null
           college?: string | null
           avatar_url?: string | null
           created_at?: string | null
@@ -29,6 +31,7 @@ export type Database = {
         Update: {
           uuid?: string
           display_name?: string | null
+          username?: string | null
           college?: string | null
           avatar_url?: string | null
           created_at?: string | null
@@ -68,26 +71,26 @@ export type Database = {
           id: string
           content: string
           display_name: string | null
+          username: string | null
           college: string | null
           room_id: string | null
           created_at: string
-          user_uuid: string | null
         }
         Insert: {
           content: string
           display_name?: string | null
+          username?: string | null
           college?: string | null
           room_id?: string | null
           created_at?: string
-          user_uuid?: string | null
         }
         Update: {
           content?: string
           display_name?: string | null
+          username?: string | null
           college?: string | null
           room_id?: string | null
           created_at?: string
-          user_uuid?: string | null
         }
         Relationships: []
       }
@@ -137,34 +140,25 @@ export type Database = {
       user_behaviour: {
         Row: {
           id: string
-          user_uuid: string
+          username: string
           room_id: string
           seconds_spent: number
           messages_sent: number
-          typed_but_not_sent: number
-          returned_to_room: number
           visited_at?: string | null
-          updated_at?: string | null
         }
         Insert: {
-          user_uuid: string
+          username: string
           room_id: string
           seconds_spent?: number
           messages_sent?: number
-          typed_but_not_sent?: number
-          returned_to_room?: number
           visited_at?: string | null
-          updated_at?: string | null
         }
         Update: {
-          user_uuid?: string
+          username?: string
           room_id?: string
           seconds_spent?: number
           messages_sent?: number
-          typed_but_not_sent?: number
-          returned_to_room?: number
           visited_at?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }

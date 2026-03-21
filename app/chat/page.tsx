@@ -203,8 +203,6 @@ export default function GlobalChat() {
   const userIdRef = useRef<string>('')
   const displayNameToUsernameRef = useRef<Record<string, string>>({})
   const sentRoomIdsRef = useRef<Set<string>>(new Set())
-  const userMetricsRef = useRef({ messagesSent: 0, cameBack: 0 })
-
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
   const friendRequestChannelRef = useRef<any>(null)
@@ -367,8 +365,6 @@ export default function GlobalChat() {
     username?: string
     college?: string
     avatarUrl?: string
-    messagesSent?: number
-    cameBack?: number
     createdAt?: string
   }) => {
     const userId = getCurrentUserId()
@@ -381,8 +377,6 @@ export default function GlobalChat() {
       username?: string | null
       college?: string | null
       avatar_url?: string | null
-      messages_sent?: number | null
-      came_back?: number | null
     } = {
       uuid: userId,
     }
@@ -392,8 +386,6 @@ export default function GlobalChat() {
     if (profile.username !== undefined) payload.username = profile.username || null
     if (profile.college !== undefined) payload.college = profile.college || null
     if (profile.avatarUrl !== undefined) payload.avatar_url = profile.avatarUrl || null
-    if (profile.messagesSent !== undefined) payload.messages_sent = profile.messagesSent
-    if (profile.cameBack !== undefined) payload.came_back = profile.cameBack
 
     const { error } = await supabase.from('users').upsert(payload, { onConflict: 'uuid' })
     if (error) console.error('[Users] upsert failed:', error)
@@ -414,20 +406,27 @@ export default function GlobalChat() {
       username: nextUsername,
       college: college ?? university,
       avatarUrl,
-      messagesSent: userMetricsRef.current.messagesSent,
-      cameBack: userMetricsRef.current.cameBack,
     })
     return nextUsername
   }, [avatarUrl, getCurrentUsername, persistProfileLocally, readStoredSentRoomIds, university, upsertUserProfile])
 
-  const incrementUserMessagesSent = useCallback(async () => {
-    const nextMessagesSent = userMetricsRef.current.messagesSent + 1
-    userMetricsRef.current.messagesSent = nextMessagesSent
-    await upsertUserProfile({
-      messagesSent: nextMessagesSent,
-      cameBack: userMetricsRef.current.cameBack,
+  const incrementUserMessagesSent = useCallback(async (username: string) => {
+    if (!username) return
+
+    const { error } = await supabase.rpc('increment_user_messages_sent', {
+      p_username: username,
     })
-  }, [upsertUserProfile])
+    if (error) console.error('[Users] messages_sent increment failed:', error)
+  }, [])
+
+  const incrementUserCameBack = useCallback(async (username: string) => {
+    if (!username) return
+
+    const { error } = await supabase.rpc('increment_user_came_back', {
+      p_username: username,
+    })
+    if (error) console.error('[Users] came_back increment failed:', error)
+  }, [])
 
   const updateRoomMessageStats = useCallback(async (roomId: string, activeUsername: string) => {
     if (!roomId) return
@@ -435,16 +434,17 @@ export default function GlobalChat() {
     let shouldIncrementUserCount = false
 
     if (!sentRoomIdsRef.current.has(roomId)) {
-      const { data: behaviourRow, error: behaviourError } = await supabase
+      const { data: behaviourRows, error: behaviourError } = await supabase
         .from('user_behaviour')
-        .select('messages_sent')
+        .select('id')
         .eq('username', activeUsername)
         .eq('room_id', roomId)
-        .maybeSingle()
+        .gt('messages_sent', 0)
+        .limit(1)
 
       if (behaviourError) {
         console.error('[Rooms] first-message check failed:', behaviourError)
-      } else if (!behaviourRow || (behaviourRow.messages_sent ?? 0) === 0) {
+      } else if (!behaviourRows || behaviourRows.length === 0) {
         shouldIncrementUserCount = true
       } else {
         sentRoomIdsRef.current.add(roomId)
@@ -452,31 +452,25 @@ export default function GlobalChat() {
       }
     }
 
-    const { data: roomRow, error: roomError } = await supabase
-      .from('rooms')
-      .select('message_count, user_count')
-      .eq('id', roomId)
-      .maybeSingle()
+    const { error: messageCountError } = await supabase.rpc('increment_room_message_count', {
+      room_id: roomId,
+    })
 
-    if (roomError || !roomRow) {
-      console.error('[Rooms] stats fetch failed:', roomError)
-      return
-    }
-
-    const { error: updateError } = await supabase
-      .from('rooms')
-      .update({
-        message_count: (roomRow.message_count ?? 0) + 1,
-        user_count: (roomRow.user_count ?? 0) + (shouldIncrementUserCount ? 1 : 0),
-      })
-      .eq('id', roomId)
-
-    if (updateError) {
-      console.error('[Rooms] stats update failed:', updateError)
+    if (messageCountError) {
+      console.error('[Rooms] message_count increment failed:', messageCountError)
       return
     }
 
     if (shouldIncrementUserCount) {
+      const { error: userCountError } = await supabase.rpc('increment_room_user_count', {
+        room_id: roomId,
+      })
+
+      if (userCountError) {
+        console.error('[Rooms] user_count increment failed:', userCountError)
+        return
+      }
+
       sentRoomIdsRef.current.add(roomId)
       persistSentRoomIds(activeUsername, sentRoomIdsRef.current)
     }
@@ -542,7 +536,7 @@ export default function GlobalChat() {
 
       const { data: userRow, error: userError } = await supabase
         .from('users')
-        .select('display_name, college, avatar_url, username, messages_sent, came_back')
+        .select('display_name, college, avatar_url, username')
         .eq('uuid', storedUserId)
         .maybeSingle()
 
@@ -553,18 +547,13 @@ export default function GlobalChat() {
       const nextDisplayName = storedProfile.displayName || userRow?.display_name || ''
       const nextCollege = storedProfile.college || userRow?.college || ''
       const nextUsername = storedProfile.username || userRow?.username || (nextDisplayName ? generateUsernameFromDisplayName(nextDisplayName) : '')
-      const nextMessagesSent = userRow?.messages_sent ?? 0
-      const nextCameBack = userRow ? (userRow.came_back ?? 0) + 1 : 0
+      const shouldIncrementCameBack = Boolean(nextUsername && (userRow?.username || storedProfile.username))
 
       setDisplayName(nextDisplayName)
       setUniversity(nextCollege)
       setAvatarUrl(userRow?.avatar_url || '')
       setAccountUsername(nextUsername)
       sentRoomIdsRef.current = readStoredSentRoomIds(nextUsername)
-      userMetricsRef.current = {
-        messagesSent: nextMessagesSent,
-        cameBack: nextCameBack,
-      }
       if (nextDisplayName && nextUsername) {
         displayNameToUsernameRef.current[nextDisplayName] = nextUsername
       }
@@ -577,10 +566,11 @@ export default function GlobalChat() {
         displayName: nextDisplayName,
         username: nextUsername,
         college: nextCollege,
-        messagesSent: nextMessagesSent,
-        cameBack: nextCameBack,
         createdAt: userRow ? undefined : new Date().toISOString(),
       })
+      if (shouldIncrementCameBack) {
+        await incrementUserCameBack(nextUsername)
+      }
 
       const { data, error } = await supabase
         .from('friends')
@@ -632,7 +622,7 @@ export default function GlobalChat() {
     }
 
     loadProfile()
-  }, [authReady, persistProfileLocally, readStoredSentRoomIds, upsertUserProfile])
+  }, [authReady, incrementUserCameBack, persistProfileLocally, readStoredSentRoomIds, upsertUserProfile])
 
   // Fetch rooms on mount
   useEffect(() => {
@@ -1081,7 +1071,7 @@ export default function GlobalChat() {
       // Ensure the server-returned success message is also revealed
       scheduleReveal(roomId, serverMessage.id, 0)
       trackMessageSent(roomId, activeRoomName)
-      await incrementUserMessagesSent()
+      await incrementUserMessagesSent(activeUsername)
       await updateRoomMessageStats(roomId, activeUsername)
     }
   }

@@ -194,7 +194,59 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_behaviour_messages: {
+        Args: {
+          p_room_id: string
+          p_username: string
+        }
+        Returns: undefined
+      }
+      increment_behaviour_came_back: {
+        Args: {
+          p_room_id: string
+          p_username: string
+        }
+        Returns: undefined
+      }
+      increment_behaviour_time: {
+        Args: {
+          p_room_id: string
+          p_username: string
+          seconds: number
+        }
+        Returns: undefined
+      }
+      increment_room_message_count: {
+        Args: {
+          room_id: string
+        }
+        Returns: undefined
+      }
+      increment_room_time_spent: {
+        Args: {
+          room_id: string
+          seconds: number
+        }
+        Returns: undefined
+      }
+      increment_room_user_count: {
+        Args: {
+          room_id: string
+        }
+        Returns: undefined
+      }
+      increment_user_came_back: {
+        Args: {
+          p_username: string
+        }
+        Returns: undefined
+      }
+      increment_user_messages_sent: {
+        Args: {
+          p_username: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       friend_status: 'accepted' | 'declined'

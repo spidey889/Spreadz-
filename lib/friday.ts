@@ -70,29 +70,78 @@ function syncActiveRoomTime(roomId: string): void {
 async function incrementRoomTimeStats(roomId: string, secondsIncrement: number): Promise<void> {
     if (!roomId || secondsIncrement <= 0) return
 
-    const { data: roomRow, error: roomError } = await supabase
-        .from('rooms')
-        .select('total_seconds_spent')
-        .eq('id', roomId)
-        .maybeSingle()
+    const { error } = await supabase.rpc('increment_room_time_spent', {
+        room_id: roomId,
+        seconds: secondsIncrement,
+    })
 
-    if (roomError || !roomRow) {
-        console.error('[FRIDAY] room stats fetch error:', roomError)
-        return
+    if (error) {
+        console.error('[FRIDAY] room stats increment error:', error)
     }
+}
 
-    const nextTotalSecondsSpent = (roomRow.total_seconds_spent ?? 0) + secondsIncrement
-    const { error: updateError } = await supabase
-        .from('rooms')
-        .update({
-            total_seconds_spent: nextTotalSecondsSpent,
-            time_spent_minutes: Math.floor(nextTotalSecondsSpent / 60),
+async function incrementBehaviourMessages(username: string, roomId: string, messageCount: number): Promise<void> {
+    if (!username || !roomId || messageCount <= 0) return
+
+    for (let i = 0; i < messageCount; i++) {
+        const { error } = await supabase.rpc('increment_behaviour_messages', {
+            p_username: username,
+            p_room_id: roomId,
         })
-        .eq('id', roomId)
 
-    if (updateError) {
-        console.error('[FRIDAY] room stats update error:', updateError)
+        if (error) {
+            console.error('[FRIDAY] behaviour messages increment error:', error)
+            return
+        }
     }
+}
+
+async function incrementBehaviourCameBack(username: string, roomId: string, revisitCount: number): Promise<void> {
+    if (!username || !roomId || revisitCount <= 0) return
+
+    for (let i = 0; i < revisitCount; i++) {
+        const { error } = await supabase.rpc('increment_behaviour_came_back', {
+            p_username: username,
+            p_room_id: roomId,
+        })
+
+        if (error) {
+            console.error('[FRIDAY] behaviour came_back increment error:', error)
+            return
+        }
+    }
+}
+
+async function incrementBehaviourTime(username: string, roomId: string, secondsIncrement: number): Promise<void> {
+    if (!username || !roomId || secondsIncrement <= 0) return
+
+    const { error } = await supabase.rpc('increment_behaviour_time', {
+        p_username: username,
+        p_room_id: roomId,
+        seconds: secondsIncrement,
+    })
+
+    if (error) {
+        console.error('[FRIDAY] behaviour time increment error:', error)
+    }
+}
+
+async function hasPriorBehaviour(username: string, roomId: string): Promise<boolean> {
+    if (!username || !roomId) return false
+
+    const { data, error } = await supabase
+        .from('user_behaviour')
+        .select('id')
+        .eq('username', username)
+        .eq('room_id', roomId)
+        .limit(1)
+
+    if (error) {
+        console.error('[FRIDAY] prior behaviour lookup error:', error)
+        return false
+    }
+
+    return Boolean(data && data.length > 0)
 }
 
 export function saveInterests(interests: string[]): void {
@@ -156,36 +205,21 @@ export async function flushToSupabase(): Promise<void> {
 
             const data = sessionData[roomId]
             if (!data) continue
-            if (data.timeSpentSeconds < 1 && data.messagesSent === 0 && data.visitCount === 0) continue
+            const hadPriorVisits = data.visitCount > 0
+                ? await hasPriorBehaviour(username, roomId)
+                : false
+            const revisitCount = hadPriorVisits
+                ? data.visitCount
+                : Math.max(0, data.visitCount - 1)
 
-            const { data: existing } = await supabase
-                .from('user_behaviour')
-                .select('id, messages_sent, time_spent_seconds, came_back')
-                .eq('username', username)
-                .eq('room_id', roomId)
-                .limit(1)
-
-            if (existing && existing.length > 0) {
-                const nextTimeSpentSeconds = existing[0].time_spent_seconds + data.timeSpentSeconds
-                await supabase.from('user_behaviour').update({
-                    room_name: data.roomName,
-                    messages_sent: existing[0].messages_sent + data.messagesSent,
-                    time_spent_seconds: nextTimeSpentSeconds,
-                    time_spent_minutes: Math.floor(nextTimeSpentSeconds / 60),
-                    came_back: existing[0].came_back + data.visitCount,
-                }).eq('id', existing[0].id)
-            } else {
-                await supabase.from('user_behaviour').insert({
-                    username,
-                    room_name: data.roomName,
-                    room_id: roomId,
-                    messages_sent: data.messagesSent,
-                    time_spent_seconds: data.timeSpentSeconds,
-                    time_spent_minutes: Math.floor(data.timeSpentSeconds / 60),
-                    came_back: Math.max(0, data.visitCount - 1),
-                })
+            if (data.timeSpentSeconds < 1 && data.messagesSent === 0 && revisitCount === 0) {
+                data.visitCount = 0
+                continue
             }
 
+            await incrementBehaviourMessages(username, roomId, data.messagesSent)
+            await incrementBehaviourCameBack(username, roomId, revisitCount)
+            await incrementBehaviourTime(username, roomId, data.timeSpentSeconds)
             await incrementRoomTimeStats(roomId, data.timeSpentSeconds)
 
             data.timeSpentSeconds = 0

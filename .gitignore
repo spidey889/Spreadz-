@@ -22,6 +22,9 @@
 # sql notes (keep README tracked)
 sql/**/*.sql
 
+# generated office-hours docs
+docs/office-hours-*.md
+
 # debug
 npm-debug.log*
 yarn-debug.log*

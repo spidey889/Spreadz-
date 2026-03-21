@@ -67,6 +67,34 @@ function syncActiveRoomTime(roomId: string): void {
     data.entryTime = Date.now()
 }
 
+async function incrementRoomTimeStats(roomId: string, secondsIncrement: number): Promise<void> {
+    if (!roomId || secondsIncrement <= 0) return
+
+    const { data: roomRow, error: roomError } = await supabase
+        .from('rooms')
+        .select('total_seconds_spent')
+        .eq('id', roomId)
+        .maybeSingle()
+
+    if (roomError || !roomRow) {
+        console.error('[FRIDAY] room stats fetch error:', roomError)
+        return
+    }
+
+    const nextTotalSecondsSpent = (roomRow.total_seconds_spent ?? 0) + secondsIncrement
+    const { error: updateError } = await supabase
+        .from('rooms')
+        .update({
+            total_seconds_spent: nextTotalSecondsSpent,
+            time_spent_minutes: Math.floor(nextTotalSecondsSpent / 60),
+        })
+        .eq('id', roomId)
+
+    if (updateError) {
+        console.error('[FRIDAY] room stats update error:', updateError)
+    }
+}
+
 export function saveInterests(interests: string[]): void {
     if (typeof window === 'undefined') return
     localStorage.setItem('spreadz_interests', JSON.stringify(interests))
@@ -157,6 +185,8 @@ export async function flushToSupabase(): Promise<void> {
                     came_back: Math.max(0, data.visitCount - 1),
                 })
             }
+
+            await incrementRoomTimeStats(roomId, data.timeSpentSeconds)
 
             data.timeSpentSeconds = 0
             data.messagesSent = 0

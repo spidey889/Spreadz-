@@ -130,16 +130,28 @@ export type Database = {
           id: string
           headline: string
           created_at: string
+          message_count: number | null
+          user_count: number | null
+          total_seconds_spent: number | null
+          time_spent_minutes: number | null
         }
         Insert: {
           id?: string
           headline: string
           created_at?: string
+          message_count?: number | null
+          user_count?: number | null
+          total_seconds_spent?: number | null
+          time_spent_minutes?: number | null
         }
         Update: {
           id?: string
           headline?: string
           created_at?: string
+          message_count?: number | null
+          user_count?: number | null
+          total_seconds_spent?: number | null
+          time_spent_minutes?: number | null
         }
         Relationships: []
       }

@@ -67,6 +67,7 @@ const DISPLAY_NAME_STORAGE_KEY = 'spreadz_display_name'
 const USERNAME_STORAGE_KEY = 'spreadz_username'
 const COLLEGE_STORAGE_KEY = 'spreadz_college'
 const FRIENDS_STORAGE_KEY = 'spreadz_friends'
+const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const AVATAR_MAX_BYTES = 200 * 1024
 const AVATAR_MAX_DIMENSION = 400
@@ -201,6 +202,7 @@ export default function GlobalChat() {
   const longPressTimerRef = useRef<number | null>(null)
   const userIdRef = useRef<string>('')
   const displayNameToUsernameRef = useRef<Record<string, string>>({})
+  const sentRoomIdsRef = useRef<Set<string>>(new Set())
   const userMetricsRef = useRef({ messagesSent: 0, cameBack: 0 })
 
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -291,6 +293,26 @@ export default function GlobalChat() {
     const storedUsername = localStorage.getItem(USERNAME_STORAGE_KEY)?.trim() || ''
     return isGeneratedUsername(storedUsername) ? storedUsername : ''
   }, [accountUsername])
+
+  const getSentRoomIdsStorageKey = useCallback((username: string) => `${SENT_ROOM_IDS_STORAGE_KEY_PREFIX}${username}`, [])
+
+  const readStoredSentRoomIds = useCallback((username: string) => {
+    if (!username) return new Set<string>()
+
+    try {
+      const raw = localStorage.getItem(getSentRoomIdsStorageKey(username))
+      if (!raw) return new Set<string>()
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? new Set(parsed.filter((roomId): roomId is string => typeof roomId === 'string')) : new Set<string>()
+    } catch {
+      return new Set<string>()
+    }
+  }, [getSentRoomIdsStorageKey])
+
+  const persistSentRoomIds = useCallback((username: string, roomIds: Set<string>) => {
+    if (!username) return
+    localStorage.setItem(getSentRoomIdsStorageKey(username), JSON.stringify(Array.from(roomIds)))
+  }, [getSentRoomIdsStorageKey])
 
   const cacheUsernamesForDisplayNames = useCallback(async (displayNames: Array<string | null | undefined>) => {
     const missingNames = Array.from(new Set(displayNames
@@ -385,6 +407,7 @@ export default function GlobalChat() {
     const nextUsername = generateUsernameFromDisplayName(name)
     displayNameToUsernameRef.current[name] = nextUsername
     setAccountUsername(nextUsername)
+    sentRoomIdsRef.current = readStoredSentRoomIds(nextUsername)
     persistProfileLocally({ username: nextUsername })
     await upsertUserProfile({
       displayName: name,
@@ -395,7 +418,7 @@ export default function GlobalChat() {
       cameBack: userMetricsRef.current.cameBack,
     })
     return nextUsername
-  }, [avatarUrl, getCurrentUsername, persistProfileLocally, university, upsertUserProfile])
+  }, [avatarUrl, getCurrentUsername, persistProfileLocally, readStoredSentRoomIds, university, upsertUserProfile])
 
   const incrementUserMessagesSent = useCallback(async () => {
     const nextMessagesSent = userMetricsRef.current.messagesSent + 1
@@ -405,6 +428,59 @@ export default function GlobalChat() {
       cameBack: userMetricsRef.current.cameBack,
     })
   }, [upsertUserProfile])
+
+  const updateRoomMessageStats = useCallback(async (roomId: string, activeUsername: string) => {
+    if (!roomId) return
+
+    let shouldIncrementUserCount = false
+
+    if (!sentRoomIdsRef.current.has(roomId)) {
+      const { data: behaviourRow, error: behaviourError } = await supabase
+        .from('user_behaviour')
+        .select('messages_sent')
+        .eq('username', activeUsername)
+        .eq('room_id', roomId)
+        .maybeSingle()
+
+      if (behaviourError) {
+        console.error('[Rooms] first-message check failed:', behaviourError)
+      } else if (!behaviourRow || (behaviourRow.messages_sent ?? 0) === 0) {
+        shouldIncrementUserCount = true
+      } else {
+        sentRoomIdsRef.current.add(roomId)
+        persistSentRoomIds(activeUsername, sentRoomIdsRef.current)
+      }
+    }
+
+    const { data: roomRow, error: roomError } = await supabase
+      .from('rooms')
+      .select('message_count, user_count')
+      .eq('id', roomId)
+      .maybeSingle()
+
+    if (roomError || !roomRow) {
+      console.error('[Rooms] stats fetch failed:', roomError)
+      return
+    }
+
+    const { error: updateError } = await supabase
+      .from('rooms')
+      .update({
+        message_count: (roomRow.message_count ?? 0) + 1,
+        user_count: (roomRow.user_count ?? 0) + (shouldIncrementUserCount ? 1 : 0),
+      })
+      .eq('id', roomId)
+
+    if (updateError) {
+      console.error('[Rooms] stats update failed:', updateError)
+      return
+    }
+
+    if (shouldIncrementUserCount) {
+      sentRoomIdsRef.current.add(roomId)
+      persistSentRoomIds(activeUsername, sentRoomIdsRef.current)
+    }
+  }, [persistSentRoomIds])
 
   useEffect(() => {
     setIsMounted(true)
@@ -484,6 +560,7 @@ export default function GlobalChat() {
       setUniversity(nextCollege)
       setAvatarUrl(userRow?.avatar_url || '')
       setAccountUsername(nextUsername)
+      sentRoomIdsRef.current = readStoredSentRoomIds(nextUsername)
       userMetricsRef.current = {
         messagesSent: nextMessagesSent,
         cameBack: nextCameBack,
@@ -555,7 +632,7 @@ export default function GlobalChat() {
     }
 
     loadProfile()
-  }, [authReady, persistProfileLocally, upsertUserProfile])
+  }, [authReady, persistProfileLocally, readStoredSentRoomIds, upsertUserProfile])
 
   // Fetch rooms on mount
   useEffect(() => {
@@ -1005,6 +1082,7 @@ export default function GlobalChat() {
       scheduleReveal(roomId, serverMessage.id, 0)
       trackMessageSent(roomId, activeRoomName)
       await incrementUserMessagesSent()
+      await updateRoomMessageStats(roomId, activeUsername)
     }
   }
 

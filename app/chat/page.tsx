@@ -183,6 +183,7 @@ export default function GlobalChat() {
   const [roomMessages, setRoomMessages] = useState<Record<string, Message[]>>({})
   const [inputTexts, setInputTexts] = useState<Record<string, string>>({})
   const [currentRoomIndex, setCurrentRoomIndex] = useState(0)
+  const [cardCollapsed, setCardCollapsed] = useState(false)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [authReady, setAuthReady] = useState(false)
@@ -849,6 +850,21 @@ export default function GlobalChat() {
     }
   }, [roomMessages, currentRoomIndex, visibleMessageIdsByRoom])
 
+  useEffect(() => {
+    setCardCollapsed(false)
+
+    const activeRoomId = rooms[currentRoomIndex]?.id
+    if (!activeRoomId) return
+
+    const collapseTimer = window.setTimeout(() => {
+      setCardCollapsed(true)
+    }, 30000)
+
+    return () => {
+      window.clearTimeout(collapseTimer)
+    }
+  }, [currentRoomIndex, rooms])
+
   const pushFriendRequest = useCallback((request: FriendRequest) => {
     if (request.created_at) {
       const ageMs = Date.now() - new Date(request.created_at).getTime()
@@ -1416,7 +1432,7 @@ export default function GlobalChat() {
               </div>
 
               {/* Headline card */}
-              <div className={`ai-card-wrap${isKeyboardOpen ? ' hidden' : ''}`}>
+              <div className={`ai-card-wrap${cardCollapsed ? ' collapsed' : ''}${isKeyboardOpen ? ' hidden' : ''}`}>
                 <div className="ai-card">
                   <div className="card-row">
                     <div className="card-label">

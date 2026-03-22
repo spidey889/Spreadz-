@@ -1712,6 +1712,7 @@ export default function GlobalChat() {
                 <button type="submit" className="profile-submit">Save</button>
               </>
             )}
+            <div className="profile-feedback-note">Feedback? Email us at spreadzapp@gmail.com</div>
           </form>
         </div>
       )}

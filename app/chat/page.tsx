@@ -1442,7 +1442,7 @@ export default function GlobalChat() {
               </div>
 
               {/* Headline card */}
-              <div className={`ai-card-wrap${cardCollapsed ? ' collapsed' : ''}${isKeyboardOpen ? ' hidden' : ''}`}>
+              <div className={`ai-card-wrap${cardCollapsed || isKeyboardOpen ? ' hidden' : ''}`}>
                 <div className="ai-card">
                   <div className="card-row">
                     <div className="card-label">

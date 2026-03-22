@@ -40,6 +40,12 @@ interface FriendRequest {
   created_at?: string
 }
 
+interface ReadOnlyProfile {
+  displayName: string
+  college: string
+  avatarUrl: string | null
+}
+
 interface RoomSwipeState {
   startX: number
   startY: number
@@ -201,7 +207,7 @@ export default function GlobalChat() {
   const [interestDismissed, setInterestDismissed] = useState(false)
   const [visibleMessageIdsByRoom, setVisibleMessageIdsByRoom] = useState<Record<string, Set<string>>>({})
   const [reportSheetMessage, setReportSheetMessage] = useState<Message | null>(null)
-  const [activeAvatarViewerUrl, setActiveAvatarViewerUrl] = useState<string | null>(null)
+  const [readOnlyProfile, setReadOnlyProfile] = useState<ReadOnlyProfile | null>(null)
   const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
   const [sheetClosing, setSheetClosing] = useState(false)
   const [friendsSheetOpen, setFriendsSheetOpen] = useState(false)
@@ -1365,13 +1371,12 @@ export default function GlobalChat() {
     roomSwipeRef.current = null
   }
 
-  const openAvatarViewer = (avatarImageUrl: string) => {
-    if (!avatarImageUrl) return
-    setActiveAvatarViewerUrl(avatarImageUrl)
+  const openReadOnlyProfile = (profile: ReadOnlyProfile) => {
+    setReadOnlyProfile(profile)
   }
 
-  const closeAvatarViewer = () => {
-    setActiveAvatarViewerUrl(null)
+  const closeReadOnlyProfile = () => {
+    setReadOnlyProfile(null)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, roomId: string) => {
@@ -1466,8 +1471,10 @@ export default function GlobalChat() {
                     const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id))
                     const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
                     const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
-                    const showOwnMessageAvatar = msg.senderUsername === getCurrentUsername() && hasAvatarPhoto
+                    const isOwnMessage = msg.senderUsername === getCurrentUsername()
+                    const showOwnMessageAvatar = isOwnMessage && hasAvatarPhoto
                     const messageAvatarUrl = showOwnMessageAvatar ? currentAvatarUrl : (msg.avatarUrl?.trim() || '')
+                    const isReadOnlyProfileAvatar = isFirstInGroup && !isOwnMessage
 
                     return (
                       <div key={msg.id} className="msg-reveal"
@@ -1483,19 +1490,26 @@ export default function GlobalChat() {
                         <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
                           {isFirstInGroup ? (
                             <>
-                              <div className="avatar" style={messageAvatarUrl ? undefined : { backgroundColor: getUserColor(msg.username) }}>
+                              <div
+                                className={`avatar${isReadOnlyProfileAvatar ? ' clickable' : ''}`}
+                                style={messageAvatarUrl ? undefined : { backgroundColor: getUserColor(msg.username) }}
+                                onClick={isReadOnlyProfileAvatar ? (e) => {
+                                  e.stopPropagation()
+                                  openReadOnlyProfile({
+                                    displayName: msg.username,
+                                    college: msg.university,
+                                    avatarUrl: messageAvatarUrl || null,
+                                  })
+                                } : undefined}
+                              >
                                 {messageAvatarUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
                                     src={messageAvatarUrl}
                                     alt={`${msg.username} profile`}
-                                    className="profile-avatar-image message-avatar-image"
+                                    className="profile-avatar-image"
                                     style={{ borderRadius: '50%' }}
                                     draggable={false}
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      openAvatarViewer(messageAvatarUrl)
-                                    }}
                                   />
                                 ) : (
                                   msg.initials
@@ -1556,15 +1570,33 @@ export default function GlobalChat() {
         })}
       </div>
 
-      {activeAvatarViewerUrl && (
-        <div className="avatar-viewer-overlay" onClick={closeAvatarViewer}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={activeAvatarViewerUrl}
-            alt="Profile picture"
-            className="avatar-viewer-image"
-            draggable={false}
-          />
+      {readOnlyProfile && (
+        <div className="profile-overlay" onClick={closeReadOnlyProfile}>
+          <div className="profile-sheet view-only" onClick={(e) => e.stopPropagation()}>
+            <div className="profile-avatar-section">
+              <div
+                className="profile-avatar-preview"
+                style={!readOnlyProfile.avatarUrl ? { backgroundColor: getUserColor(readOnlyProfile.displayName) } : undefined}
+              >
+                {readOnlyProfile.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={readOnlyProfile.avatarUrl}
+                    alt={`${readOnlyProfile.displayName} profile`}
+                    className="profile-avatar-image"
+                    draggable={false}
+                  />
+                ) : (
+                  <span>{getInitials(readOnlyProfile.displayName)}</span>
+                )}
+              </div>
+            </div>
+            <div className="sheet-handle" />
+            <div className="profile-sheet-view-content">
+              <div className="profile-sheet-view-name">{readOnlyProfile.displayName}</div>
+              {readOnlyProfile.college && <div className="profile-sheet-view-college">{readOnlyProfile.college}</div>}
+            </div>
+          </div>
         </div>
       )}
 

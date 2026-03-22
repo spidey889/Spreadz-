@@ -447,6 +447,13 @@ body {
           will-change: transform;
         }
         .profile-sheet.dragging { transition: none; }
+        .profile-sheet.view-only {
+          padding: 98px 20px 28px;
+          gap: 10px;
+        }
+        .profile-sheet.view-only .profile-avatar-preview {
+          cursor: default;
+        }
         .profile-avatar-section {
           position: absolute;
           top: -48px;
@@ -506,6 +513,26 @@ body {
           color: var(--text-secondary);
           line-height: 1.4;
           text-align: center;
+        }
+        .profile-sheet-view-content {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          text-align: center;
+        }
+        .profile-sheet-view-name {
+          font-size: 24px;
+          font-weight: 800;
+          color: #ffffff;
+          line-height: 1.1;
+          letter-spacing: -0.02em;
+        }
+        .profile-sheet-view-college {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-secondary);
+          line-height: 1.4;
         }
         .profile-username {
           font-size: 12px;
@@ -576,28 +603,8 @@ body {
           cursor: pointer;
           box-shadow: 0 14px 24px rgba(0, 0, 0, 0.25);
         }
-        .message-avatar-image {
+        .avatar.clickable {
           cursor: pointer;
-        }
-        .avatar-viewer-overlay {
-          position: fixed;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          background: rgba(0, 0, 0, 0.96);
-          backdrop-filter: blur(28px);
-          -webkit-backdrop-filter: blur(28px);
-          z-index: 1250;
-        }
-        .avatar-viewer-image {
-          width: min(85vw, 420px);
-          height: min(85vw, 420px);
-          border-radius: 50%;
-          object-fit: cover;
-          display: block;
-          box-shadow: 0 30px 80px rgba(0, 0, 0, 0.68);
         }
         @keyframes sheetUp {
           from { opacity: 0; transform: translateY(12px); }

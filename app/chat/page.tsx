@@ -40,6 +40,13 @@ interface FriendRequest {
   created_at?: string
 }
 
+interface RoomSwipeState {
+  startX: number
+  startY: number
+  lastY: number
+  isVerticalGesture: boolean
+}
+
 const getUserColor = (username: string) => {
   const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
   let hash = 0
@@ -218,6 +225,7 @@ export default function GlobalChat() {
   const profileSheetRef = useRef<HTMLFormElement>(null)
   const profileSheetTouchStartYRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
+  const roomSwipeRef = useRef<RoomSwipeState | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -1266,6 +1274,80 @@ export default function GlobalChat() {
     setProfileSheetOffsetY(0)
   }
 
+  const isInteractiveGestureTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false
+
+    return Boolean(
+      target.closest(
+        'input, textarea, button, select, option, label, a, [role="button"], [contenteditable="true"]'
+      )
+    )
+  }, [])
+
+  const handleRoomTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1 || isInteractiveGestureTarget(e.target)) {
+      roomSwipeRef.current = null
+      return
+    }
+
+    const touch = e.touches[0]
+    roomSwipeRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      lastY: touch.clientY,
+      isVerticalGesture: false,
+    }
+  }
+
+  const handleRoomTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const swipeState = roomSwipeRef.current
+    if (!swipeState || e.touches.length !== 1) return
+
+    const touch = e.touches[0]
+    const totalX = touch.clientX - swipeState.startX
+    const totalY = touch.clientY - swipeState.startY
+
+    if (!swipeState.isVerticalGesture) {
+      if (Math.abs(totalX) < 8 && Math.abs(totalY) < 8) return
+      if (Math.abs(totalY) <= Math.abs(totalX)) {
+        roomSwipeRef.current = null
+        return
+      }
+      swipeState.isVerticalGesture = true
+    }
+
+    const upwardDelta = swipeState.lastY - touch.clientY
+    swipeState.lastY = touch.clientY
+
+    if (upwardDelta <= 0) return
+
+    let remainingDelta = upwardDelta
+    const messageScrollEl = e.currentTarget.querySelector<HTMLDivElement>('.room-messages')
+
+    if (messageScrollEl) {
+      const remainingMessageScroll = Math.max(
+        0,
+        messageScrollEl.scrollHeight - messageScrollEl.clientHeight - messageScrollEl.scrollTop
+      )
+
+      if (remainingMessageScroll > 0) {
+        const messageDelta = Math.min(remainingDelta, remainingMessageScroll)
+        messageScrollEl.scrollTop += messageDelta
+        remainingDelta -= messageDelta
+      }
+    }
+
+    if (remainingDelta > 0 && containerRef.current) {
+      containerRef.current.scrollTop += remainingDelta
+    }
+
+    e.preventDefault()
+  }
+
+  const handleRoomTouchEnd = () => {
+    roomSwipeRef.current = null
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, roomId: string) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -1299,6 +1381,10 @@ export default function GlobalChat() {
               className="room-panel"
               data-room-index={index}
               style={{ background: 'var(--bg)' }}
+              onTouchStart={handleRoomTouchStart}
+              onTouchMove={handleRoomTouchMove}
+              onTouchEnd={handleRoomTouchEnd}
+              onTouchCancel={handleRoomTouchEnd}
             >
               {/* Header */}
               <div className={`header${isKeyboardOpen ? ' hidden' : ''}`}>

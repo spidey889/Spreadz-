@@ -62,6 +62,7 @@ body {
   scroll-snap-type: y mandatory;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .rooms-container::-webkit-scrollbar {
@@ -76,13 +77,14 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  touch-action: pan-y;
 }
 
-/* Inner messages scroll — overscroll-behavior prevents room switching */
+/* Inner messages scroll */
 .room-messages {
   flex: 1;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: auto;
   scrollbar-width: none;
   min-height: 0;
 }

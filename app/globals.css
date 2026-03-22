@@ -585,20 +585,19 @@ body {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 24px;
-          background: rgba(5, 6, 8, 0.78);
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
+          padding: 0;
+          background: rgba(0, 0, 0, 0.96);
+          backdrop-filter: blur(28px);
+          -webkit-backdrop-filter: blur(28px);
           z-index: 1250;
         }
         .avatar-viewer-image {
-          width: min(68vw, 360px);
-          aspect-ratio: 1;
+          width: min(85vw, 420px);
+          height: min(85vw, 420px);
           border-radius: 50%;
           object-fit: cover;
           display: block;
-          box-shadow: 0 28px 60px rgba(0, 0, 0, 0.42);
-          border: 1px solid rgba(255,255,255,0.12);
+          box-shadow: 0 30px 80px rgba(0, 0, 0, 0.68);
         }
         @keyframes sheetUp {
           from { opacity: 0; transform: translateY(12px); }

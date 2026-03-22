@@ -204,6 +204,7 @@ export default function GlobalChat() {
   const userIdRef = useRef<string>('')
   const displayNameToUsernameRef = useRef<Record<string, string>>({})
   const displayNameToAvatarUrlRef = useRef<Record<string, string>>({})
+  const roomIdsRef = useRef<Set<string>>(new Set())
   const sentRoomIdsRef = useRef<Set<string>>(new Set())
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
@@ -494,6 +495,10 @@ export default function GlobalChat() {
   }, [accountUsername, displayName])
 
   useEffect(() => {
+    roomIdsRef.current = new Set(rooms.map((room) => room.id))
+  }, [rooms])
+
+  useEffect(() => {
     if (!showProfileModal) {
       if (profileSheetCloseTimeoutRef.current !== null) {
         window.clearTimeout(profileSheetCloseTimeoutRef.current)
@@ -714,53 +719,82 @@ export default function GlobalChat() {
     }
   }, [buildMessageFromRow, cacheUsernamesForDisplayNames, triggerRevealsForMessages])
 
-  // Subscribe to realtime for a room
-  const subscribeToRoom = useCallback((room: Room) => {
-    // Unsubscribe from previous channel
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current)
-      channelRef.current = null
-    }
+  const handleRealtimeMessage = useCallback((messageRow: any) => {
+    const roomId = messageRow.room_id
+    if (!roomId || !roomIdsRef.current.has(roomId)) return
+
+    const messageAuthorId = typeof messageRow.user_uuid === 'string' ? messageRow.user_uuid : ''
+    if (messageAuthorId && messageAuthorId === getCurrentUserId()) return
+
+    const incomingMessage = buildMessageFromRow(messageRow)
+
+    scheduleReveal(roomId, incomingMessage.id, incomingMessage.reveal_delay || 0)
+    setRoomMessages(prev => {
+      const existing = prev[roomId] || []
+      if (existing.some(msg => msg.id === messageRow.id)) return prev
+      return { ...prev, [roomId]: [...existing, incomingMessage] }
+    })
+
+    void (async () => {
+      await cacheUsernamesForDisplayNames([messageRow.display_name])
+      const hydratedMessage = buildMessageFromRow(messageRow)
+
+      setRoomMessages(prev => {
+        const existing = prev[roomId] || []
+        const messageIndex = existing.findIndex(msg => msg.id === messageRow.id)
+        if (messageIndex === -1) return prev
+
+        const currentMessage = existing[messageIndex]
+        if (
+          currentMessage.avatarUrl === hydratedMessage.avatarUrl &&
+          currentMessage.senderUsername === hydratedMessage.senderUsername
+        ) {
+          return prev
+        }
+
+        const nextRoomMessages = [...existing]
+        nextRoomMessages[messageIndex] = {
+          ...currentMessage,
+          avatarUrl: hydratedMessage.avatarUrl,
+          senderUsername: hydratedMessage.senderUsername,
+        }
+
+        return { ...prev, [roomId]: nextRoomMessages }
+      })
+    })()
+  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, getCurrentUserId, scheduleReveal])
+
+
+  // When rooms load, fetch room index 0 immediately.
+  useEffect(() => {
+    if (rooms.length === 0) return
+    fetchMessagesForRoom(rooms[0])
+  }, [rooms, fetchMessagesForRoom])
+
+  // Keep one long-lived messages subscription so room changes do not interrupt realtime inserts.
+  useEffect(() => {
+    if (!authReady || rooms.length === 0) return
 
     const channel = supabase
-      .channel(`room-${room.id}`)
+      .channel('messages-realtime')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${room.id}` },
+        { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
-          void (async () => {
-            const m = payload.new
-            await cacheUsernamesForDisplayNames([m.display_name])
-            const newMessage = buildMessageFromRow(m)
-
-            // Trigger reveal for realtime message
-            scheduleReveal(room.id, newMessage.id, newMessage.reveal_delay || 0)
-            setRoomMessages(prev => {
-              const existing = prev[room.id] || []
-              if (existing.some(msg => msg.id === m.id)) return prev
-              return { ...prev, [room.id]: [...existing, newMessage] }
-            })
-          })()
+          handleRealtimeMessage(payload.new)
         }
       )
       .subscribe()
 
     channelRef.current = channel
-  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, scheduleReveal])
-
-
-  // When rooms load, fetch + subscribe for room index 0
-  useEffect(() => {
-    if (rooms.length === 0) return
-    fetchMessagesForRoom(rooms[0])
-    subscribeToRoom(rooms[0])
 
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
+        channelRef.current = null
       }
     }
-  }, [rooms, fetchMessagesForRoom, subscribeToRoom])
+  }, [authReady, rooms.length, handleRealtimeMessage])
 
   // Detect room changes via IntersectionObserver + FRIDAY tracking
   useEffect(() => {
@@ -782,7 +816,6 @@ export default function GlobalChat() {
 
               setCurrentRoomIndex(idx)
               fetchMessagesForRoom(nextRoom)
-              subscribeToRoom(nextRoom)
             }
           }
         }
@@ -798,7 +831,7 @@ export default function GlobalChat() {
       .forEach((roomPanel) => observer.observe(roomPanel))
 
     return () => observer.disconnect()
-  }, [rooms, currentRoomIndex, fetchMessagesForRoom, subscribeToRoom, interestDismissed])
+  }, [rooms, currentRoomIndex, fetchMessagesForRoom, interestDismissed])
 
   useEffect(() => {
     const endEl = messageEndRefs.current[currentRoomIndex]

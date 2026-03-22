@@ -201,6 +201,7 @@ export default function GlobalChat() {
   const [interestDismissed, setInterestDismissed] = useState(false)
   const [visibleMessageIdsByRoom, setVisibleMessageIdsByRoom] = useState<Record<string, Set<string>>>({})
   const [reportSheetMessage, setReportSheetMessage] = useState<Message | null>(null)
+  const [activeAvatarViewerUrl, setActiveAvatarViewerUrl] = useState<string | null>(null)
   const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
   const [sheetClosing, setSheetClosing] = useState(false)
   const [friendsSheetOpen, setFriendsSheetOpen] = useState(false)
@@ -1364,6 +1365,15 @@ export default function GlobalChat() {
     roomSwipeRef.current = null
   }
 
+  const openAvatarViewer = (avatarImageUrl: string) => {
+    if (!avatarImageUrl) return
+    setActiveAvatarViewerUrl(avatarImageUrl)
+  }
+
+  const closeAvatarViewer = () => {
+    setActiveAvatarViewerUrl(null)
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, roomId: string) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -1476,7 +1486,17 @@ export default function GlobalChat() {
                               <div className="avatar" style={messageAvatarUrl ? undefined : { backgroundColor: getUserColor(msg.username) }}>
                                 {messageAvatarUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={messageAvatarUrl} alt={`${msg.username} profile`} className="profile-avatar-image" style={{ borderRadius: '50%' }} />
+                                  <img
+                                    src={messageAvatarUrl}
+                                    alt={`${msg.username} profile`}
+                                    className="profile-avatar-image message-avatar-image"
+                                    style={{ borderRadius: '50%' }}
+                                    draggable={false}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      openAvatarViewer(messageAvatarUrl)
+                                    }}
+                                  />
                                 ) : (
                                   msg.initials
                                 )}
@@ -1535,6 +1555,18 @@ export default function GlobalChat() {
           )
         })}
       </div>
+
+      {activeAvatarViewerUrl && (
+        <div className="avatar-viewer-overlay" onClick={closeAvatarViewer}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={activeAvatarViewerUrl}
+            alt="Profile picture"
+            className="avatar-viewer-image"
+            draggable={false}
+          />
+        </div>
+      )}
 
       {showProfileModal && (
         <div

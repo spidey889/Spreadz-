@@ -203,19 +203,7 @@ body {
           border-radius: inherit;
         }
 
-        .ai-card-wrap {
-          margin: 2px 18px 14px;
-          flex-shrink: 0;
-          max-height: 240px;
-          opacity: 1;
-          overflow: hidden;
-          transition: max-height 320ms ease, opacity 320ms ease;
-        }
-        .ai-card-wrap.collapsed {
-          max-height: 0;
-          opacity: 0;
-          overflow: hidden;
-        }
+        .ai-card-wrap { margin: 2px 18px 14px; flex-shrink: 0; }
         .ai-card {
           background:
             radial-gradient(circle at top right, rgba(124,255,183,0.14), transparent 34%),
@@ -226,6 +214,10 @@ body {
           position: relative;
           overflow: hidden;
           box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .ai-card.compact {
+          padding-top: 12px;
+          padding-bottom: 12px;
         }
         .ai-card::after {
           content: '';

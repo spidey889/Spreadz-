@@ -580,36 +580,59 @@ body {
 
         .gif-btn {
           appearance: none;
-          border: 1px solid rgba(255,255,255,0.06);
-          background: linear-gradient(180deg, rgba(41,44,52,0.78), rgba(24,27,33,0.78));
+          border: none;
+          background: none;
           color: #edf2fb;
-          border-radius: 50%;
-          width: 40px;
-          height: 40px;
+          width: 44px;
+          height: 44px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           padding: 0;
           cursor: pointer;
-          transition: transform 0.1s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
+          transition: transform 0.1s ease;
           flex-shrink: 0;
           position: relative;
           z-index: 1;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 16px rgba(0, 0, 0, 0.18);
+          box-shadow: none;
+          overflow: visible;
         }
         .gif-btn-icon {
-          width: 19px;
-          height: 19px;
+          width: 30px;
+          height: 32px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
+          position: relative;
           color: #f1f5fd;
           opacity: 0.98;
+          background: linear-gradient(180deg, rgba(248,250,255,0.14), rgba(172,184,255,0.08));
+          border: 1px solid rgba(255,255,255,0.09);
+          border-radius: 11px 14px 13px 13px;
+          box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255,255,255,0.12);
+          transform: rotate(-6deg);
+        }
+        .gif-btn-icon::after {
+          content: '';
+          position: absolute;
+          top: -1px;
+          right: -1px;
+          width: 11px;
+          height: 11px;
+          clip-path: polygon(100% 0, 0 0, 100% 100%);
+          background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(161,173,255,0.1));
+          border-top: 1px solid rgba(255,255,255,0.09);
+          border-right: 1px solid rgba(255,255,255,0.09);
+          border-top-right-radius: 13px;
+        }
+        .gif-btn-icon svg {
+          position: relative;
+          z-index: 1;
         }
         .gif-btn-badge {
           position: absolute;
-          right: -2px;
-          bottom: -1px;
+          right: 2px;
+          bottom: 5px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -626,16 +649,19 @@ body {
           text-transform: uppercase;
           box-shadow: 0 6px 14px rgba(88, 101, 242, 0.32);
         }
-        .gif-btn:hover {
-          border-color: rgba(255,255,255,0.1);
-          background: linear-gradient(180deg, rgba(51,56,66,0.86), rgba(30,34,42,0.86));
+        .gif-btn:hover .gif-btn-icon {
+          border-color: rgba(255,255,255,0.13);
+          background: linear-gradient(180deg, rgba(248,250,255,0.17), rgba(172,184,255,0.1));
+          box-shadow: 0 12px 22px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255,255,255,0.14);
         }
         .gif-btn:active { transform: scale(0.96); }
         .gif-btn.active {
           color: #ffffff;
-          border-color: rgba(132, 142, 255, 0.26);
-          background: linear-gradient(180deg, rgba(88,101,242,0.28), rgba(54,64,150,0.28));
-          box-shadow: 0 10px 22px rgba(88, 101, 242, 0.24);
+        }
+        .gif-btn.active .gif-btn-icon {
+          border-color: rgba(132, 142, 255, 0.28);
+          background: linear-gradient(180deg, rgba(129,139,255,0.28), rgba(66,76,172,0.16));
+          box-shadow: 0 12px 22px rgba(88, 101, 242, 0.18), inset 0 1px 0 rgba(255,255,255,0.14);
         }
 
         .send-btn { background: linear-gradient(180deg, #6974ff, #5865F2); color: white; border: 1px solid rgba(255,255,255,0.16); border-radius: 50%; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s, box-shadow 0.2s; flex-shrink: 0; box-shadow: 0 10px 24px rgba(88, 101, 242, 0.28); position: relative; z-index: 1; }

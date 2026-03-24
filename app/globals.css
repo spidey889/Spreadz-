@@ -333,6 +333,23 @@ body {
         .msg-timestamp { font-size: 12px; color: #8b919c; margin-left: auto; flex-shrink: 0; padding-top: 1px; }
 
         .msg-text { font-size: 15px; color: var(--text-msg); line-height: 1.6; margin-top: 0; padding-right: 8px; word-wrap: break-word; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+        .msg-media {
+          width: min(100%, 280px);
+          margin-top: 6px;
+          border-radius: 18px;
+          overflow: hidden;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.03);
+          box-shadow: 0 14px 26px rgba(0, 0, 0, 0.22);
+        }
+        .msg-gif {
+          display: block;
+          width: 100%;
+          height: auto;
+          max-height: 280px;
+          object-fit: cover;
+          background: #15181c;
+        }
 
         .input-area {
           background: linear-gradient(180deg, rgba(17,18,20,0), rgba(17,18,20,0.94) 28%, rgba(17,18,20,1));
@@ -365,6 +382,80 @@ body {
           letter-spacing: 0.12em;
           text-transform: uppercase;
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+        }
+        .gif-picker {
+          margin-bottom: 12px;
+          background: linear-gradient(180deg, rgba(27,29,35,0.98), rgba(18,20,25,0.98));
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 22px 22px 16px 16px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255,255,255,0.04);
+          overflow: hidden;
+        }
+        .gif-picker-header {
+          padding: 12px 12px 10px;
+          border-bottom: 1px solid rgba(255,255,255,0.06);
+          background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0));
+        }
+        .gif-search-input {
+          width: 100%;
+          background: rgba(12,14,18,0.94);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 14px;
+          padding: 12px 14px;
+          font-size: 14px;
+          color: var(--text-primary);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+        }
+        .gif-search-input::placeholder { color: #7d8491; }
+        .gif-picker-meta {
+          margin-top: 8px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #8f97a3;
+        }
+        .gif-picker-grid {
+          max-height: min(40vh, 320px);
+          overflow-y: auto;
+          padding: 12px;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .gif-picker-grid::-webkit-scrollbar { display: none; }
+        .gif-picker-status {
+          grid-column: 1 / -1;
+          padding: 28px 16px;
+          text-align: center;
+          font-size: 13px;
+          color: #a0a8b4;
+        }
+        .gif-picker-status.error { color: #ff8f97; }
+        .gif-tile {
+          appearance: none;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(12,14,18,0.92);
+          border-radius: 16px;
+          overflow: hidden;
+          padding: 0;
+          cursor: pointer;
+          aspect-ratio: 1 / 1;
+          transition: transform 0.14s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+        }
+        .gif-tile:hover {
+          transform: translateY(-1px);
+          border-color: rgba(132, 142, 255, 0.34);
+          box-shadow: 0 14px 28px rgba(0, 0, 0, 0.3);
+        }
+        .gif-tile:active { transform: scale(0.98); }
+        .gif-tile-image {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          background: #12141a;
         }
         
         .input-wrap {
@@ -399,10 +490,47 @@ body {
         input { flex: 1; background: none; border: none; outline: none; font-size: 16px; color: var(--text-primary); font-family: inherit; }
         input::placeholder { color: #7d8491; }
 
+        .gif-btn {
+          appearance: none;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: linear-gradient(180deg, rgba(44,48,57,0.98), rgba(30,33,40,0.98));
+          color: #dfe5f2;
+          border-radius: 14px;
+          width: 42px;
+          height: 42px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.1s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
+          flex-shrink: 0;
+          position: relative;
+          z-index: 1;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+        }
+        .gif-btn span {
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+        }
+        .gif-btn:hover {
+          border-color: rgba(132, 142, 255, 0.24);
+          background: linear-gradient(180deg, rgba(51,56,66,0.98), rgba(33,37,46,0.98));
+        }
+        .gif-btn:active { transform: scale(0.96); }
+        .gif-btn.active {
+          color: #ffffff;
+          border-color: rgba(132, 142, 255, 0.32);
+          background: linear-gradient(180deg, rgba(88,101,242,0.34), rgba(64,74,176,0.34));
+          box-shadow: 0 10px 24px rgba(88, 101, 242, 0.18);
+        }
+
         .send-btn { background: linear-gradient(180deg, #6974ff, #5865F2); color: white; border: 1px solid rgba(255,255,255,0.16); border-radius: 50%; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s, box-shadow 0.2s; flex-shrink: 0; box-shadow: 0 10px 24px rgba(88, 101, 242, 0.28); position: relative; z-index: 1; }
         .send-btn:hover { background: linear-gradient(180deg, #5f6af8, #4d58d6); }
         .send-btn:active { transform: scale(0.95); }
         .send-btn:focus-visible,
+        .gif-btn:focus-visible,
+        .gif-tile:focus-visible,
         .profile-avatar-btn:focus-visible,
         .profile-avatar-camera:focus-visible,
         .profile-submit:focus-visible,

@@ -582,7 +582,7 @@ body {
           appearance: none;
           border: none;
           background: none;
-          color: #edf2fb;
+          color: #eef2f8;
           width: 44px;
           height: 44px;
           display: inline-flex;
@@ -598,32 +598,16 @@ body {
           overflow: visible;
         }
         .gif-btn-icon {
-          width: 30px;
-          height: 32px;
+          width: 28px;
+          height: 28px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           position: relative;
-          color: #f1f5fd;
-          opacity: 0.98;
-          background: linear-gradient(180deg, rgba(248,250,255,0.14), rgba(172,184,255,0.08));
-          border: 1px solid rgba(255,255,255,0.09);
-          border-radius: 11px 14px 13px 13px;
-          box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255,255,255,0.12);
-          transform: rotate(-6deg);
-        }
-        .gif-btn-icon::after {
-          content: '';
-          position: absolute;
-          top: -1px;
-          right: -1px;
-          width: 11px;
-          height: 11px;
-          clip-path: polygon(100% 0, 0 0, 100% 100%);
-          background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(161,173,255,0.1));
-          border-top: 1px solid rgba(255,255,255,0.09);
-          border-right: 1px solid rgba(255,255,255,0.09);
-          border-top-right-radius: 13px;
+          color: #f4f6fb;
+          opacity: 0.94;
+          filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.22));
+          transition: transform 0.14s ease, opacity 0.18s ease, color 0.18s ease;
         }
         .gif-btn-icon svg {
           position: relative;
@@ -631,8 +615,8 @@ body {
         }
         .gif-btn-badge {
           position: absolute;
-          right: 2px;
-          bottom: 5px;
+          right: -1px;
+          bottom: 3px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -650,18 +634,16 @@ body {
           box-shadow: 0 6px 14px rgba(88, 101, 242, 0.32);
         }
         .gif-btn:hover .gif-btn-icon {
-          border-color: rgba(255,255,255,0.13);
-          background: linear-gradient(180deg, rgba(248,250,255,0.17), rgba(172,184,255,0.1));
-          box-shadow: 0 12px 22px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255,255,255,0.14);
+          opacity: 1;
+          transform: translateY(-1px);
         }
         .gif-btn:active { transform: scale(0.96); }
         .gif-btn.active {
           color: #ffffff;
         }
         .gif-btn.active .gif-btn-icon {
-          border-color: rgba(132, 142, 255, 0.28);
-          background: linear-gradient(180deg, rgba(129,139,255,0.28), rgba(66,76,172,0.16));
-          box-shadow: 0 12px 22px rgba(88, 101, 242, 0.18), inset 0 1px 0 rgba(255,255,255,0.14);
+          opacity: 1;
+          color: #ffffff;
         }
 
         .send-btn { background: linear-gradient(180deg, #6974ff, #5865F2); color: white; border: 1px solid rgba(255,255,255,0.16); border-radius: 50%; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s, box-shadow 0.2s; flex-shrink: 0; box-shadow: 0 10px 24px rgba(88, 101, 242, 0.28); position: relative; z-index: 1; }

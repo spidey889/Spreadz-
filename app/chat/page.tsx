@@ -1808,9 +1808,11 @@ export default function GlobalChat() {
                   >
                     <span className="gif-btn-icon" aria-hidden="true">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7.1 4.9h7.5a3.7 3.7 0 0 1 3.7 3.7V15a3.3 3.3 0 0 1-3.3 3.3H9.4a3.6 3.6 0 0 1-3.6-3.6V6.4A1.5 1.5 0 0 1 7.1 4.9Z" />
-                        <path d="M14.4 4.9v3.2a2 2 0 0 0 2 2h3.2" />
-                        <path d="M11.35 11.1 12.1 13 14 13.75 12.1 14.5 11.35 16.4 10.6 14.5 8.7 13.75 10.6 13Z" />
+                        <path d="M7.3 5.2h9.2a2.6 2.6 0 0 1 2.6 2.6v6.8a3.5 3.5 0 0 1-3.5 3.5H9.4a4 4 0 0 1-4-4V7.1a1.9 1.9 0 0 1 1.9-1.9Z" />
+                        <path d="M14.8 18.1v-1.6a2.7 2.7 0 0 1 2.7-2.7h1.6" />
+                        <circle cx="10.3" cy="11.1" r="0.75" fill="currentColor" stroke="none" />
+                        <circle cx="14.1" cy="11.1" r="0.75" fill="currentColor" stroke="none" />
+                        <path d="M9.7 13.9c.8.7 1.9 1.1 3 1.1 1.1 0 2.2-.4 3-1.1" />
                       </svg>
                     </span>
                     <span className="gif-btn-badge">GIF</span>

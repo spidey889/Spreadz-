@@ -44,6 +44,8 @@ interface GifResult {
   id: string
   url: string
   title: string
+  width: number
+  height: number
 }
 
 interface ReadOnlyProfile {
@@ -741,6 +743,8 @@ export default function GlobalChat() {
               id: typeof item?.id === 'string' ? item.id : '',
               url: typeof item?.images?.fixed_height?.url === 'string' ? item.images.fixed_height.url : '',
               title: typeof item?.title === 'string' ? item.title : 'GIF',
+              width: Number(item?.images?.fixed_height?.width) || 200,
+              height: Number(item?.images?.fixed_height?.height) || 200,
             }))
             .filter((item: GifResult) => item.id && item.url)
           : []
@@ -1673,22 +1677,50 @@ export default function GlobalChat() {
                 </div>
                 {isGifPickerOpen && (
                   <div className="gif-picker">
+                    <div className="gif-picker-handle" aria-hidden="true" />
                     <div className="gif-picker-header">
+                      <div className="gif-picker-heading">
+                        <div className="gif-picker-title">Send a GIF</div>
+                        <div className="gif-picker-meta">
+                          {activeGifSearch ? `Results for "${activeGifSearch}"` : 'Trending on Giphy'}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="gif-picker-close"
+                        aria-label="Close GIF picker"
+                        onClick={() => toggleGifPicker(room.id)}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="gif-search-shell">
+                      <span className="gif-search-icon" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="11" cy="11" r="7" />
+                          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                      </span>
                       <input
                         type="text"
                         className="gif-search-input"
-                        placeholder="Search GIFs"
+                        placeholder="Search reactions, memes, moods..."
                         value={gifSearchInput}
                         onChange={(e) => setGifSearchInput(e.target.value)}
                         onFocus={() => setIsKeyboardOpen(true)}
                         onBlur={() => setIsKeyboardOpen(false)}
                       />
-                      <div className="gif-picker-meta">
-                        {activeGifSearch ? `Searching "${activeGifSearch}"` : 'Trending on Giphy'}
-                      </div>
                     </div>
                     <div className="gif-picker-grid" onContextMenu={(e) => e.preventDefault()}>
-                      {gifLoading && <div className="gif-picker-status">Loading GIFs...</div>}
+                      {gifLoading && Array.from({ length: 6 }).map((_, skeletonIndex) => (
+                        <div
+                          key={`gif-skeleton-${skeletonIndex}`}
+                          className={`gif-skeleton gif-skeleton-${(skeletonIndex % 3) + 1}`}
+                        />
+                      ))}
                       {!gifLoading && gifError && <div className="gif-picker-status error">{gifError}</div>}
                       {!gifLoading && !gifError && gifResults.length === 0 && (
                         <div className="gif-picker-status">No GIFs found.</div>
@@ -1701,14 +1733,20 @@ export default function GlobalChat() {
                           onClick={() => handleGifSelect(room.id, gif.url)}
                           aria-label={`Send GIF: ${gif.title}`}
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={gif.url}
-                            alt={gif.title || 'GIF'}
-                            className="gif-tile-image"
-                            loading="lazy"
-                            draggable={false}
-                          />
+                          <div
+                            className="gif-tile-media"
+                            style={{ aspectRatio: `${gif.width} / ${gif.height}` }}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={gif.url}
+                              alt={gif.title || 'GIF'}
+                              className="gif-tile-image"
+                              loading="lazy"
+                              draggable={false}
+                            />
+                          </div>
+                          <span className="gif-tile-badge">GIF</span>
                         </button>
                       ))}
                     </div>
@@ -1741,7 +1779,14 @@ export default function GlobalChat() {
                       toggleGifPicker(room.id)
                     }}
                   >
-                    <span>GIF</span>
+                    <span className="gif-btn-mark" aria-hidden="true">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="5" width="18" height="14" rx="3" />
+                        <path d="m8 14 2.6-2.6a1.4 1.4 0 0 1 2 0L16 15" />
+                        <circle cx="15.5" cy="9.5" r="1.4" />
+                      </svg>
+                    </span>
+                    <span className="gif-btn-label">GIF</span>
                   </button>
                   <button
                     type="button"

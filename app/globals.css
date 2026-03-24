@@ -383,79 +383,200 @@ body {
           text-transform: uppercase;
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
         }
+        @keyframes gifPickerEnter {
+          from {
+            opacity: 0;
+            transform: translateY(14px) scale(0.985);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes gifShimmer {
+          0% { background-position: 100% 50%; }
+          100% { background-position: 0 50%; }
+        }
         .gif-picker {
-          margin-bottom: 12px;
-          background: linear-gradient(180deg, rgba(27,29,35,0.98), rgba(18,20,25,0.98));
+          margin-bottom: 14px;
+          padding: 10px 10px 12px;
+          background:
+            radial-gradient(circle at top right, rgba(88,101,242,0.18), transparent 34%),
+            linear-gradient(180deg, rgba(27,29,35,0.985), rgba(18,20,25,0.985));
           border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 22px 22px 16px 16px;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255,255,255,0.04);
+          border-radius: 24px 24px 18px 18px;
+          box-shadow: 0 24px 44px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255,255,255,0.05);
           overflow: hidden;
+          animation: gifPickerEnter 180ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .gif-picker-handle {
+          width: 44px;
+          height: 5px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.18);
+          margin: 0 auto 10px;
         }
         .gif-picker-header {
-          padding: 12px 12px 10px;
-          border-bottom: 1px solid rgba(255,255,255,0.06);
-          background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0));
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 0 4px 10px;
+        }
+        .gif-picker-heading {
+          min-width: 0;
+        }
+        .gif-picker-title {
+          font-size: 15px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          color: #ffffff;
+        }
+        .gif-search-shell {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 12px;
+          padding: 0 4px;
+          background: rgba(12,14,18,0.9);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 16px;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+        }
+        .gif-search-icon {
+          width: 38px;
+          height: 38px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: #9199a5;
+          flex-shrink: 0;
         }
         .gif-search-input {
           width: 100%;
-          background: rgba(12,14,18,0.94);
-          border: 1px solid rgba(255,255,255,0.08);
-          border-radius: 14px;
-          padding: 12px 14px;
+          background: transparent;
+          border: none;
+          outline: none;
+          padding: 12px 14px 12px 0;
           font-size: 14px;
           color: var(--text-primary);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
         }
         .gif-search-input::placeholder { color: #7d8491; }
         .gif-picker-meta {
-          margin-top: 8px;
+          margin-top: 4px;
           font-size: 11px;
           font-weight: 700;
-          letter-spacing: 0.06em;
+          letter-spacing: 0.09em;
           text-transform: uppercase;
-          color: #8f97a3;
+          color: #9ea6b3;
         }
+        .gif-picker-close {
+          appearance: none;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.04);
+          color: #d9dee8;
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+        }
+        .gif-picker-close:hover {
+          background: rgba(255,255,255,0.08);
+          border-color: rgba(132, 142, 255, 0.28);
+        }
+        .gif-picker-close:active { transform: scale(0.96); }
         .gif-picker-grid {
           max-height: min(40vh, 320px);
           overflow-y: auto;
-          padding: 12px;
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 10px;
+          padding: 0 2px;
+          column-count: 2;
+          column-gap: 10px;
+          scrollbar-width: none;
         }
         .gif-picker-grid::-webkit-scrollbar { display: none; }
         .gif-picker-status {
-          grid-column: 1 / -1;
+          display: block;
           padding: 28px 16px;
           text-align: center;
           font-size: 13px;
           color: #a0a8b4;
+          column-span: all;
         }
         .gif-picker-status.error { color: #ff8f97; }
+        .gif-skeleton {
+          break-inside: avoid;
+          width: 100%;
+          border-radius: 18px;
+          margin-bottom: 10px;
+          border: 1px solid rgba(255,255,255,0.06);
+          background: linear-gradient(110deg, rgba(37,40,48,0.95) 20%, rgba(58,62,72,0.95) 35%, rgba(37,40,48,0.95) 50%);
+          background-size: 200% 100%;
+          animation: gifShimmer 1.2s linear infinite;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+        }
+        .gif-skeleton-1 { aspect-ratio: 1 / 1.08; }
+        .gif-skeleton-2 { aspect-ratio: 1 / 0.72; }
+        .gif-skeleton-3 { aspect-ratio: 1 / 1.25; }
         .gif-tile {
           appearance: none;
-          border: 1px solid rgba(255,255,255,0.08);
-          background: rgba(12,14,18,0.92);
-          border-radius: 16px;
+          break-inside: avoid;
+          position: relative;
+          display: block;
+          width: 100%;
+          margin-bottom: 10px;
+          border: 1px solid rgba(255,255,255,0.07);
+          background: rgba(14,16,21,0.94);
+          border-radius: 18px;
           overflow: hidden;
           padding: 0;
           cursor: pointer;
-          aspect-ratio: 1 / 1;
-          transition: transform 0.14s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+          transition: transform 0.14s ease, border-color 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
         }
         .gif-tile:hover {
-          transform: translateY(-1px);
-          border-color: rgba(132, 142, 255, 0.34);
-          box-shadow: 0 14px 28px rgba(0, 0, 0, 0.3);
+          transform: translateY(-2px);
+          border-color: rgba(132, 142, 255, 0.28);
+          box-shadow: 0 16px 30px rgba(0, 0, 0, 0.32);
+          filter: saturate(1.04);
         }
         .gif-tile:active { transform: scale(0.98); }
+        .gif-tile-media {
+          position: relative;
+          width: 100%;
+          min-height: 112px;
+          background: #12141a;
+        }
         .gif-tile-image {
           display: block;
           width: 100%;
           height: 100%;
           object-fit: cover;
           background: #12141a;
+        }
+        .gif-tile-badge {
+          position: absolute;
+          right: 10px;
+          bottom: 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 34px;
+          height: 22px;
+          padding: 0 8px;
+          border-radius: 999px;
+          background: rgba(10,12,16,0.78);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: #f1f4fb;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          backdrop-filter: blur(6px);
         }
         
         .input-wrap {
@@ -486,43 +607,55 @@ body {
           border-color: rgba(132, 142, 255, 0.24);
           transform: translateY(-1px);
         }
-        
+
         input { flex: 1; background: none; border: none; outline: none; font-size: 16px; color: var(--text-primary); font-family: inherit; }
         input::placeholder { color: #7d8491; }
 
         .gif-btn {
           appearance: none;
           border: 1px solid rgba(255,255,255,0.08);
-          background: linear-gradient(180deg, rgba(44,48,57,0.98), rgba(30,33,40,0.98));
+          background: linear-gradient(180deg, rgba(44,48,57,0.98), rgba(28,31,38,0.98));
           color: #dfe5f2;
-          border-radius: 14px;
-          width: 42px;
+          border-radius: 15px;
+          min-width: 58px;
           height: 42px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
+          gap: 7px;
+          padding: 0 11px;
           cursor: pointer;
           transition: transform 0.1s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
           flex-shrink: 0;
           position: relative;
           z-index: 1;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 18px rgba(0, 0, 0, 0.18);
         }
-        .gif-btn span {
-          font-size: 11px;
+        .gif-btn-mark {
+          width: 20px;
+          height: 20px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: #e8edf8;
+          opacity: 0.95;
+        }
+        .gif-btn-label {
+          font-size: 10px;
           font-weight: 800;
-          letter-spacing: 0.08em;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
         }
         .gif-btn:hover {
-          border-color: rgba(132, 142, 255, 0.24);
-          background: linear-gradient(180deg, rgba(51,56,66,0.98), rgba(33,37,46,0.98));
+          border-color: rgba(132, 142, 255, 0.26);
+          background: linear-gradient(180deg, rgba(56,61,72,0.98), rgba(33,37,46,0.98));
         }
         .gif-btn:active { transform: scale(0.96); }
         .gif-btn.active {
           color: #ffffff;
-          border-color: rgba(132, 142, 255, 0.32);
-          background: linear-gradient(180deg, rgba(88,101,242,0.34), rgba(64,74,176,0.34));
-          box-shadow: 0 10px 24px rgba(88, 101, 242, 0.18);
+          border-color: rgba(132, 142, 255, 0.34);
+          background: linear-gradient(180deg, rgba(88,101,242,0.42), rgba(64,74,176,0.42));
+          box-shadow: 0 12px 26px rgba(88, 101, 242, 0.24);
         }
 
         .send-btn { background: linear-gradient(180deg, #6974ff, #5865F2); color: white; border: 1px solid rgba(255,255,255,0.16); border-radius: 50%; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s, box-shadow 0.2s; flex-shrink: 0; box-shadow: 0 10px 24px rgba(88, 101, 242, 0.28); position: relative; z-index: 1; }
@@ -531,6 +664,7 @@ body {
         .send-btn:focus-visible,
         .gif-btn:focus-visible,
         .gif-tile:focus-visible,
+        .gif-picker-close:focus-visible,
         .profile-avatar-btn:focus-visible,
         .profile-avatar-camera:focus-visible,
         .profile-submit:focus-visible,

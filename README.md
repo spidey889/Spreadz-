@@ -15,4 +15,4 @@ To get started, open the app and jump in. No sign up needed.
 
 **[spreadz.vercel.app](https://spreadz.vercel.app)**
 
-*Spreadz is currently open only to Indian colleges.*
+*Spreadz is currently open only to Indian colleges*

@@ -98,8 +98,8 @@ const GENERATED_USERNAME_REGEX = /^[a-z0-9_]{1,20}_[0-9]{4}$/
 const GIF_MESSAGE_PREFIX = '[gif]:'
 const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
 const GIPHY_LIMIT = 20
-const GIF_PICKER_CLOSE_DURATION_MS = 100
-const GIF_PICKER_DRAG_CLOSE_THRESHOLD = 22
+const GIF_PICKER_CLOSE_DURATION_MS = 64
+const GIF_PICKER_DRAG_CLOSE_THRESHOLD = 18
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (value: string) => value.startsWith(GIF_MESSAGE_PREFIX)
@@ -1324,7 +1324,7 @@ export default function GlobalChat() {
     }
   }, [])
 
-  const closeGifPicker = useCallback((roomId?: string, targetOffset = 20) => {
+  const closeGifPicker = useCallback((roomId?: string, targetOffset = 48) => {
     const resolvedRoomId = roomId ?? activeGifPickerRoomId ?? gifPickerClosingRoomId
     if (!resolvedRoomId) return
 
@@ -1438,7 +1438,7 @@ export default function GlobalChat() {
     clearGifPickerTouchState()
 
     if (dragDistance > GIF_PICKER_DRAG_CLOSE_THRESHOLD) {
-      closeGifPicker(roomId, Math.max(dragDistance, 20))
+      closeGifPicker(roomId, Math.max(dragDistance + 26, 52))
       return
     }
 
@@ -2001,12 +2001,12 @@ export default function GlobalChat() {
                     }}
                   >
                     <span className="gif-btn-icon" aria-hidden="true">
-                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7.2 5.2h9.15a2.7 2.7 0 0 1 2.7 2.7v6.15a4.75 4.75 0 0 1-4.75 4.75H9.9a4.15 4.15 0 0 1-4.15-4.15V6.65A1.45 1.45 0 0 1 7.2 5.2Z" />
-                        <path d="M15.05 18.8v-1.6a2.8 2.8 0 0 1 2.8-2.8h1.2" />
-                        <circle cx="9.95" cy="10.55" r="0.9" fill="currentColor" stroke="none" />
-                        <circle cx="14.55" cy="10.55" r="0.9" fill="currentColor" stroke="none" />
-                        <path d="M9.45 14.15c.76.76 1.71 1.14 2.85 1.14s2.09-.38 2.85-1.14" />
+                      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7.05 5.1h9.4A2.55 2.55 0 0 1 19 7.65v6.35a4.85 4.85 0 0 1-4.85 4.85H9.8a4.1 4.1 0 0 1-4.1-4.1V6.55A1.45 1.45 0 0 1 7.05 5.1Z" />
+                        <path d="M14.95 18.85v-1.55a2.95 2.95 0 0 1 2.95-2.95h1.1" />
+                        <circle cx="9.95" cy="10.45" r="0.62" fill="currentColor" stroke="none" />
+                        <circle cx="14.45" cy="10.45" r="0.62" fill="currentColor" stroke="none" />
+                        <path d="M9.5 14.2c.72.64 1.63.96 2.75.96s2.03-.32 2.75-.96" />
                       </svg>
                     </span>
                     <span className="gif-btn-badge">GIF</span>

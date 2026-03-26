@@ -100,7 +100,6 @@ const GIF_MESSAGE_PREFIX = '[gif]:'
 const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
 const GIPHY_LIMIT = 20
 const GIF_PICKER_CLOSE_DURATION_MS = 36
-const GIF_PICKER_DRAG_CLOSE_THRESHOLD = 14
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (value: string) => value.startsWith(GIF_MESSAGE_PREFIX)
@@ -1338,6 +1337,19 @@ export default function GlobalChat() {
     }
   }, [])
 
+  const getGifPickerDismissOffset = useCallback(() => {
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0
+    const sheetHeight = gifPickerSheetRef.current?.offsetHeight ?? 0
+
+    return Math.max(sheetHeight + 56, Math.round(viewportHeight * 0.78), 180)
+  }, [])
+
+  const getGifPickerCloseThreshold = useCallback(() => {
+    const sheetHeight = gifPickerSheetRef.current?.offsetHeight ?? 0
+
+    return sheetHeight > 0 ? Math.max(54, Math.round(sheetHeight * 0.16)) : 54
+  }, [])
+
   useEffect(() => {
     return () => {
       if (gifPickerFrameRef.current !== null) {
@@ -1347,9 +1359,10 @@ export default function GlobalChat() {
     }
   }, [])
 
-  const closeGifPicker = useCallback((roomId?: string, targetOffset = 68) => {
+  const closeGifPicker = useCallback((roomId?: string, targetOffset?: number) => {
     const resolvedRoomId = roomId ?? activeGifPickerRoomId ?? gifPickerClosingRoomId
     if (!resolvedRoomId) return
+    const resolvedOffset = targetOffset ?? getGifPickerDismissOffset()
 
     if (gifPickerCloseTimeoutRef.current) {
       window.clearTimeout(gifPickerCloseTimeoutRef.current)
@@ -1358,7 +1371,7 @@ export default function GlobalChat() {
 
     clearGifPickerTouchState()
     setGifPickerDragging(false)
-    applyGifPickerOffset(targetOffset)
+    applyGifPickerOffset(resolvedOffset)
     setGifPickerClosingRoomId(resolvedRoomId)
 
     gifPickerCloseTimeoutRef.current = window.setTimeout(() => {
@@ -1369,7 +1382,7 @@ export default function GlobalChat() {
       setGifSearchInput('')
       setGifError('')
     }, GIF_PICKER_CLOSE_DURATION_MS)
-  }, [activeGifPickerRoomId, gifPickerClosingRoomId, clearGifPickerTouchState, applyGifPickerOffset])
+  }, [activeGifPickerRoomId, gifPickerClosingRoomId, clearGifPickerTouchState, applyGifPickerOffset, getGifPickerDismissOffset])
 
   const openGifPicker = (roomId: string) => {
     if (gifPickerCloseTimeoutRef.current) {
@@ -1453,15 +1466,17 @@ export default function GlobalChat() {
     if (!gifPickerDragging) {
       setGifPickerDragging(true)
     }
-    applyGifPickerOffset(Math.min(deltaY * 0.92, 84))
+    applyGifPickerOffset(Math.min(deltaY, getGifPickerDismissOffset()))
   }
 
   const handleGifPickerTouchEnd = (roomId: string) => {
     const dragDistance = gifPickerOffsetYRef.current
+    const closeThreshold = getGifPickerCloseThreshold()
+    const dismissOffset = getGifPickerDismissOffset()
     clearGifPickerTouchState()
 
-    if (dragDistance > GIF_PICKER_DRAG_CLOSE_THRESHOLD) {
-      closeGifPicker(roomId, Math.max(dragDistance + 42, 72))
+    if (dragDistance > closeThreshold) {
+      closeGifPicker(roomId, Math.max(dragDistance, dismissOffset))
       return
     }
 

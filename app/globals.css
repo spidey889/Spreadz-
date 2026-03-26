@@ -400,16 +400,14 @@ body {
         .gif-picker {
           margin-bottom: 10px;
           padding: 8px 8px 10px;
-          background:
-            radial-gradient(circle at top center, rgba(255,255,255,0.05), transparent 34%),
-            linear-gradient(180deg, rgba(22,24,29,0.992), rgba(14,16,20,0.996));
+          background: linear-gradient(180deg, rgba(22,24,29,0.992), rgba(14,16,20,0.996));
           border: 1px solid rgba(255,255,255,0.085);
           border-radius: 22px 22px 18px 18px;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255,255,255,0.035);
+          box-shadow: 0 16px 30px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255,255,255,0.03);
           overflow: hidden;
-          animation: gifPickerEnter 90ms cubic-bezier(0.22, 1, 0.36, 1);
+          animation: gifPickerEnter 72ms cubic-bezier(0.22, 1, 0.36, 1);
           transform: translate3d(0, var(--gif-picker-offset, 0px), 0);
-          transition: transform 56ms cubic-bezier(0.22, 1, 0.36, 1), opacity 56ms ease, box-shadow 56ms ease;
+          transition: transform 44ms cubic-bezier(0.22, 1, 0.36, 1), opacity 44ms ease, box-shadow 44ms ease;
           will-change: transform, opacity;
           contain: layout paint;
           backface-visibility: hidden;
@@ -417,10 +415,11 @@ body {
         }
         .gif-picker.dragging {
           transition: none;
+          box-shadow: 0 10px 18px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255,255,255,0.02);
         }
         .gif-picker.closing {
           opacity: 0;
-          transform: translate3d(0, calc(var(--gif-picker-offset, 0px) + 18px), 0);
+          transform: translate3d(0, calc(var(--gif-picker-offset, 0px) + 24px), 0);
           box-shadow: 0 12px 22px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255,255,255,0.02);
           pointer-events: none;
         }
@@ -432,7 +431,7 @@ body {
           padding: 0;
           background: linear-gradient(180deg, rgba(8,10,12,0), rgba(8,10,12,0.14) 72%, rgba(8,10,12,0.22));
           opacity: 1;
-          transition: opacity 56ms ease;
+          transition: opacity 44ms ease;
           cursor: default;
         }
         .gif-picker-backdrop.closing {
@@ -508,6 +507,8 @@ body {
           overscroll-behavior-y: contain;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
+          transform: translateZ(0);
+          backface-visibility: hidden;
         }
         .gif-picker-grid::-webkit-scrollbar { display: none; }
         .gif-picker-status {
@@ -561,6 +562,8 @@ body {
           height: 100%;
           object-fit: cover;
           background: #12141a;
+          transform: translateZ(0);
+          backface-visibility: hidden;
         }
         .gif-tile-badge {
           position: absolute;
@@ -585,8 +588,8 @@ body {
         
         .input-wrap {
           --composer-send-size: 46px;
-          --composer-gif-hit-size: 38px;
-          --composer-gif-icon-size: 28px;
+          --composer-gif-hit-size: 40px;
+          --composer-gif-icon-size: 30px;
           position: relative;
           display: flex;
           align-items: center;

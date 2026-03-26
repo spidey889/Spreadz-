@@ -2018,16 +2018,7 @@ export default function GlobalChat() {
                       toggleGifPicker(room.id)
                     }}
                   >
-                    <span className="gif-btn-icon" aria-hidden="true">
-                      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7.15 4.95h9.15A2.7 2.7 0 0 1 19 7.65v5.95a4.75 4.75 0 0 1-4.75 4.75H9.9a4.2 4.2 0 0 1-4.2-4.2v-7.7A1.5 1.5 0 0 1 7.15 4.95Z" />
-                        <path d="M14.9 18.35v-1.45A2.9 2.9 0 0 1 17.8 14H19" />
-                        <circle cx="9.95" cy="10.45" r="0.55" fill="currentColor" stroke="none" />
-                        <circle cx="14.35" cy="10.45" r="0.55" fill="currentColor" stroke="none" />
-                        <path d="M9.55 14.05c.68.58 1.57.87 2.68.87 1.1 0 1.99-.29 2.67-.87" />
-                      </svg>
-                    </span>
-                    <span className="gif-btn-badge">GIF</span>
+                    <span className="gif-btn-label">GIF</span>
                   </button>
                   <button
                     type="button"

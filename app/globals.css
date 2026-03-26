@@ -585,13 +585,11 @@ body {
         
         .input-wrap {
           --composer-send-size: 46px;
-          --composer-gif-hit-size: 52px;
-          --composer-gif-icon-box: 48px;
-          --composer-gif-icon-size: 44px;
+          --composer-gif-height: 28px;
           position: relative;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           background: linear-gradient(180deg, rgba(24,26,31,0.98), rgba(16,18,22,0.99));
           border: 1px solid rgba(255,255,255,0.1);
           border-radius: 28px;
@@ -622,72 +620,43 @@ body {
 
         .gif-btn {
           appearance: none;
-          border: none;
+          border: 1px solid rgba(255,255,255,0.12);
           background: none;
-          color: #eef2f8;
-          width: var(--composer-gif-hit-size);
-          height: var(--composer-gif-hit-size);
+          color: rgba(244,246,251,0.82);
+          min-width: 0;
+          height: var(--composer-gif-height);
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 0;
+          padding: 0 9px;
           cursor: pointer;
-          transition: transform 0.12s ease;
+          transition: color 0.14s ease, border-color 0.14s ease, transform 0.12s ease;
           flex-shrink: 0;
           position: relative;
           z-index: 1;
           box-shadow: none;
-          overflow: visible;
-        }
-        .gif-btn-icon {
-          width: var(--composer-gif-icon-box);
-          height: var(--composer-gif-icon-box);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-          color: #f7f8fb;
-          opacity: 0.99;
-          filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
-          transition: transform 0.12s ease, opacity 0.16s ease, color 0.16s ease;
-        }
-        .gif-btn-icon svg {
-          width: var(--composer-gif-icon-size);
-          height: var(--composer-gif-icon-size);
-          position: relative;
-          z-index: 1;
-        }
-        .gif-btn-badge {
-          position: absolute;
-          right: -2px;
-          bottom: 6px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-width: 23px;
-          height: 14px;
-          padding: 0 5px;
           border-radius: 999px;
-          background: rgba(12,14,18,0.92);
-          border: 1px solid rgba(255,255,255,0.12);
-          color: #ffffff;
-          font-size: 7px;
-          font-weight: 800;
-          letter-spacing: 0.12em;
+          letter-spacing: 0.08em;
           text-transform: uppercase;
-          box-shadow: 0 6px 14px rgba(0, 0, 0, 0.24);
+          overflow: hidden;
         }
-        .gif-btn:hover .gif-btn-icon {
-          opacity: 1;
+        .gif-btn-label {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10.5px;
+          font-weight: 600;
+          line-height: 1;
+        }
+        .gif-btn:hover {
+          color: #ffffff;
+          border-color: rgba(255,255,255,0.2);
           transform: translateY(-1px);
         }
         .gif-btn:active { transform: scale(0.96); }
         .gif-btn.active {
           color: #ffffff;
-        }
-        .gif-btn.active .gif-btn-icon {
-          opacity: 1;
-          color: #ffffff;
+          border-color: rgba(255,255,255,0.24);
         }
 
         .send-btn { background: linear-gradient(180deg, #6974ff, #5865F2); color: white; border: 1px solid rgba(255,255,255,0.16); border-radius: 50%; width: var(--composer-send-size); height: var(--composer-send-size); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s, box-shadow 0.2s; flex-shrink: 0; box-shadow: 0 10px 24px rgba(88, 101, 242, 0.28); position: relative; z-index: 1; }

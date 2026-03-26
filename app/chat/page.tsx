@@ -43,6 +43,7 @@ interface FriendRequest {
 interface GifResult {
   id: string
   url: string
+  previewUrl: string
   title: string
   width: number
   height: number
@@ -297,11 +298,15 @@ export default function GlobalChat() {
         .map((item: any) => ({
           id: typeof item?.id === 'string' ? item.id : '',
           url: typeof item?.images?.fixed_height?.url === 'string' ? item.images.fixed_height.url : '',
+          previewUrl:
+            typeof item?.images?.fixed_height_still?.url === 'string'
+              ? item.images.fixed_height_still.url
+              : (typeof item?.images?.fixed_height?.url === 'string' ? item.images.fixed_height.url : ''),
           title: typeof item?.title === 'string' ? item.title : 'GIF',
           width: Number(item?.images?.fixed_height?.width) || 200,
           height: Number(item?.images?.fixed_height?.height) || 200,
         }))
-        .filter((item: GifResult) => item.id && item.url)
+        .filter((item: GifResult) => item.id && item.url && item.previewUrl)
       : []
   }, [])
 
@@ -1975,10 +1980,11 @@ export default function GlobalChat() {
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={gif.url}
+                              src={gif.previewUrl}
                               alt={gif.title || 'GIF'}
                               className="gif-tile-image"
                               loading="lazy"
+                              decoding="async"
                               draggable={false}
                             />
                           </div>

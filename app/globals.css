@@ -588,12 +588,12 @@ body {
         
         .input-wrap {
           --composer-send-size: 46px;
-          --composer-gif-hit-size: 40px;
-          --composer-gif-icon-size: 30px;
+          --composer-gif-hit-size: 42px;
+          --composer-gif-icon-size: 31px;
           position: relative;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 7px;
           background: linear-gradient(180deg, rgba(24,26,31,0.98), rgba(16,18,22,0.99));
           border: 1px solid rgba(255,255,255,0.1);
           border-radius: 28px;
@@ -641,6 +641,7 @@ body {
           box-shadow: none;
           border-radius: 50%;
           opacity: 0.96;
+          align-self: center;
         }
         .gif-btn-icon {
           display: inline-flex;
@@ -648,7 +649,7 @@ body {
           justify-content: center;
           width: var(--composer-gif-icon-size);
           height: var(--composer-gif-icon-size);
-          transform: translateY(0.5px);
+          transform: translateY(0);
         }
         .gif-btn-icon svg {
           width: var(--composer-gif-icon-size);

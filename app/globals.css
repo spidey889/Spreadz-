@@ -352,8 +352,8 @@ body {
         }
 
         .input-area {
-          background: linear-gradient(180deg, rgba(17,18,20,0), rgba(17,18,20,0.94) 28%, rgba(17,18,20,1));
-          padding: 5px 18px calc(13px + env(safe-area-inset-bottom, 0px));
+          background: linear-gradient(180deg, rgba(17,18,20,0.42), rgba(17,18,20,0.94) 28%, rgba(17,18,20,1));
+          padding: 9px 18px calc(13px + env(safe-area-inset-bottom, 0px));
           flex-shrink: 0;
         }
         .hint {

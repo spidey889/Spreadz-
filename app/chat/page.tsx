@@ -224,7 +224,6 @@ export default function GlobalChat() {
   const [tempProfileCollege, setTempProfileCollege] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
-  const [profileSheetOffsetY, setProfileSheetOffsetY] = useState(0)
   const [profileSheetDragging, setProfileSheetDragging] = useState(false)
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [interestDismissed, setInterestDismissed] = useState(false)
@@ -264,8 +263,24 @@ export default function GlobalChat() {
   const gifPickerFrameRef = useRef<number | null>(null)
   const gifPickerCloseTimeoutRef = useRef<number | null>(null)
   const profileSheetTouchStartYRef = useRef<number | null>(null)
+  const profileSheetOffsetYRef = useRef(0)
+  const profileSheetFrameRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
   const roomSwipeRef = useRef<RoomSwipeState | null>(null)
+
+  const applyProfileSheetOffset = useCallback((offset: number) => {
+    profileSheetOffsetYRef.current = offset
+
+    if (typeof window === 'undefined') return
+    if (profileSheetFrameRef.current !== null) return
+
+    profileSheetFrameRef.current = window.requestAnimationFrame(() => {
+      profileSheetFrameRef.current = null
+      if (profileSheetRef.current) {
+        profileSheetRef.current.style.setProperty('--profile-sheet-offset', `${profileSheetOffsetYRef.current}px`)
+      }
+    })
+  }, [])
 
   const fetchGifResults = useCallback(async (query: string, signal?: AbortSignal) => {
     const trimmedQuery = query.trim()
@@ -577,18 +592,21 @@ export default function GlobalChat() {
       }
       profileSheetTouchStartYRef.current = null
       setProfileSheetDragging(false)
-      setProfileSheetOffsetY(0)
+      applyProfileSheetOffset(0)
       return
     }
 
     setProfileSheetDragging(false)
-    setProfileSheetOffsetY(0)
-  }, [showProfileModal])
+    applyProfileSheetOffset(0)
+  }, [showProfileModal, applyProfileSheetOffset])
 
   useEffect(() => {
     return () => {
       if (profileSheetCloseTimeoutRef.current !== null) {
         window.clearTimeout(profileSheetCloseTimeoutRef.current)
+      }
+      if (profileSheetFrameRef.current !== null) {
+        window.cancelAnimationFrame(profileSheetFrameRef.current)
       }
     }
   }, [])
@@ -1505,7 +1523,7 @@ export default function GlobalChat() {
     }
     profileSheetTouchStartYRef.current = null
     setProfileSheetDragging(false)
-    setProfileSheetOffsetY(0)
+    applyProfileSheetOffset(0)
     setShowProfileModal(false)
     setTempProfileName('')
     setTempProfileCollege('')
@@ -1582,7 +1600,7 @@ export default function GlobalChat() {
     if (startY === null || currentY === undefined) return
 
     const nextOffset = Math.max(0, currentY - startY)
-    setProfileSheetOffsetY(nextOffset)
+    applyProfileSheetOffset(nextOffset)
 
     if (nextOffset > 0) e.preventDefault()
   }
@@ -1597,19 +1615,19 @@ export default function GlobalChat() {
 
     const dragDistance = Math.max(0, endY - startY)
     const sheetHeight = profileSheetRef.current?.offsetHeight ?? 0
-    const closeThreshold = sheetHeight > 0 ? sheetHeight * 0.1 : 80
+    const closeThreshold = sheetHeight > 0 ? Math.max(56, sheetHeight * 0.09) : 56
 
     if (dragDistance > closeThreshold) {
-      const closeDistance = Math.max(sheetHeight + 96, dragDistance)
-      setProfileSheetOffsetY(closeDistance)
+      const closeDistance = Math.max(sheetHeight + 72, dragDistance + 64)
+      applyProfileSheetOffset(closeDistance)
       profileSheetCloseTimeoutRef.current = window.setTimeout(() => {
         profileSheetCloseTimeoutRef.current = null
         closeProfileModal()
-      }, 280)
+      }, 180)
       return
     }
 
-    setProfileSheetOffsetY(0)
+    applyProfileSheetOffset(0)
   }
 
   const isInteractiveGestureTarget = useCallback((target: EventTarget | null) => {
@@ -2001,12 +2019,12 @@ export default function GlobalChat() {
                     }}
                   >
                     <span className="gif-btn-icon" aria-hidden="true">
-                      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7.05 5.1h9.4A2.55 2.55 0 0 1 19 7.65v6.35a4.85 4.85 0 0 1-4.85 4.85H9.8a4.1 4.1 0 0 1-4.1-4.1V6.55A1.45 1.45 0 0 1 7.05 5.1Z" />
-                        <path d="M14.95 18.85v-1.55a2.95 2.95 0 0 1 2.95-2.95h1.1" />
-                        <circle cx="9.95" cy="10.45" r="0.62" fill="currentColor" stroke="none" />
-                        <circle cx="14.45" cy="10.45" r="0.62" fill="currentColor" stroke="none" />
-                        <path d="M9.5 14.2c.72.64 1.63.96 2.75.96s2.03-.32 2.75-.96" />
+                      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7.15 4.95h9.15A2.7 2.7 0 0 1 19 7.65v5.95a4.75 4.75 0 0 1-4.75 4.75H9.9a4.2 4.2 0 0 1-4.2-4.2v-7.7A1.5 1.5 0 0 1 7.15 4.95Z" />
+                        <path d="M14.9 18.35v-1.45A2.9 2.9 0 0 1 17.8 14H19" />
+                        <circle cx="9.95" cy="10.45" r="0.55" fill="currentColor" stroke="none" />
+                        <circle cx="14.35" cy="10.45" r="0.55" fill="currentColor" stroke="none" />
+                        <path d="M9.55 14.05c.68.58 1.57.87 2.68.87 1.1 0 1.99-.29 2.67-.87" />
                       </svg>
                     </span>
                     <span className="gif-btn-badge">GIF</span>
@@ -2083,9 +2101,8 @@ export default function GlobalChat() {
             onTouchCancel={() => {
               profileSheetTouchStartYRef.current = null
               setProfileSheetDragging(false)
-              setProfileSheetOffsetY(0)
+              applyProfileSheetOffset(0)
             }}
-            style={{ transform: `translate3d(0, ${profileSheetOffsetY}px, 0)` }}
           >
             <div className="profile-avatar-section">
               <div

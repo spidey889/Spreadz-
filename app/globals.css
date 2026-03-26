@@ -584,10 +584,14 @@ body {
         }
         
         .input-wrap {
+          --composer-send-size: 46px;
+          --composer-gif-hit-size: 52px;
+          --composer-gif-icon-box: 48px;
+          --composer-gif-icon-size: 44px;
           position: relative;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           background: linear-gradient(180deg, rgba(24,26,31,0.98), rgba(16,18,22,0.99));
           border: 1px solid rgba(255,255,255,0.1);
           border-radius: 28px;
@@ -621,8 +625,8 @@ body {
           border: none;
           background: none;
           color: #eef2f8;
-          width: 60px;
-          height: 60px;
+          width: var(--composer-gif-hit-size);
+          height: var(--composer-gif-hit-size);
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -636,38 +640,38 @@ body {
           overflow: visible;
         }
         .gif-btn-icon {
-          width: 56px;
-          height: 56px;
+          width: var(--composer-gif-icon-box);
+          height: var(--composer-gif-icon-box);
           display: inline-flex;
           align-items: center;
           justify-content: center;
           position: relative;
           color: #f7f8fb;
           opacity: 0.99;
-          filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.14));
+          filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
           transition: transform 0.12s ease, opacity 0.16s ease, color 0.16s ease;
         }
         .gif-btn-icon svg {
-          width: 42px;
-          height: 42px;
+          width: var(--composer-gif-icon-size);
+          height: var(--composer-gif-icon-size);
           position: relative;
           z-index: 1;
         }
         .gif-btn-badge {
           position: absolute;
-          right: -3px;
-          bottom: 5px;
+          right: -2px;
+          bottom: 6px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-width: 25px;
-          height: 15px;
-          padding: 0 6px;
+          min-width: 23px;
+          height: 14px;
+          padding: 0 5px;
           border-radius: 999px;
           background: rgba(12,14,18,0.92);
           border: 1px solid rgba(255,255,255,0.12);
           color: #ffffff;
-          font-size: 7.4px;
+          font-size: 7px;
           font-weight: 800;
           letter-spacing: 0.12em;
           text-transform: uppercase;
@@ -686,7 +690,7 @@ body {
           color: #ffffff;
         }
 
-        .send-btn { background: linear-gradient(180deg, #6974ff, #5865F2); color: white; border: 1px solid rgba(255,255,255,0.16); border-radius: 50%; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s, box-shadow 0.2s; flex-shrink: 0; box-shadow: 0 10px 24px rgba(88, 101, 242, 0.28); position: relative; z-index: 1; }
+        .send-btn { background: linear-gradient(180deg, #6974ff, #5865F2); color: white; border: 1px solid rgba(255,255,255,0.16); border-radius: 50%; width: var(--composer-send-size); height: var(--composer-send-size); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s, box-shadow 0.2s; flex-shrink: 0; box-shadow: 0 10px 24px rgba(88, 101, 242, 0.28); position: relative; z-index: 1; }
         .send-btn:hover { background: linear-gradient(180deg, #5f6af8, #4d58d6); }
         .send-btn:active { transform: scale(0.95); }
         .send-btn:focus-visible,
@@ -735,9 +739,11 @@ body {
           gap: 12px;
           position: relative;
           overflow: visible;
-          transform: translate3d(0, 0, 0);
-          transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+          transform: translate3d(0, var(--profile-sheet-offset, 0px), 0);
+          transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
           will-change: transform;
+          contain: layout paint;
+          backface-visibility: hidden;
         }
         .profile-sheet.dragging { transition: none; }
         .profile-sheet.view-only {

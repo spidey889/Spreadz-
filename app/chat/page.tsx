@@ -1807,12 +1807,12 @@ export default function GlobalChat() {
                     }}
                   >
                     <span className="gif-btn-icon" aria-hidden="true">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7.3 5.2h9.2a2.6 2.6 0 0 1 2.6 2.6v6.8a3.5 3.5 0 0 1-3.5 3.5H9.4a4 4 0 0 1-4-4V7.1a1.9 1.9 0 0 1 1.9-1.9Z" />
-                        <path d="M14.8 18.1v-1.6a2.7 2.7 0 0 1 2.7-2.7h1.6" />
-                        <circle cx="10.3" cy="11.1" r="0.75" fill="currentColor" stroke="none" />
-                        <circle cx="14.1" cy="11.1" r="0.75" fill="currentColor" stroke="none" />
-                        <path d="M9.7 13.9c.8.7 1.9 1.1 3 1.1 1.1 0 2.2-.4 3-1.1" />
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.05" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7 5.4h9.5A2.5 2.5 0 0 1 19 7.9v6.4a4 4 0 0 1-4 4H9.7a4.2 4.2 0 0 1-4.2-4.2V6.9A1.5 1.5 0 0 1 7 5.4Z" />
+                        <path d="M14.9 18.3v-1.7a2.6 2.6 0 0 1 2.6-2.6h1.7" />
+                        <circle cx="10.2" cy="11" r="0.78" fill="currentColor" stroke="none" />
+                        <circle cx="14" cy="11" r="0.78" fill="currentColor" stroke="none" />
+                        <path d="M9.6 14.1c.8.7 1.9 1.05 3 1.05s2.2-.35 3-1.05" />
                       </svg>
                     </span>
                     <span className="gif-btn-badge">GIF</span>

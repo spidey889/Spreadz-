@@ -583,8 +583,8 @@ body {
           border: none;
           background: none;
           color: #eef2f8;
-          width: 44px;
-          height: 44px;
+          width: 50px;
+          height: 46px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -598,15 +598,14 @@ body {
           overflow: visible;
         }
         .gif-btn-icon {
-          width: 28px;
-          height: 28px;
+          width: 34px;
+          height: 34px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           position: relative;
           color: #f4f6fb;
-          opacity: 0.94;
-          filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.22));
+          opacity: 0.98;
           transition: transform 0.14s ease, opacity 0.18s ease, color 0.18s ease;
         }
         .gif-btn-icon svg {
@@ -615,21 +614,21 @@ body {
         }
         .gif-btn-badge {
           position: absolute;
-          right: -1px;
-          bottom: 3px;
+          right: -2px;
+          bottom: 2px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-width: 22px;
-          height: 14px;
-          padding: 0 5px;
+          min-width: 24px;
+          height: 15px;
+          padding: 0 6px;
           border-radius: 999px;
           background: linear-gradient(180deg, #6d78ff, #5865F2);
           border: 1px solid rgba(255,255,255,0.16);
           color: #ffffff;
-          font-size: 7px;
+          font-size: 8px;
           font-weight: 800;
-          letter-spacing: 0.14em;
+          letter-spacing: 0.12em;
           text-transform: uppercase;
           box-shadow: 0 6px 14px rgba(88, 101, 242, 0.32);
         }

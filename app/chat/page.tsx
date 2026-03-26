@@ -206,7 +206,6 @@ export default function GlobalChat() {
   const [inputTexts, setInputTexts] = useState<Record<string, string>>({})
   const [activeGifPickerRoomId, setActiveGifPickerRoomId] = useState<string | null>(null)
   const [gifPickerClosingRoomId, setGifPickerClosingRoomId] = useState<string | null>(null)
-  const [gifPickerOffsetY, setGifPickerOffsetY] = useState(0)
   const [gifPickerDragging, setGifPickerDragging] = useState(false)
   const [gifSearchInput, setGifSearchInput] = useState('')
   const [gifResults, setGifResults] = useState<GifResult[]>([])
@@ -260,6 +259,9 @@ export default function GlobalChat() {
   const gifPickerTouchStartYRef = useRef<number | null>(null)
   const gifPickerTouchStartedInGridRef = useRef(false)
   const gifPickerTouchGridRef = useRef<HTMLDivElement | null>(null)
+  const gifPickerSheetRef = useRef<HTMLDivElement | null>(null)
+  const gifPickerOffsetYRef = useRef(0)
+  const gifPickerFrameRef = useRef<number | null>(null)
   const gifPickerCloseTimeoutRef = useRef<number | null>(null)
   const profileSheetTouchStartYRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
@@ -1292,6 +1294,36 @@ export default function GlobalChat() {
     gifPickerTouchGridRef.current = null
   }, [])
 
+  const applyGifPickerOffset = useCallback((offset: number) => {
+    gifPickerOffsetYRef.current = offset
+
+    if (typeof window === 'undefined') return
+    if (gifPickerFrameRef.current !== null) return
+
+    gifPickerFrameRef.current = window.requestAnimationFrame(() => {
+      gifPickerFrameRef.current = null
+      if (gifPickerSheetRef.current) {
+        gifPickerSheetRef.current.style.setProperty('--gif-picker-offset', `${gifPickerOffsetYRef.current}px`)
+      }
+    })
+  }, [])
+
+  const bindGifPickerSheetRef = useCallback((node: HTMLDivElement | null) => {
+    gifPickerSheetRef.current = node
+    if (node) {
+      node.style.setProperty('--gif-picker-offset', `${gifPickerOffsetYRef.current}px`)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (gifPickerFrameRef.current !== null) {
+        window.cancelAnimationFrame(gifPickerFrameRef.current)
+        gifPickerFrameRef.current = null
+      }
+    }
+  }, [])
+
   const closeGifPicker = useCallback((roomId?: string, targetOffset = 20) => {
     const resolvedRoomId = roomId ?? activeGifPickerRoomId ?? gifPickerClosingRoomId
     if (!resolvedRoomId) return
@@ -1303,18 +1335,18 @@ export default function GlobalChat() {
 
     clearGifPickerTouchState()
     setGifPickerDragging(false)
-    setGifPickerOffsetY(targetOffset)
+    applyGifPickerOffset(targetOffset)
     setGifPickerClosingRoomId(resolvedRoomId)
 
     gifPickerCloseTimeoutRef.current = window.setTimeout(() => {
       gifPickerCloseTimeoutRef.current = null
       setActiveGifPickerRoomId(prev => prev === resolvedRoomId ? null : prev)
       setGifPickerClosingRoomId(prev => prev === resolvedRoomId ? null : prev)
-      setGifPickerOffsetY(0)
+      applyGifPickerOffset(0)
       setGifSearchInput('')
       setGifError('')
     }, GIF_PICKER_CLOSE_DURATION_MS)
-  }, [activeGifPickerRoomId, gifPickerClosingRoomId, clearGifPickerTouchState])
+  }, [activeGifPickerRoomId, gifPickerClosingRoomId, clearGifPickerTouchState, applyGifPickerOffset])
 
   const openGifPicker = (roomId: string) => {
     if (gifPickerCloseTimeoutRef.current) {
@@ -1325,7 +1357,7 @@ export default function GlobalChat() {
     clearGifPickerTouchState()
     setGifPickerClosingRoomId(null)
     setGifPickerDragging(false)
-    setGifPickerOffsetY(0)
+    applyGifPickerOffset(0)
     setIsKeyboardOpen(false)
     setActiveGifPickerRoomId(roomId)
     setGifSearchInput('')
@@ -1346,11 +1378,11 @@ export default function GlobalChat() {
     setActiveGifPickerRoomId(null)
     setGifPickerClosingRoomId(null)
     setGifPickerDragging(false)
-    setGifPickerOffsetY(0)
+    applyGifPickerOffset(0)
     clearGifPickerTouchState()
     setGifSearchInput('')
     setGifError('')
-  }, [currentRoomIndex, clearGifPickerTouchState])
+  }, [currentRoomIndex, clearGifPickerTouchState, applyGifPickerOffset])
 
   const handleGifPickerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (e.touches.length !== 1) return
@@ -1385,7 +1417,7 @@ export default function GlobalChat() {
       if (gifPickerDragging) {
         e.preventDefault()
         setGifPickerDragging(false)
-        setGifPickerOffsetY(0)
+        applyGifPickerOffset(0)
       }
       return
     }
@@ -1395,12 +1427,14 @@ export default function GlobalChat() {
     }
 
     e.preventDefault()
-    setGifPickerDragging(true)
-    setGifPickerOffsetY(Math.min(deltaY, 96))
+    if (!gifPickerDragging) {
+      setGifPickerDragging(true)
+    }
+    applyGifPickerOffset(Math.min(deltaY * 0.92, 84))
   }
 
   const handleGifPickerTouchEnd = (roomId: string) => {
-    const dragDistance = gifPickerOffsetY
+    const dragDistance = gifPickerOffsetYRef.current
     clearGifPickerTouchState()
 
     if (dragDistance > GIF_PICKER_DRAG_CLOSE_THRESHOLD) {
@@ -1409,7 +1443,7 @@ export default function GlobalChat() {
     }
 
     setGifPickerDragging(false)
-    setGifPickerOffsetY(0)
+    applyGifPickerOffset(0)
   }
 
   const handleGifSelect = async (roomId: string, gifUrl: string) => {
@@ -1424,7 +1458,7 @@ export default function GlobalChat() {
     setActiveGifPickerRoomId(null)
     setGifPickerClosingRoomId(null)
     setGifPickerDragging(false)
-    setGifPickerOffsetY(0)
+    applyGifPickerOffset(0)
     setGifSearchInput('')
     setGifResults([])
     setGifError('')
@@ -1861,8 +1895,8 @@ export default function GlobalChat() {
                 </div>
                 {isGifPickerRendered && (
                   <div
+                    ref={bindGifPickerSheetRef}
                     className={`gif-picker${isGifPickerClosing ? ' closing' : ''}${gifPickerDragging ? ' dragging' : ''}`}
-                    style={{ transform: `translate3d(0, ${gifPickerOffsetY}px, 0)` }}
                     onClick={(e) => e.stopPropagation()}
                     onTouchStart={handleGifPickerTouchStart}
                     onTouchMove={handleGifPickerTouchMove}
@@ -1870,7 +1904,7 @@ export default function GlobalChat() {
                     onTouchCancel={() => {
                       clearGifPickerTouchState()
                       setGifPickerDragging(false)
-                      setGifPickerOffsetY(0)
+                      applyGifPickerOffset(0)
                     }}
                   >
                     <div>
@@ -1967,12 +2001,12 @@ export default function GlobalChat() {
                     }}
                   >
                     <span className="gif-btn-icon" aria-hidden="true">
-                      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.05" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7 5.4h9.5A2.5 2.5 0 0 1 19 7.9v6.4a4 4 0 0 1-4 4H9.7a4.2 4.2 0 0 1-4.2-4.2V6.9A1.5 1.5 0 0 1 7 5.4Z" />
-                        <path d="M14.9 18.3v-1.7a2.6 2.6 0 0 1 2.6-2.6h1.7" />
-                        <circle cx="10.2" cy="11" r="0.78" fill="currentColor" stroke="none" />
-                        <circle cx="14" cy="11" r="0.78" fill="currentColor" stroke="none" />
-                        <path d="M9.6 14.1c.8.7 1.9 1.05 3 1.05s2.2-.35 3-1.05" />
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.35" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7.2 5.2h9.15a2.7 2.7 0 0 1 2.7 2.7v6.15a4.75 4.75 0 0 1-4.75 4.75H9.9a4.15 4.15 0 0 1-4.15-4.15V6.65A1.45 1.45 0 0 1 7.2 5.2Z" />
+                        <path d="M15.05 18.8v-1.6a2.8 2.8 0 0 1 2.8-2.8h1.2" />
+                        <circle cx="9.95" cy="10.55" r="0.9" fill="currentColor" stroke="none" />
+                        <circle cx="14.55" cy="10.55" r="0.9" fill="currentColor" stroke="none" />
+                        <path d="M9.45 14.15c.76.76 1.71 1.14 2.85 1.14s2.09-.38 2.85-1.14" />
                       </svg>
                     </span>
                     <span className="gif-btn-badge">GIF</span>

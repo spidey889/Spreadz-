@@ -1007,25 +1007,13 @@ export default function GlobalChat() {
     return () => observer.disconnect()
   }, [rooms, currentRoomIndex, fetchMessagesForRoom, interestDismissed])
 
-  const scrollRoomMessagesToBottom = useCallback((roomIndex: number, behavior: ScrollBehavior = 'smooth') => {
-    const endEl = messageEndRefs.current[roomIndex]
+  useEffect(() => {
+    const endEl = messageEndRefs.current[currentRoomIndex]
     const scrollEl = endEl?.closest('.room-messages') as HTMLDivElement | null
     if (scrollEl) {
-      scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior })
+      scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' })
     }
-  }, [])
-
-  useEffect(() => {
-    scrollRoomMessagesToBottom(currentRoomIndex)
-  }, [currentRoomIndex, roomMessages, scrollRoomMessagesToBottom, visibleMessageIdsByRoom])
-
-  const handleMessageMediaLoad = useCallback((roomIndex: number, isLastVisibleMessage: boolean) => {
-    if (!isLastVisibleMessage || roomIndex !== currentRoomIndex) return
-
-    window.requestAnimationFrame(() => {
-      scrollRoomMessagesToBottom(roomIndex, 'auto')
-    })
-  }, [currentRoomIndex, scrollRoomMessagesToBottom])
+  }, [roomMessages, currentRoomIndex, visibleMessageIdsByRoom])
 
   useEffect(() => {
     setCardCollapsed(false)
@@ -1752,7 +1740,7 @@ export default function GlobalChat() {
     }
   }
 
-  const renderMessageBody = (msg: Message, roomIndex: number, isLastVisibleMessage: boolean) => {
+  const renderMessageBody = (msg: Message) => {
     const gifUrl = getGifUrlFromMessage(msg.text)
     if (gifUrl) {
       return (
@@ -1763,7 +1751,6 @@ export default function GlobalChat() {
             alt={`${msg.username} sent a GIF`}
             className="msg-gif"
             draggable={false}
-            onLoad={() => handleMessageMediaLoad(roomIndex, isLastVisibleMessage)}
           />
         </div>
       )
@@ -1861,7 +1848,6 @@ export default function GlobalChat() {
                     const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id))
                     const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
                     const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
-                    const isLastVisibleMessage = visibleIndex === visibleMsgs.length - 1
                     const isOwnMessage = msg.senderUsername === getCurrentUsername()
                     const showOwnMessageAvatar = isOwnMessage && hasAvatarPhoto
                     const messageAvatarUrl = showOwnMessageAvatar ? currentAvatarUrl : (msg.avatarUrl?.trim() || '')
@@ -1914,12 +1900,12 @@ export default function GlobalChat() {
                                   </div>
                                   <span className="msg-timestamp">{msg.timestamp}</span>
                                 </div>
-                                {renderMessageBody(msg, index, isLastVisibleMessage)}
+                                {renderMessageBody(msg)}
                               </div>
                             </>
                           ) : (
                             <div className="msg-content continuation">
-                              {renderMessageBody(msg, index, isLastVisibleMessage)}
+                              {renderMessageBody(msg)}
                             </div>
                           )}
                         </div>

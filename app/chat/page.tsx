@@ -98,8 +98,8 @@ const GENERATED_USERNAME_REGEX = /^[a-z0-9_]{1,20}_[0-9]{4}$/
 const GIF_MESSAGE_PREFIX = '[gif]:'
 const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
 const GIPHY_LIMIT = 20
-const GIF_PICKER_CLOSE_DURATION_MS = 180
-const GIF_PICKER_DRAG_CLOSE_THRESHOLD = 88
+const GIF_PICKER_CLOSE_DURATION_MS = 100
+const GIF_PICKER_DRAG_CLOSE_THRESHOLD = 22
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (value: string) => value.startsWith(GIF_MESSAGE_PREFIX)
@@ -258,6 +258,8 @@ export default function GlobalChat() {
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const profileSheetRef = useRef<HTMLFormElement>(null)
   const gifPickerTouchStartYRef = useRef<number | null>(null)
+  const gifPickerTouchStartedInGridRef = useRef(false)
+  const gifPickerTouchGridRef = useRef<HTMLDivElement | null>(null)
   const gifPickerCloseTimeoutRef = useRef<number | null>(null)
   const profileSheetTouchStartYRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
@@ -1004,16 +1006,6 @@ export default function GlobalChat() {
     }
   }, [currentRoomIndex, rooms])
 
-  useEffect(() => {
-    setActiveGifPickerRoomId(null)
-    setGifPickerClosingRoomId(null)
-    setGifPickerDragging(false)
-    setGifPickerOffsetY(0)
-    gifPickerTouchStartYRef.current = null
-    setGifSearchInput('')
-    setGifError('')
-  }, [currentRoomIndex])
-
   const pushFriendRequest = useCallback((request: FriendRequest) => {
     if (request.created_at) {
       const ageMs = Date.now() - new Date(request.created_at).getTime()
@@ -1294,7 +1286,13 @@ export default function GlobalChat() {
     }
   }
 
-  const closeGifPicker = useCallback((roomId?: string, targetOffset = 24) => {
+  const clearGifPickerTouchState = useCallback(() => {
+    gifPickerTouchStartYRef.current = null
+    gifPickerTouchStartedInGridRef.current = false
+    gifPickerTouchGridRef.current = null
+  }, [])
+
+  const closeGifPicker = useCallback((roomId?: string, targetOffset = 20) => {
     const resolvedRoomId = roomId ?? activeGifPickerRoomId ?? gifPickerClosingRoomId
     if (!resolvedRoomId) return
 
@@ -1303,7 +1301,7 @@ export default function GlobalChat() {
       gifPickerCloseTimeoutRef.current = null
     }
 
-    gifPickerTouchStartYRef.current = null
+    clearGifPickerTouchState()
     setGifPickerDragging(false)
     setGifPickerOffsetY(targetOffset)
     setGifPickerClosingRoomId(resolvedRoomId)
@@ -1316,7 +1314,7 @@ export default function GlobalChat() {
       setGifSearchInput('')
       setGifError('')
     }, GIF_PICKER_CLOSE_DURATION_MS)
-  }, [activeGifPickerRoomId, gifPickerClosingRoomId])
+  }, [activeGifPickerRoomId, gifPickerClosingRoomId, clearGifPickerTouchState])
 
   const openGifPicker = (roomId: string) => {
     if (gifPickerCloseTimeoutRef.current) {
@@ -1324,7 +1322,7 @@ export default function GlobalChat() {
       gifPickerCloseTimeoutRef.current = null
     }
 
-    gifPickerTouchStartYRef.current = null
+    clearGifPickerTouchState()
     setGifPickerClosingRoomId(null)
     setGifPickerDragging(false)
     setGifPickerOffsetY(0)
@@ -1344,6 +1342,16 @@ export default function GlobalChat() {
     openGifPicker(roomId)
   }
 
+  useEffect(() => {
+    setActiveGifPickerRoomId(null)
+    setGifPickerClosingRoomId(null)
+    setGifPickerDragging(false)
+    setGifPickerOffsetY(0)
+    clearGifPickerTouchState()
+    setGifSearchInput('')
+    setGifError('')
+  }, [currentRoomIndex, clearGifPickerTouchState])
+
   const handleGifPickerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (e.touches.length !== 1) return
 
@@ -1352,25 +1360,51 @@ export default function GlobalChat() {
       gifPickerCloseTimeoutRef.current = null
     }
 
+    const target = e.target as HTMLElement
     gifPickerTouchStartYRef.current = e.touches[0].clientY
+    gifPickerTouchGridRef.current = target.closest('.gif-picker-grid') as HTMLDivElement | null
+    gifPickerTouchStartedInGridRef.current = Boolean(gifPickerTouchGridRef.current)
     setGifPickerClosingRoomId(null)
-    setGifPickerDragging(true)
+    setGifPickerDragging(false)
   }
 
   const handleGifPickerTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     const startY = gifPickerTouchStartYRef.current
     if (startY === null || e.touches.length !== 1) return
 
-    const deltaY = Math.max(0, e.touches[0].clientY - startY)
-    setGifPickerOffsetY(Math.min(deltaY, 180))
+    const target = e.target as HTMLElement
+    const gridEl = gifPickerTouchGridRef.current ?? (target.closest('.gif-picker-grid') as HTMLDivElement | null)
+    if (!gifPickerTouchGridRef.current && gridEl) {
+      gifPickerTouchGridRef.current = gridEl
+      gifPickerTouchStartedInGridRef.current = true
+    }
+    const deltaY = e.touches[0].clientY - startY
+    const currentScrollTop = gridEl?.scrollTop ?? 0
+
+    if (deltaY <= 0) {
+      if (gifPickerDragging) {
+        e.preventDefault()
+        setGifPickerDragging(false)
+        setGifPickerOffsetY(0)
+      }
+      return
+    }
+
+    if (gifPickerTouchStartedInGridRef.current && gridEl && currentScrollTop > 0 && !gifPickerDragging) {
+      return
+    }
+
+    e.preventDefault()
+    setGifPickerDragging(true)
+    setGifPickerOffsetY(Math.min(deltaY, 96))
   }
 
   const handleGifPickerTouchEnd = (roomId: string) => {
     const dragDistance = gifPickerOffsetY
-    gifPickerTouchStartYRef.current = null
+    clearGifPickerTouchState()
 
     if (dragDistance > GIF_PICKER_DRAG_CLOSE_THRESHOLD) {
-      closeGifPicker(roomId, Math.max(dragDistance, 36))
+      closeGifPicker(roomId, Math.max(dragDistance, 20))
       return
     }
 
@@ -1386,7 +1420,7 @@ export default function GlobalChat() {
       window.clearTimeout(gifPickerCloseTimeoutRef.current)
       gifPickerCloseTimeoutRef.current = null
     }
-    gifPickerTouchStartYRef.current = null
+    clearGifPickerTouchState()
     setActiveGifPickerRoomId(null)
     setGifPickerClosingRoomId(null)
     setGifPickerDragging(false)
@@ -1830,19 +1864,19 @@ export default function GlobalChat() {
                     className={`gif-picker${isGifPickerClosing ? ' closing' : ''}${gifPickerDragging ? ' dragging' : ''}`}
                     style={{ transform: `translate3d(0, ${gifPickerOffsetY}px, 0)` }}
                     onClick={(e) => e.stopPropagation()}
+                    onTouchStart={handleGifPickerTouchStart}
+                    onTouchMove={handleGifPickerTouchMove}
+                    onTouchEnd={() => handleGifPickerTouchEnd(room.id)}
+                    onTouchCancel={() => {
+                      clearGifPickerTouchState()
+                      setGifPickerDragging(false)
+                      setGifPickerOffsetY(0)
+                    }}
                   >
-                    <div
-                      className="gif-picker-handle-zone"
-                      onTouchStart={handleGifPickerTouchStart}
-                      onTouchMove={handleGifPickerTouchMove}
-                      onTouchEnd={() => handleGifPickerTouchEnd(room.id)}
-                      onTouchCancel={() => {
-                        gifPickerTouchStartYRef.current = null
-                        setGifPickerDragging(false)
-                        setGifPickerOffsetY(0)
-                      }}
-                    >
+                    <div>
+                      <div className="gif-picker-handle-zone">
                       <div className="gif-picker-handle" aria-hidden="true" />
+                      </div>
                     </div>
                     <div className="gif-search-shell">
                       <span className="gif-search-icon" aria-hidden="true">
@@ -1933,7 +1967,7 @@ export default function GlobalChat() {
                     }}
                   >
                     <span className="gif-btn-icon" aria-hidden="true">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.05" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.05" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M7 5.4h9.5A2.5 2.5 0 0 1 19 7.9v6.4a4 4 0 0 1-4 4H9.7a4.2 4.2 0 0 1-4.2-4.2V6.9A1.5 1.5 0 0 1 7 5.4Z" />
                         <path d="M14.9 18.3v-1.7a2.6 2.6 0 0 1 2.6-2.6h1.7" />
                         <circle cx="10.2" cy="11" r="0.78" fill="currentColor" stroke="none" />

@@ -585,11 +585,12 @@ body {
         
         .input-wrap {
           --composer-send-size: 46px;
-          --composer-gif-height: 28px;
+          --composer-gif-hit-size: 38px;
+          --composer-gif-icon-size: 28px;
           position: relative;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           background: linear-gradient(180deg, rgba(24,26,31,0.98), rgba(16,18,22,0.99));
           border: 1px solid rgba(255,255,255,0.1);
           border-radius: 28px;
@@ -620,43 +621,45 @@ body {
 
         .gif-btn {
           appearance: none;
-          border: 1px solid rgba(255,255,255,0.12);
+          border: none;
           background: none;
-          color: rgba(244,246,251,0.82);
-          min-width: 0;
-          height: var(--composer-gif-height);
+          color: rgba(244,246,251,0.72);
+          width: var(--composer-gif-hit-size);
+          height: var(--composer-gif-hit-size);
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 0 9px;
+          padding: 0;
           cursor: pointer;
-          transition: color 0.14s ease, border-color 0.14s ease, transform 0.12s ease;
+          transition: color 0.14s ease, transform 0.12s ease, opacity 0.14s ease;
           flex-shrink: 0;
           position: relative;
           z-index: 1;
           box-shadow: none;
-          border-radius: 999px;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          overflow: hidden;
+          border-radius: 50%;
+          opacity: 0.96;
         }
-        .gif-btn-label {
+        .gif-btn-icon {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          font-size: 10.5px;
-          font-weight: 600;
-          line-height: 1;
+          width: var(--composer-gif-icon-size);
+          height: var(--composer-gif-icon-size);
+          transform: translateY(0.5px);
+        }
+        .gif-btn-icon svg {
+          width: var(--composer-gif-icon-size);
+          height: var(--composer-gif-icon-size);
         }
         .gif-btn:hover {
           color: #ffffff;
-          border-color: rgba(255,255,255,0.2);
           transform: translateY(-1px);
+          opacity: 1;
         }
         .gif-btn:active { transform: scale(0.96); }
         .gif-btn.active {
           color: #ffffff;
-          border-color: rgba(255,255,255,0.24);
+          opacity: 1;
         }
 
         .send-btn { background: linear-gradient(180deg, #6974ff, #5865F2); color: white; border: 1px solid rgba(255,255,255,0.16); border-radius: 50%; width: var(--composer-send-size); height: var(--composer-send-size); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s, box-shadow 0.2s; flex-shrink: 0; box-shadow: 0 10px 24px rgba(88, 101, 242, 0.28); position: relative; z-index: 1; }

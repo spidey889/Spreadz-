@@ -587,17 +587,17 @@ body {
         }
         
         .input-wrap {
-          --composer-send-size: 46px;
-          --composer-gif-hit-size: 44px;
-          --composer-gif-icon-size: 33px;
+          --composer-send-size: 44px;
+          --composer-gif-hit-size: 41px;
+          --composer-gif-icon-size: 31px;
           position: relative;
           display: flex;
           align-items: center;
-          gap: 7px;
+          gap: 6px;
           background: linear-gradient(180deg, rgba(24,26,31,0.98), rgba(16,18,22,0.99));
           border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 28px;
-          padding: 7px 8px 7px 18px;
+          border-radius: 25px;
+          padding: 5px 7px 5px 16px;
           transition: box-shadow 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
           box-shadow: 0 14px 24px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255,255,255,0.028);
           backdrop-filter: blur(12px);
@@ -607,8 +607,8 @@ body {
           position: absolute;
           top: 50%;
           right: 6px;
-          width: 62px;
-          height: 62px;
+          width: 56px;
+          height: 56px;
           transform: translateY(-50%);
           background: radial-gradient(circle, rgba(88,101,242,0.12), transparent 70%);
           pointer-events: none;
@@ -619,7 +619,7 @@ body {
           transform: translateY(-1px);
         }
 
-        input { flex: 1; background: none; border: none; outline: none; font-size: 16px; color: var(--text-primary); font-family: inherit; }
+        input { flex: 1; background: none; border: none; outline: none; font-size: 15px; color: var(--text-primary); font-family: inherit; }
         input::placeholder { color: #7d8491; }
 
         .gif-btn {

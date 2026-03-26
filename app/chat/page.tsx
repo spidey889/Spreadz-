@@ -98,6 +98,8 @@ const GENERATED_USERNAME_REGEX = /^[a-z0-9_]{1,20}_[0-9]{4}$/
 const GIF_MESSAGE_PREFIX = '[gif]:'
 const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
 const GIPHY_LIMIT = 20
+const GIF_PICKER_CLOSE_DURATION_MS = 180
+const GIF_PICKER_DRAG_CLOSE_THRESHOLD = 88
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (value: string) => value.startsWith(GIF_MESSAGE_PREFIX)
@@ -203,6 +205,9 @@ export default function GlobalChat() {
   const [roomMessages, setRoomMessages] = useState<Record<string, Message[]>>({})
   const [inputTexts, setInputTexts] = useState<Record<string, string>>({})
   const [activeGifPickerRoomId, setActiveGifPickerRoomId] = useState<string | null>(null)
+  const [gifPickerClosingRoomId, setGifPickerClosingRoomId] = useState<string | null>(null)
+  const [gifPickerOffsetY, setGifPickerOffsetY] = useState(0)
+  const [gifPickerDragging, setGifPickerDragging] = useState(false)
   const [gifSearchInput, setGifSearchInput] = useState('')
   const [gifResults, setGifResults] = useState<GifResult[]>([])
   const [gifLoading, setGifLoading] = useState(false)
@@ -252,6 +257,8 @@ export default function GlobalChat() {
   const prevRoomIndexRef = useRef<number>(0)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const profileSheetRef = useRef<HTMLFormElement>(null)
+  const gifPickerTouchStartYRef = useRef<number | null>(null)
+  const gifPickerCloseTimeoutRef = useRef<number | null>(null)
   const profileSheetTouchStartYRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
   const roomSwipeRef = useRef<RoomSwipeState | null>(null)
@@ -759,6 +766,14 @@ export default function GlobalChat() {
   }, [fetchGifResults])
 
   useEffect(() => {
+    return () => {
+      if (gifPickerCloseTimeoutRef.current) {
+        window.clearTimeout(gifPickerCloseTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     if (!activeGifPickerRoomId) {
       setGifLoading(false)
       setGifError('')
@@ -991,6 +1006,10 @@ export default function GlobalChat() {
 
   useEffect(() => {
     setActiveGifPickerRoomId(null)
+    setGifPickerClosingRoomId(null)
+    setGifPickerDragging(false)
+    setGifPickerOffsetY(0)
+    gifPickerTouchStartYRef.current = null
     setGifSearchInput('')
     setGifError('')
   }, [currentRoomIndex])
@@ -1275,14 +1294,40 @@ export default function GlobalChat() {
     }
   }
 
-  const toggleGifPicker = (roomId: string) => {
-    if (activeGifPickerRoomId === roomId) {
-      setActiveGifPickerRoomId(null)
-      setGifSearchInput('')
-      setGifError('')
-      return
+  const closeGifPicker = useCallback((roomId?: string, targetOffset = 24) => {
+    const resolvedRoomId = roomId ?? activeGifPickerRoomId ?? gifPickerClosingRoomId
+    if (!resolvedRoomId) return
+
+    if (gifPickerCloseTimeoutRef.current) {
+      window.clearTimeout(gifPickerCloseTimeoutRef.current)
+      gifPickerCloseTimeoutRef.current = null
     }
 
+    gifPickerTouchStartYRef.current = null
+    setGifPickerDragging(false)
+    setGifPickerOffsetY(targetOffset)
+    setGifPickerClosingRoomId(resolvedRoomId)
+
+    gifPickerCloseTimeoutRef.current = window.setTimeout(() => {
+      gifPickerCloseTimeoutRef.current = null
+      setActiveGifPickerRoomId(prev => prev === resolvedRoomId ? null : prev)
+      setGifPickerClosingRoomId(prev => prev === resolvedRoomId ? null : prev)
+      setGifPickerOffsetY(0)
+      setGifSearchInput('')
+      setGifError('')
+    }, GIF_PICKER_CLOSE_DURATION_MS)
+  }, [activeGifPickerRoomId, gifPickerClosingRoomId])
+
+  const openGifPicker = (roomId: string) => {
+    if (gifPickerCloseTimeoutRef.current) {
+      window.clearTimeout(gifPickerCloseTimeoutRef.current)
+      gifPickerCloseTimeoutRef.current = null
+    }
+
+    gifPickerTouchStartYRef.current = null
+    setGifPickerClosingRoomId(null)
+    setGifPickerDragging(false)
+    setGifPickerOffsetY(0)
     setIsKeyboardOpen(false)
     setActiveGifPickerRoomId(roomId)
     setGifSearchInput('')
@@ -1290,11 +1335,62 @@ export default function GlobalChat() {
     setGifResults(gifTrendingCacheRef.current)
   }
 
+  const toggleGifPicker = (roomId: string) => {
+    if (activeGifPickerRoomId === roomId && !gifPickerClosingRoomId) {
+      closeGifPicker(roomId)
+      return
+    }
+
+    openGifPicker(roomId)
+  }
+
+  const handleGifPickerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1) return
+
+    if (gifPickerCloseTimeoutRef.current) {
+      window.clearTimeout(gifPickerCloseTimeoutRef.current)
+      gifPickerCloseTimeoutRef.current = null
+    }
+
+    gifPickerTouchStartYRef.current = e.touches[0].clientY
+    setGifPickerClosingRoomId(null)
+    setGifPickerDragging(true)
+  }
+
+  const handleGifPickerTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const startY = gifPickerTouchStartYRef.current
+    if (startY === null || e.touches.length !== 1) return
+
+    const deltaY = Math.max(0, e.touches[0].clientY - startY)
+    setGifPickerOffsetY(Math.min(deltaY, 180))
+  }
+
+  const handleGifPickerTouchEnd = (roomId: string) => {
+    const dragDistance = gifPickerOffsetY
+    gifPickerTouchStartYRef.current = null
+
+    if (dragDistance > GIF_PICKER_DRAG_CLOSE_THRESHOLD) {
+      closeGifPicker(roomId, Math.max(dragDistance, 36))
+      return
+    }
+
+    setGifPickerDragging(false)
+    setGifPickerOffsetY(0)
+  }
+
   const handleGifSelect = async (roomId: string, gifUrl: string) => {
     const trimmedGifUrl = gifUrl.trim()
     if (!trimmedGifUrl) return
 
+    if (gifPickerCloseTimeoutRef.current) {
+      window.clearTimeout(gifPickerCloseTimeoutRef.current)
+      gifPickerCloseTimeoutRef.current = null
+    }
+    gifPickerTouchStartYRef.current = null
     setActiveGifPickerRoomId(null)
+    setGifPickerClosingRoomId(null)
+    setGifPickerDragging(false)
+    setGifPickerOffsetY(0)
     setGifSearchInput('')
     setGifResults([])
     setGifError('')
@@ -1566,7 +1662,7 @@ export default function GlobalChat() {
   const profilePreviewName = tempProfileName.trim() || displayName.trim() || 'User'
   const profilePreviewInitials = getInitials(profilePreviewName)
   const profilePreviewColor = getUserColor(profilePreviewName)
-  const isComposerExpanded = isKeyboardOpen || Boolean(activeGifPickerRoomId)
+  const isComposerExpanded = isKeyboardOpen || Boolean(activeGifPickerRoomId) || Boolean(gifPickerClosingRoomId)
   const activeGifSearch = gifSearchInput.trim()
 
   return (
@@ -1577,7 +1673,9 @@ export default function GlobalChat() {
           const messages = roomMessages[room.id] || []
           const inputText = inputTexts[room.id] || ''
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
-          const isGifPickerOpen = activeGifPickerRoomId === room.id
+          const isGifPickerRendered = activeGifPickerRoomId === room.id || gifPickerClosingRoomId === room.id
+          const isGifPickerClosing = gifPickerClosingRoomId === room.id
+          const isGifPickerOpen = activeGifPickerRoomId === room.id && !isGifPickerClosing
 
           return (
             <div
@@ -1712,15 +1810,40 @@ export default function GlobalChat() {
                 </div>
               </div>
 
+              {isGifPickerRendered && (
+                <button
+                  type="button"
+                  className={`gif-picker-backdrop${isGifPickerClosing ? ' closing' : ''}`}
+                  aria-label="Close GIF picker"
+                  onClick={() => closeGifPicker(room.id)}
+                />
+              )}
+
               {/* Input area */}
               <div className="input-area">
                 <div className={`hint${isComposerExpanded ? ' hidden' : ''}`}>
                   <span className="hint-badge">Swipe Up</span>
                   <span>for new people &amp; topics</span>
                 </div>
-                {isGifPickerOpen && (
-                  <div className="gif-picker">
-                    <div className="gif-picker-handle" aria-hidden="true" />
+                {isGifPickerRendered && (
+                  <div
+                    className={`gif-picker${isGifPickerClosing ? ' closing' : ''}${gifPickerDragging ? ' dragging' : ''}`}
+                    style={{ transform: `translate3d(0, ${gifPickerOffsetY}px, 0)` }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div
+                      className="gif-picker-handle-zone"
+                      onTouchStart={handleGifPickerTouchStart}
+                      onTouchMove={handleGifPickerTouchMove}
+                      onTouchEnd={() => handleGifPickerTouchEnd(room.id)}
+                      onTouchCancel={() => {
+                        gifPickerTouchStartYRef.current = null
+                        setGifPickerDragging(false)
+                        setGifPickerOffsetY(0)
+                      }}
+                    >
+                      <div className="gif-picker-handle" aria-hidden="true" />
+                    </div>
                     <div className="gif-search-shell">
                       <span className="gif-search-icon" aria-hidden="true">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1790,6 +1913,9 @@ export default function GlobalChat() {
                     onKeyDown={(e) => handleKeyDown(e, room.id)}
                     onFocus={() => {
                       setIsKeyboardOpen(true)
+                      if (activeGifPickerRoomId === room.id || gifPickerClosingRoomId === room.id) {
+                        closeGifPicker(room.id, 18)
+                      }
                       setActiveGifPickerRoomId(null)
                     }}
                     onBlur={() => setIsKeyboardOpen(false)}

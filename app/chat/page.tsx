@@ -99,8 +99,8 @@ const GENERATED_USERNAME_REGEX = /^[a-z0-9_]{1,20}_[0-9]{4}$/
 const GIF_MESSAGE_PREFIX = '[gif]:'
 const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
 const GIPHY_LIMIT = 20
-const GIF_PICKER_CLOSE_DURATION_MS = 48
-const GIF_PICKER_DRAG_CLOSE_THRESHOLD = 16
+const GIF_PICKER_CLOSE_DURATION_MS = 36
+const GIF_PICKER_DRAG_CLOSE_THRESHOLD = 14
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (value: string) => value.startsWith(GIF_MESSAGE_PREFIX)
@@ -1347,7 +1347,7 @@ export default function GlobalChat() {
     }
   }, [])
 
-  const closeGifPicker = useCallback((roomId?: string, targetOffset = 56) => {
+  const closeGifPicker = useCallback((roomId?: string, targetOffset = 68) => {
     const resolvedRoomId = roomId ?? activeGifPickerRoomId ?? gifPickerClosingRoomId
     if (!resolvedRoomId) return
 
@@ -1461,7 +1461,7 @@ export default function GlobalChat() {
     clearGifPickerTouchState()
 
     if (dragDistance > GIF_PICKER_DRAG_CLOSE_THRESHOLD) {
-      closeGifPicker(roomId, Math.max(dragDistance + 34, 60))
+      closeGifPicker(roomId, Math.max(dragDistance + 42, 72))
       return
     }
 

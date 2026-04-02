@@ -101,8 +101,13 @@ const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
 const GIPHY_LIMIT = 20
 const GIF_PICKER_CLOSE_DURATION_MS = 36
 const HACKER_NEWS_ROOM_ID = 'b87b934f-7b1a-41b6-9d89-3319a3442c0c'
-const HACKER_NEWS_REVEAL_MIN_MS = 2000
-const HACKER_NEWS_REVEAL_MAX_MS = 5000
+const HACKER_NEWS_REVEAL_DEFAULT_MIN_MS = 4000
+const HACKER_NEWS_REVEAL_DEFAULT_MAX_MS = 12000
+const HACKER_NEWS_REVEAL_CLUSTER_MIN_MS = 2000
+const HACKER_NEWS_REVEAL_CLUSTER_MAX_MS = 3000
+const HACKER_NEWS_REVEAL_THINKING_MIN_MS = 8000
+const HACKER_NEWS_REVEAL_THINKING_MAX_MS = 12000
+const HACKER_NEWS_REVEAL_CLUSTER_CHANCE = 0.35
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (value: string) => value.startsWith(GIF_MESSAGE_PREFIX)
@@ -114,6 +119,7 @@ const getRandomRevealDelay = (min: number, max: number) =>
 
 const buildHackerNewsRevealSchedule = (messages: Message[]) => {
   let cumulativeDelay = 0
+  let shouldUseLongPause = false
 
   return messages.map((message, index) => {
     if (index === 0) {
@@ -123,7 +129,17 @@ const buildHackerNewsRevealSchedule = (messages: Message[]) => {
       }
     }
 
-    cumulativeDelay += getRandomRevealDelay(HACKER_NEWS_REVEAL_MIN_MS, HACKER_NEWS_REVEAL_MAX_MS)
+    const canCluster = index < messages.length - 1
+    const shouldCluster = !shouldUseLongPause && canCluster && Math.random() < HACKER_NEWS_REVEAL_CLUSTER_CHANCE
+
+    const gap = shouldUseLongPause
+      ? getRandomRevealDelay(HACKER_NEWS_REVEAL_THINKING_MIN_MS, HACKER_NEWS_REVEAL_THINKING_MAX_MS)
+      : shouldCluster
+        ? getRandomRevealDelay(HACKER_NEWS_REVEAL_CLUSTER_MIN_MS, HACKER_NEWS_REVEAL_CLUSTER_MAX_MS)
+        : getRandomRevealDelay(HACKER_NEWS_REVEAL_DEFAULT_MIN_MS, HACKER_NEWS_REVEAL_DEFAULT_MAX_MS)
+
+    cumulativeDelay += gap
+    shouldUseLongPause = shouldCluster
 
     return {
       messageId: message.id,

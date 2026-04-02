@@ -100,11 +100,37 @@ const GIF_MESSAGE_PREFIX = '[gif]:'
 const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
 const GIPHY_LIMIT = 20
 const GIF_PICKER_CLOSE_DURATION_MS = 36
+const HACKER_NEWS_ROOM_ID = 'b87b934f-7b1a-41b6-9d89-3319a3442c0c'
+const HACKER_NEWS_REVEAL_MIN_MS = 2000
+const HACKER_NEWS_REVEAL_MAX_MS = 5000
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (value: string) => value.startsWith(GIF_MESSAGE_PREFIX)
 const getGifUrlFromMessage = (value: string) => isGifMessage(value) ? value.slice(GIF_MESSAGE_PREFIX.length).trim() : ''
 const buildGifMessageContent = (url: string) => `${GIF_MESSAGE_PREFIX}${url}`
+
+const getRandomRevealDelay = (min: number, max: number) =>
+  Math.floor(Math.random() * (max - min + 1)) + min
+
+const buildHackerNewsRevealSchedule = (messages: Message[]) => {
+  let cumulativeDelay = 0
+
+  return messages.map((message, index) => {
+    if (index === 0) {
+      return {
+        messageId: message.id,
+        delay: 0,
+      }
+    }
+
+    cumulativeDelay += getRandomRevealDelay(HACKER_NEWS_REVEAL_MIN_MS, HACKER_NEWS_REVEAL_MAX_MS)
+
+    return {
+      messageId: message.id,
+      delay: cumulativeDelay,
+    }
+  })
+}
 
 const generateUsernameFromDisplayName = (displayName: string) => {
   const normalized = displayName
@@ -865,6 +891,21 @@ export default function GlobalChat() {
   }, [rooms])
 
   const triggerRevealsForMessages = useCallback((roomId: string, msgs: Message[]) => {
+    if (roomId === HACKER_NEWS_ROOM_ID) {
+      if (msgs.length === 0) return
+      const revealSchedule = buildHackerNewsRevealSchedule(msgs)
+
+      setVisibleMessageIdsByRoom(prev => ({
+        ...prev,
+        [roomId]: new Set([msgs[0].id]),
+      }))
+
+      revealSchedule.slice(1).forEach(({ messageId, delay }) => {
+        scheduleReveal(roomId, messageId, delay)
+      })
+      return
+    }
+
     msgs.forEach((m, idx) => {
       const delay = idx < 2 ? 0 : (m.reveal_delay || 0)
       scheduleReveal(roomId, m.id, delay)

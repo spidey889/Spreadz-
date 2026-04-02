@@ -21,6 +21,7 @@
 
 # sql notes (keep README tracked)
 sql/**/*.sql
+!sql/insert_hacker_news_room.sql
 
 # generated office-hours docs
 docs/office-hours-*.md

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import HackerNewsStartupSync from './HackerNewsStartupSync'
 import Providers from './providers'
 
 export const metadata: Metadata = {
@@ -29,6 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-[#1a1a1f]">
       <body className="bg-[#1a1a1f]">
+        <HackerNewsStartupSync />
         <Providers>{children}</Providers>
       </body>
     </html>

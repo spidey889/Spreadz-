@@ -259,19 +259,13 @@ export async function POST(request: Request) {
   })
 
   const targetUrl = `/chat?${new URLSearchParams({ roomId, messageId: message.id }).toString()}`
-  const senderAvatarProxyUrl =
-    typeof message.user_uuid === 'string' && message.user_uuid.trim()
-      ? `/api/push-avatar?${new URLSearchParams({ user_uuid: message.user_uuid.trim() }).toString()}`
-      : '/spreadz-logo.png'
-
   const notificationPayload: PushNotificationPayload = {
     title: senderName,
     body: messagePreview,
     url: targetUrl,
     tag: `spreadz-room-${roomId}`,
-    icon: senderAvatarUrl ? senderAvatarProxyUrl : '/spreadz-logo.png',
+    icon: senderAvatarUrl || '/spreadz-logo.png',
     badge: '/push-badge-monochrome.png',
-    ...(senderAvatarUrl ? { image: senderAvatarProxyUrl } : {}),
   }
 
   let sent = 0

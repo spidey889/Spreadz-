@@ -93,6 +93,20 @@ const getInitials = (name: string) => {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
+const LockGlyph = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="4" y="11" width="16" height="9" rx="2" />
+    <path d="M8 11V8a4 4 0 1 1 8 0v3" />
+  </svg>
+)
+
+const CollegeGlyph = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 8.5 12 4l9 4.5-9 4.5-9-4.5Z" />
+    <path d="M7 10.5V15c0 1.7 2.2 3 5 3s5-1.3 5-3v-4.5" />
+  </svg>
+)
+
 const formatTime = (isoString?: string) => {
   const targetDate = isoString ? new Date(isoString) : new Date()
   return targetDate.toLocaleTimeString('en-IN', {
@@ -2517,6 +2531,7 @@ export default function GlobalChat() {
   const profileHandle = accountUsername.trim()
   const currentAvatarUrl = avatarUrl.trim()
   const hasAvatarPhoto = Boolean(currentAvatarUrl)
+  const lockedCollege = university.trim()
   const profilePreviewName = tempProfileName.trim() || displayName.trim() || 'User'
   const profilePreviewInitials = getInitials(profilePreviewName)
   const profilePreviewColor = getUserColor(profilePreviewName)
@@ -2856,28 +2871,36 @@ export default function GlobalChat() {
       {readOnlyProfile && (
         <div className="profile-overlay" onClick={closeReadOnlyProfile}>
           <div className="profile-sheet view-only" onClick={(e) => e.stopPropagation()}>
-            <div className="profile-avatar-section">
-              <div
-                className="profile-avatar-preview"
-                style={!readOnlyProfile.avatarUrl ? { backgroundColor: getUserColor(readOnlyProfile.displayName) } : undefined}
-              >
-                {readOnlyProfile.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={readOnlyProfile.avatarUrl}
-                    alt={`${readOnlyProfile.displayName} profile`}
-                    className="profile-avatar-image"
-                    draggable={false}
-                  />
-                ) : (
-                  <span>{getInitials(readOnlyProfile.displayName)}</span>
-                )}
-              </div>
-            </div>
             <div className="sheet-handle" />
-            <div className="profile-sheet-view-content">
-              <div className="profile-sheet-view-name">{readOnlyProfile.displayName}</div>
-              {readOnlyProfile.college && <div className="profile-sheet-view-college">{readOnlyProfile.college}</div>}
+            <div className="profile-sheet-kicker">Profile</div>
+            <div className="profile-sheet-hero profile-sheet-hero-view-only">
+              <div className="profile-avatar-section">
+                <div className="profile-avatar-ring">
+                  <div
+                    className="profile-avatar-preview"
+                    style={!readOnlyProfile.avatarUrl ? { backgroundColor: getUserColor(readOnlyProfile.displayName) } : undefined}
+                  >
+                    {readOnlyProfile.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={readOnlyProfile.avatarUrl}
+                        alt={`${readOnlyProfile.displayName} profile`}
+                        className="profile-avatar-image"
+                        draggable={false}
+                      />
+                    ) : (
+                      <span>{getInitials(readOnlyProfile.displayName)}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="profile-display-name">{readOnlyProfile.displayName}</div>
+              {readOnlyProfile.college && (
+                <div className="profile-college-pill">
+                  <CollegeGlyph />
+                  <span>{readOnlyProfile.college}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2904,68 +2927,90 @@ export default function GlobalChat() {
               applyProfileSheetOffset(0)
             }}
           >
-            <div className="profile-avatar-section">
-              <div
-                className="profile-avatar-preview"
-                style={!hasAvatarPhoto ? { backgroundColor: profilePreviewColor } : undefined}
-                onClick={() => {
-                  if (!avatarUploading) avatarInputRef.current?.click()
-                }}
-              >
-                {hasAvatarPhoto ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={`modal-${currentAvatarUrl}`} src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" />
-                ) : (
-                  <span>{profilePreviewInitials}</span>
-                )}
-                <button
-                  type="button"
-                  className="profile-avatar-camera"
-                  aria-label={avatarUploading ? 'Uploading photo' : 'Upload profile photo'}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    avatarInputRef.current?.click()
-                  }}
-                  disabled={avatarUploading}
-                >
-                  {avatarUploading ? (
-                    <span className="profile-avatar-spinner" />
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 7h4l2-2h4l2 2h4v12H4Z" />
-                      <circle cx="12" cy="13" r="3" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-              <div className="profile-avatar-note">Faceless is sus. Just saying 👀</div>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                className="profile-avatar-input"
-                onChange={handleAvatarFileChange}
-              />
-              {avatarUploading && <div className="profile-avatar-status">Uploading photo...</div>}
-            </div>
             <div className="sheet-handle" />
-            {profileHandle && <div className="profile-username">@{profileHandle}</div>}
-            <div className="profile-title">Your Profile</div>
+            <div className="profile-sheet-kicker">{hasSavedProfileName ? 'Your profile' : 'Set up your profile'}</div>
+            <div className="profile-sheet-hero">
+              <div className="profile-avatar-section">
+                <div className={`profile-avatar-ring${avatarUploading ? ' uploading' : ''}`}>
+                  <div
+                    className="profile-avatar-preview"
+                    style={!hasAvatarPhoto ? { backgroundColor: profilePreviewColor } : undefined}
+                    onClick={() => {
+                      if (!avatarUploading) avatarInputRef.current?.click()
+                    }}
+                  >
+                    {hasAvatarPhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={`modal-${currentAvatarUrl}`} src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" />
+                    ) : (
+                      <span>{profilePreviewInitials}</span>
+                    )}
+                    <button
+                      type="button"
+                      className="profile-avatar-camera"
+                      aria-label={avatarUploading ? 'Uploading photo' : 'Upload profile photo'}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        avatarInputRef.current?.click()
+                      }}
+                      disabled={avatarUploading}
+                    >
+                      {avatarUploading ? (
+                        <span className="profile-avatar-spinner" />
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 7h4l2-2h4l2 2h4v12H4Z" />
+                          <circle cx="12" cy="13" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div className="profile-avatar-note">Faceless is sus. Just saying <span aria-hidden="true">👀</span></div>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="profile-avatar-input"
+                  onChange={handleAvatarFileChange}
+                />
+                {avatarUploading && <div className="profile-avatar-status">Uploading photo...</div>}
+              </div>
+              {profileHandle && <div className="profile-username">@{profileHandle}</div>}
+              <div className="profile-display-name">{hasSavedProfileName ? displayName : profilePreviewName}</div>
+              <div className={`profile-college-pill${hasSavedProfileName || tempProfileCollege.trim() ? '' : ' muted'}`}>
+                <CollegeGlyph />
+                <span>{hasSavedProfileName ? (lockedCollege || 'College not added yet') : (tempProfileCollege.trim() || 'Add your college below')}</span>
+              </div>
+            </div>
             {hasSavedProfileName ? (
-              <>
-                <div className="profile-field">
-                  <label className="profile-label">Display name</label>
-                  <div className="profile-locked-value">{displayName}</div>
-                  <div className="profile-locked-note">Your name is set in stone. No take-backs. 🪨</div>
+              <div className="profile-locked-stack">
+                <div className="profile-locked-card">
+                  <div className="profile-label">Display name</div>
+                  <div className="profile-locked-row">
+                    <span className="profile-locked-icon">
+                      <LockGlyph />
+                    </span>
+                    <span className="profile-locked-text">{displayName}</span>
+                  </div>
+                  <div className="profile-locked-caption">Your name is set in stone. No take-backs. 🪨</div>
                 </div>
-                <div className="profile-field">
-                  <label className="profile-label">College</label>
-                  <div className="profile-locked-value">{university || 'Not added yet'}</div>
-                  <div className="profile-locked-note">College locked too. Own it.</div>
+                <div className="profile-locked-card">
+                  <div className="profile-label">College</div>
+                  <div className="profile-locked-row">
+                    <span className="profile-locked-icon">
+                      <LockGlyph />
+                    </span>
+                    <span className="profile-locked-pill">
+                      <CollegeGlyph />
+                      <span>{lockedCollege || 'Not added yet'}</span>
+                    </span>
+                  </div>
+                  <div className="profile-locked-caption">College locked too. Own it.</div>
                 </div>
-              </>
+              </div>
             ) : (
-              <>
+              <div className="profile-edit-stack">
                 <div className="profile-field">
                   <label className="profile-label" htmlFor="display-name">Display name</label>
                   <input
@@ -2978,7 +3023,7 @@ export default function GlobalChat() {
                     required
                     className="profile-input"
                   />
-                  <div className="profile-warning">Use your real name — we verify users. You get one name, one account.</div>
+                  <div className="profile-caption">Use your real name. One name, one account.</div>
                 </div>
                 <div className="profile-field">
                   <label className="profile-label" htmlFor="college-name">College (optional)</label>
@@ -2992,9 +3037,13 @@ export default function GlobalChat() {
                   />
                 </div>
                 <button type="submit" className="profile-submit">Save</button>
-              </>
+              </div>
             )}
-            <div className="profile-feedback-note">Feedback? Email us at spreadzapp@gmail.com</div>
+            <div className="profile-footer">
+              <a className="profile-feedback-link" href="mailto:spreadzapp@gmail.com">
+                Feedback? spreadzapp@gmail.com
+              </a>
+            </div>
           </form>
         </div>
       )}

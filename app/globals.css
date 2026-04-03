@@ -611,18 +611,18 @@ body {
         }
         
         .input-wrap {
-          --composer-send-size: 34px;
+          --composer-send-size: 28px;
           --composer-gif-hit-size: 41px;
           --composer-gif-icon-size: 31px;
           position: relative;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
           width: 100%;
           background: var(--surface-soft);
           border: 1px solid rgba(255,255,255,0.04);
-          border-radius: 999px;
-          padding: 10px 14px;
+          border-radius: 16px;
+          padding: 10px 14px 10px 16px;
           transition: background 0.14s ease;
           box-shadow: none;
           backdrop-filter: none;
@@ -689,8 +689,27 @@ body {
           opacity: 1;
         }
 
-        .send-btn { background: #67d996; color: #111214; border: none; border-radius: 10px; width: var(--composer-send-size); height: var(--composer-send-size); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s; flex-shrink: 0; box-shadow: none; position: relative; z-index: 1; }
-        .send-btn:hover { background: #6ee09d; }
+        .send-btn {
+          background: transparent;
+          color: #8f97a3;
+          border: none;
+          border-left: 1px solid rgba(255,255,255,0.08);
+          border-radius: 0;
+          width: calc(var(--composer-send-size) + 12px);
+          height: 30px;
+          padding: 0 0 0 12px;
+          margin-left: 2px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.1s, color 0.2s;
+          flex-shrink: 0;
+          box-shadow: none;
+          position: relative;
+          z-index: 1;
+        }
+        .send-btn:hover { color: #b8bec8; }
         .send-btn:active { transform: scale(0.95); }
         .send-btn:focus-visible,
         .gif-btn:focus-visible,

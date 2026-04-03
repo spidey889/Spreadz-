@@ -264,9 +264,8 @@ export async function POST(request: Request) {
     body: messagePreview,
     url: targetUrl,
     tag: `spreadz-room-${roomId}`,
-    icon: '/spreadz-logo.png',
-    badge: '/favicon-48x48.png',
-    ...(senderAvatarUrl ? { image: senderAvatarUrl } : {}),
+    icon: senderAvatarUrl || '/spreadz-logo.png',
+    badge: '/push-badge.png',
   }
 
   let sent = 0

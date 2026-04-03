@@ -34,7 +34,7 @@ self.addEventListener('push', (event) => {
   const badge =
     typeof payload.badge === 'string' && payload.badge.trim()
       ? payload.badge.trim()
-      : '/favicon-48x48.png'
+      : '/push-badge.png'
   const image =
     typeof payload.image === 'string' && payload.image.trim()
       ? payload.image.trim()

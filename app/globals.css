@@ -360,6 +360,7 @@ body {
           background: var(--bg);
           padding: 2px 18px calc(6px + env(safe-area-inset-bottom, 0px));
           flex-shrink: 0;
+          margin-bottom: var(--composer-viewport-gap, 0px);
         }
         .composer-layer {
           display: flex;
@@ -367,7 +368,6 @@ body {
           flex-shrink: 0;
           position: relative;
           z-index: 4;
-          transform: translateY(var(--composer-viewport-gap));
         }
         .global-composer {
           position: relative;

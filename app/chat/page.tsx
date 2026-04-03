@@ -355,7 +355,7 @@ export default function GlobalChat() {
     const viewportBottom = visualViewportHeight + visualViewportOffsetTop
     const composerRectBottom = composerRect ? Math.round(composerRect.bottom) : 0
     const viewportGap = composerRect ? Math.max(0, Math.round(viewportBottom - composerRect.bottom)) : 0
-    const composerViewportGap = keyboardActive && viewportGap > 1 ? viewportGap : 0
+    const composerViewportGap = viewportGap > 1 ? -viewportGap : 0
     root.style.setProperty('--composer-viewport-gap', `${composerViewportGap}px`)
 
     let transformedAncestor = false

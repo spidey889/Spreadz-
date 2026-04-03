@@ -206,8 +206,8 @@ body {
         }
 
         .ai-card-wrap {
-          margin: 4px 14px 0;
-          padding: 0 10px 10px;
+          margin: 4px 8px 0;
+          padding: 0 6px 8px;
           background: transparent;
           flex-shrink: 0;
         }
@@ -218,11 +218,11 @@ body {
           position: relative;
           overflow: hidden;
           border-radius: 6px;
-          padding: 14px 18px 14px 24px;
+          padding: 11px 16px 11px 22px;
         }
         .ai-card.compact {
-          padding-top: 12px;
-          padding-bottom: 12px;
+          padding-top: 10px;
+          padding-bottom: 10px;
         }
         .ai-card::after {
           content: none;
@@ -242,7 +242,7 @@ body {
           justify-content: space-between;
           flex-wrap: wrap;
           gap: 6px;
-          margin-bottom: 8px;
+          margin-bottom: 6px;
         }
         .card-label {
           display: inline-flex;
@@ -1148,7 +1148,7 @@ body {
           }
           .header { padding-left: 26px; padding-right: 26px; }
           .header::after { left: 26px; right: 26px; }
-          .ai-card-wrap { margin-left: 28px; margin-right: 28px; }
+          .ai-card-wrap { margin-left: 18px; margin-right: 18px; }
           .messages { padding-left: 28px; padding-right: 28px; }
           .input-area { padding-left: 28px; padding-right: 28px; }
         }
@@ -1160,7 +1160,7 @@ body {
           .logo { transform: translate(-42px, 1px); }
           .logo-img { height: 76px; margin-top: -18px; margin-bottom: -15px; }
           .profile-avatar-btn { width: 30px; height: 30px; }
-          .ai-card-wrap { margin-left: 14px; margin-right: 14px; }
+          .ai-card-wrap { margin-left: 10px; margin-right: 10px; }
           .card-kicker { text-align: left; }
         }
       

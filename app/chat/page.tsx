@@ -413,6 +413,7 @@ export default function GlobalChat() {
     }
 
     console.debug('[ComposerDebug]', debugMetrics)
+console.debug('[GAP LIVE]', 'viewportGap='+viewportGap, 'composerViewportGap='+composerViewportGap, 'rawGap='+Math.round(rawKeyboardGap), 'shrink='+Math.round(layoutViewportShrink))
   }, [])
 
   const applyProfileSheetOffset = useCallback((offset: number) => {

@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
     body: message,
     url: '/chat',
     tag: `spreadz-broadcast-${Date.now()}`,
-    icon: '/spreadz-logo.png',
+    icon: '/favicon-48x48.png',
     badge: '/push-badge-monochrome.png',
   }
 

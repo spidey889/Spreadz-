@@ -315,7 +315,7 @@ body {
         .msg { display: flex; gap: 14px; width: 100%; padding: 0 10px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         .group-start { margin-top: 24px; }
         .group-continuation { margin-top: 2px; }
-        .group-divider { height: 1px; width: calc(100% + 20px); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); margin: 22px -10px; }
+        .group-divider { display: none; }
         .ai-card-wrap:not(.hidden) + .room-messages .messages > .msg-reveal:first-child .group-start { margin-top: 16px; }
 
         .avatar {

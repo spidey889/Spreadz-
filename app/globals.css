@@ -213,6 +213,7 @@ body {
         }
         .ai-card {
           --context-accent-green: #69e09f;
+          --context-accent-rail: #5fcd90;
           background: var(--headline-bg);
           position: relative;
           overflow: hidden;
@@ -233,7 +234,7 @@ body {
           top: 0;
           bottom: 0;
           width: 4px;
-          background: var(--context-accent-green);
+          background: var(--context-accent-rail);
         }
         .card-row {
           display: flex;

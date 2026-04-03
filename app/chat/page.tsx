@@ -1880,23 +1880,22 @@ export default function GlobalChat() {
                 </div>
               </div>
 
-              {/* Messages */}
-              <div className="room-messages" onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}>
-                <div className={`ai-card-wrap${isComposerExpanded ? ' hidden' : ''}`}>
-                  <div className="msg context-msg group-start">
-                    <div className="context-avatar-spacer" aria-hidden="true" />
-                    <div className={`msg-content ai-card${cardCollapsed ? ' compact' : ''}`} role="note" aria-label="Chat context">
-                      <div className="card-row">
-                        <div className="card-label">
-                          <span className="card-status-dot" aria-hidden="true" />
-                          CONTEXT
-                        </div>
-                      </div>
-                      <div className="ai-headline">{room.headline}</div>
-                      {!cardCollapsed && <div className="card-support">Only college students are allowed here.... ya we block others. Have fun! 😉</div>}
+              {/* Headline card */}
+              <div className={`ai-card-wrap${isComposerExpanded ? ' hidden' : ''}`}>
+                <div className={`ai-card${cardCollapsed ? ' compact' : ''}`}>
+                  <div className="card-row">
+                    <div className="card-label">
+                      <span className="card-status-dot" aria-hidden="true" />
+                      CONTEXT
                     </div>
                   </div>
+                  <div className="ai-headline">{room.headline}</div>
+                  {!cardCollapsed && <div className="card-support">Only college students are allowed here.... ya we block others. Have fun! 😉</div>}
                 </div>
+              </div>
+
+              {/* Messages */}
+              <div className="room-messages" onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}>
                 <div className="messages">
                 {messages.map((msg, msgIndex) => {
                     const isVisible = visibleMessageIds.has(msg.id)

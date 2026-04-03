@@ -351,11 +351,11 @@ body {
 
         .input-area {
           background: var(--bg);
-          padding: 4px 18px calc(8px + env(safe-area-inset-bottom, 0px));
+          padding: 2px 18px calc(6px + env(safe-area-inset-bottom, 0px));
           flex-shrink: 0;
         }
         .hint {
-          display: flex;
+          display: none;
           align-items: center;
           justify-content: center;
           gap: 8px;
@@ -585,17 +585,17 @@ body {
         }
         
         .input-wrap {
-          --composer-send-size: 38px;
+          --composer-send-size: 34px;
           --composer-gif-hit-size: 41px;
           --composer-gif-icon-size: 31px;
           position: relative;
           display: flex;
           align-items: center;
-          gap: 6px;
-          background: var(--surface-elevated);
-          border: none;
-          border-radius: 14px;
-          padding: 4px 5px 4px 12px;
+          gap: 4px;
+          background: var(--surface-soft);
+          border: 1px solid rgba(255,255,255,0.04);
+          border-radius: 12px;
+          padding: 3px 4px 3px 11px;
           transition: background 0.14s ease;
           box-shadow: none;
           backdrop-filter: none;
@@ -604,13 +604,13 @@ body {
           content: none;
         }
         .input-wrap:focus-within {
-          background: var(--surface-elevated);
+          background: var(--surface-soft);
           box-shadow: none;
-          border-color: transparent;
+          border-color: rgba(255,255,255,0.06);
           transform: none;
         }
 
-        input { flex: 1; background: none; border: none; outline: none; font-size: 15px; color: var(--text-primary); font-family: inherit; }
+        input { flex: 1; background: none; border: none; outline: none; font-size: 14px; color: var(--text-primary); font-family: inherit; }
         input::placeholder { color: #7d8491; }
 
         .gif-btn {
@@ -639,8 +639,8 @@ body {
           opacity: 1;
         }
 
-        .send-btn { background: var(--accent-green); color: #111214; border: none; border-radius: 12px; width: var(--composer-send-size); height: var(--composer-send-size); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s; flex-shrink: 0; box-shadow: none; position: relative; z-index: 1; }
-        .send-btn:hover { background: #72f0a9; }
+        .send-btn { background: #67d996; color: #111214; border: none; border-radius: 10px; width: var(--composer-send-size); height: var(--composer-send-size); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s; flex-shrink: 0; box-shadow: none; position: relative; z-index: 1; }
+        .send-btn:hover { background: #6ee09d; }
         .send-btn:active { transform: scale(0.95); }
         .send-btn:focus-visible,
         .gif-btn:focus-visible,

@@ -57,7 +57,7 @@ body {
 
 /* Snap scroll container for rooms */
 .rooms-container {
-  height: var(--app-viewport-height, 100dvh);
+  height: 100dvh;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
   scrollbar-width: none;
@@ -71,7 +71,7 @@ body {
 
 /* Each room panel */
 .room-panel {
-  height: var(--app-viewport-height, 100dvh);
+  height: 100dvh;
   scroll-snap-align: start;
   scroll-snap-stop: always;
   display: flex;
@@ -125,9 +125,9 @@ body {
         html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; }
         body { background: radial-gradient(circle at top, rgba(124,255,183,0.08), transparent 24%), var(--bg); color: var(--text-primary); }
 
-        .rooms-container { height: var(--app-viewport-height, 100dvh); overflow-y: scroll; scroll-snap-type: y mandatory; }
+        .rooms-container { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; }
         .room-panel {
-          height: var(--app-viewport-height, 100dvh);
+          height: 100dvh;
           display: flex;
           flex-direction: column;
           scroll-snap-align: start;

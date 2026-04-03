@@ -40,19 +40,6 @@ interface FriendRequest {
   created_at?: string
 }
 
-interface ComposerDebugOverlay {
-  windowInnerHeight: number
-  visualViewportHeight: number
-  visualViewportOffsetTop: number
-  rawKeyboardGap: number
-  layoutViewportShrink: number
-  appliedKeyboardOffset: number
-  composerViewportGap: number
-  viewportGap: number
-  composerRectBottom: number
-  position: string
-}
-
 interface GifResult {
   id: string
   url: string
@@ -311,7 +298,6 @@ export default function GlobalChat() {
   const composerLayerRef = useRef<HTMLDivElement | null>(null)
   const composerAreaRef = useRef<HTMLDivElement | null>(null)
   const composerBarRef = useRef<HTMLFormElement | null>(null)
-  const initialViewportHeightRef = useRef(0)
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string; contentOverride?: string } | null>(null)
   const prevRoomIndexRef = useRef<number>(0)
@@ -329,62 +315,19 @@ export default function GlobalChat() {
   const profileSheetFrameRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
   const roomSwipeRef = useRef<RoomSwipeState | null>(null)
-  const [composerDebug, setComposerDebug] = useState<ComposerDebugOverlay | null>(null)
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
 
   const syncComposerMetrics = useCallback(() => {
     if (typeof window === 'undefined') return
 
-    if (!initialViewportHeightRef.current) {
-      initialViewportHeightRef.current = window.innerHeight
-    }
-
+    // keyboard handled by interactiveWidget: resizes-content + dvh
     const root = document.documentElement
-    const viewport = window.visualViewport
-    const baselineInnerHeight = initialViewportHeightRef.current
-    const windowInnerHeight = Math.round(window.innerHeight)
-    const visualViewportHeight = Math.round(viewport?.height ?? window.innerHeight)
-    const visualViewportOffsetTop = Math.round(viewport?.offsetTop ?? 0)
-    const rawKeyboardGap = Math.max(0, baselineInnerHeight - visualViewportHeight - visualViewportOffsetTop)
-    const layoutViewportShrink = Math.max(0, baselineInnerHeight - windowInnerHeight)
-    const appliedKeyboardOffset = Math.max(0, rawKeyboardGap - layoutViewportShrink)
-    const appViewportHeight = visualViewportHeight
-    const keyboardActive = rawKeyboardGap > 0 || layoutViewportShrink > 0
-
-    root.style.setProperty('--app-viewport-height', `${appViewportHeight}px`)
-    root.style.setProperty('--keyboard-offset', `${appliedKeyboardOffset}px`)
-
     const composerAreaStyles = composerAreaRef.current ? window.getComputedStyle(composerAreaRef.current) : null
     const composerPaddingTop = composerAreaStyles ? Number.parseFloat(composerAreaStyles.paddingTop) || 0 : 0
     const composerPaddingBottom = composerAreaStyles ? Number.parseFloat(composerAreaStyles.paddingBottom) || 0 : 0
     const composerBarHeight = composerBarRef.current?.getBoundingClientRect().height ?? 0
     const reservedSpace = Math.ceil(composerBarHeight + composerPaddingTop + composerPaddingBottom)
     root.style.setProperty('--composer-reserved-space', `${reservedSpace}px`)
-
-    const composerStyle = composerLayerRef.current ? window.getComputedStyle(composerLayerRef.current) : null
-    const composerRect = composerLayerRef.current?.getBoundingClientRect()
-    const viewportBottom = visualViewportHeight + visualViewportOffsetTop
-    const composerRectBottom = composerRect ? Math.round(composerRect.bottom) : 0
-    const viewportGap = composerRect ? Math.max(0, Math.round(viewportBottom - composerRect.bottom)) : 0
-    const composerViewportGap = viewportGap > 1 ? -viewportGap : 0
-    root.style.setProperty('--composer-viewport-gap', `${composerViewportGap}px`)
-
-    const debugMetrics = {
-      windowInnerHeight,
-      visualViewportHeight,
-      visualViewportOffsetTop,
-      rawKeyboardGap: Math.round(rawKeyboardGap),
-      layoutViewportShrink: Math.round(layoutViewportShrink),
-      appliedKeyboardOffset: Math.round(appliedKeyboardOffset),
-      composerViewportGap,
-      composerRectBottom,
-      viewportGap,
-      position: composerStyle?.position ?? 'n/a',
-    }
-
-    console.debug('[ComposerDebug]', debugMetrics)
-    setComposerDebug(debugMetrics)
-    console.debug('[GAP LIVE]', 'viewportGap='+viewportGap, 'composerViewportGap='+composerViewportGap, 'rawGap='+Math.round(rawKeyboardGap), 'shrink='+Math.round(layoutViewportShrink))
   }, [])
 
   const applyProfileSheetOffset = useCallback((offset: number) => {
@@ -1163,29 +1106,6 @@ export default function GlobalChat() {
       window.clearTimeout(collapseTimer)
     }
   }, [currentRoomIndex, rooms])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    syncComposerMetrics()
-
-    const viewport = window.visualViewport
-    if (viewport) {
-      viewport.addEventListener('resize', syncComposerMetrics)
-      viewport.addEventListener('scroll', syncComposerMetrics)
-    } else {
-      window.addEventListener('resize', syncComposerMetrics)
-    }
-
-    return () => {
-      if (viewport) {
-        viewport.removeEventListener('resize', syncComposerMetrics)
-        viewport.removeEventListener('scroll', syncComposerMetrics)
-      } else {
-        window.removeEventListener('resize', syncComposerMetrics)
-      }
-    }
-  }, [syncComposerMetrics])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -2274,21 +2194,6 @@ export default function GlobalChat() {
           )
         })}
       </div>
-
-      {composerDebug && (
-        <div className="composer-debug" aria-live="polite">
-          <div>innerHeight: {composerDebug.windowInnerHeight}</div>
-          <div>vv.height: {composerDebug.visualViewportHeight}</div>
-          <div>vv.top: {composerDebug.visualViewportOffsetTop}</div>
-          <div>rawGap: {composerDebug.rawKeyboardGap}</div>
-          <div>shrink: {composerDebug.layoutViewportShrink}</div>
-          <div>appliedOffset: {composerDebug.appliedKeyboardOffset}</div>
-          <div>composerViewportGap: {composerDebug.composerViewportGap}</div>
-          <div>viewportGap: {composerDebug.viewportGap}</div>
-          <div>rectBottom: {composerDebug.composerRectBottom}</div>
-          <div>position: {composerDebug.position}</div>
-        </div>
-      )}
 
       {readOnlyProfile && (
         <div className="profile-overlay" onClick={closeReadOnlyProfile}>

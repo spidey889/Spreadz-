@@ -690,26 +690,25 @@ body {
         }
 
         .send-btn {
-          background: transparent;
-          color: #8f97a3;
+          background: #5865F2;
+          color: #ffffff;
           border: none;
-          border-left: 1px solid rgba(255,255,255,0.08);
-          border-radius: 0;
-          width: calc(var(--composer-send-size) + 12px);
-          height: 30px;
-          padding: 0 0 0 12px;
-          margin-left: 2px;
+          border-radius: 10px;
+          width: 34px;
+          height: 34px;
+          padding: 0;
+          margin-left: 0;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: transform 0.1s, color 0.2s;
+          transition: transform 0.1s, background 0.2s, filter 0.2s;
           flex-shrink: 0;
           box-shadow: none;
           position: relative;
           z-index: 1;
         }
-        .send-btn:hover { color: #b8bec8; }
+        .send-btn:hover { background: #6673f6; }
         .send-btn:active { transform: scale(0.95); }
         .send-btn:focus-visible,
         .gif-btn:focus-visible,

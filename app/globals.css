@@ -208,13 +208,12 @@ body {
         .ai-card-wrap {
           margin: 4px 14px 0;
           padding: 0 10px 10px;
-          background: var(--bg);
+          background: var(--headline-bg);
           flex-shrink: 0;
         }
         .ai-card {
-          background: var(--bg);
+          background: var(--headline-bg);
           padding: 0 0 12px;
-          border-bottom: 1px solid rgba(255,255,255,0.08);
         }
         .ai-card.compact {
           padding-bottom: 10px;

@@ -300,7 +300,7 @@ body {
           touch-action: pan-y;
         }
 
-        .messages { min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 14px calc(var(--composer-reserved-space) + var(--keyboard-offset) + 10px); }
+        .messages { min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 14px calc(var(--composer-reserved-space) + 10px); }
         .messages::-webkit-scrollbar { display: none; }
 
         .msg { display: flex; gap: 14px; width: 100%; padding: 0 10px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
@@ -357,12 +357,24 @@ body {
           padding: 2px 18px calc(6px + env(safe-area-inset-bottom, 0px));
           flex-shrink: 0;
         }
-        .room-panel.active-room .input-area {
+        .composer-layer {
           position: fixed;
           left: 0;
           right: 0;
           bottom: var(--keyboard-offset);
           z-index: 30;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          pointer-events: none;
+        }
+        .composer-layer > * {
+          pointer-events: auto;
+        }
+        .global-composer {
+          position: relative;
+          z-index: 4;
+          width: 100%;
         }
         .hint {
           display: none;
@@ -406,7 +418,9 @@ body {
           100% { background-position: 0 50%; }
         }
         .gif-picker {
-          margin-bottom: 10px;
+          position: relative;
+          z-index: 3;
+          margin: 0 18px 10px;
           padding: 8px 8px 10px;
           background: linear-gradient(180deg, rgba(22,24,29,0.992), rgba(14,16,20,0.996));
           border: 1px solid rgba(255,255,255,0.085);
@@ -432,7 +446,7 @@ body {
           pointer-events: none;
         }
         .gif-picker-backdrop {
-          position: absolute;
+          position: fixed;
           inset: 0;
           z-index: 2;
           border: none;
@@ -670,6 +684,36 @@ body {
 
         .input-area {
           z-index: 4;
+        }
+
+        .composer-debug {
+          position: fixed;
+          top: calc(env(safe-area-inset-top, 0px) + 8px);
+          right: 8px;
+          z-index: 1400;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          max-width: min(220px, calc(100vw - 16px));
+          padding: 9px 10px;
+          border-radius: 10px;
+          background: rgba(9, 10, 12, 0.9);
+          border: 1px solid rgba(255,255,255,0.1);
+          color: #d6dbe4;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+          font-size: 10px;
+          line-height: 1.35;
+          pointer-events: none;
+          white-space: nowrap;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+        }
+        .composer-debug-title {
+          color: #ffffff;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          margin-bottom: 2px;
         }
 
         .profile-overlay {
@@ -1136,6 +1180,7 @@ body {
           .ai-card-wrap { margin-left: 18px; margin-right: 18px; }
           .messages { padding-left: 28px; padding-right: 28px; }
           .input-area { padding-left: 28px; padding-right: 28px; }
+          .gif-picker { margin-left: 28px; margin-right: 28px; }
         }
 
         @media (max-width: 380px) {

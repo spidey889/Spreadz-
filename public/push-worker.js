@@ -27,12 +27,25 @@ self.addEventListener('push', (event) => {
     typeof payload.tag === 'string' && payload.tag.trim()
       ? payload.tag.trim()
       : 'spreadz-message'
+  const icon =
+    typeof payload.icon === 'string' && payload.icon.trim()
+      ? payload.icon.trim()
+      : '/spreadz-logo.png'
+  const badge =
+    typeof payload.badge === 'string' && payload.badge.trim()
+      ? payload.badge.trim()
+      : '/favicon-48x48.png'
+  const image =
+    typeof payload.image === 'string' && payload.image.trim()
+      ? payload.image.trim()
+      : ''
 
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon: '/icon-512x512.png',
-      badge: '/favicon-48x48.png',
+      icon,
+      badge,
+      ...(image ? { image } : {}),
       tag,
       vibrate: [200, 100, 200],
       requireInteraction: true,

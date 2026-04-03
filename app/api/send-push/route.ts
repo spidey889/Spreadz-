@@ -20,6 +20,16 @@ type StoredPushSubscription = {
   }
 }
 
+type PushNotificationPayload = {
+  title: string
+  body: string
+  url: string
+  tag: string
+  icon: string
+  badge: string
+  image?: string
+}
+
 let vapidConfigured = false
 const PUSH_NOTIFICATION_PREVIEW_MAX_LENGTH = 120
 
@@ -219,7 +229,21 @@ export async function POST(request: Request) {
   const senderName =
     typeof message.display_name === 'string' && message.display_name.trim() ? message.display_name.trim() : 'Someone'
   const messagePreview = buildMessagePreview(message.content)
+  let senderAvatarUrl = ''
 
+  if (typeof message.user_uuid === 'string' && message.user_uuid.trim()) {
+    const { data: senderProfile, error: senderProfileError } = await adminSupabase
+      .from('users')
+      .select('avatar_url')
+      .eq('uuid', message.user_uuid)
+      .maybeSingle()
+
+    if (senderProfileError) {
+      console.error('[Push] Failed to load sender avatar', senderProfileError)
+    } else if (typeof senderProfile?.avatar_url === 'string' && senderProfile.avatar_url.trim()) {
+      senderAvatarUrl = senderProfile.avatar_url.trim()
+    }
+  }
   const { data: subscriptions, error: fetchError } = await adminSupabase
     .from('push_subscriptions')
     .select('id, user_uuid, subscription')
@@ -235,12 +259,15 @@ export async function POST(request: Request) {
   })
 
   const targetUrl = `/chat?${new URLSearchParams({ roomId, messageId: message.id }).toString()}`
-  const notificationPayload = JSON.stringify({
+  const notificationPayload: PushNotificationPayload = {
     title: senderName,
     body: messagePreview,
     url: targetUrl,
     tag: `spreadz-room-${roomId}`,
-  })
+    icon: '/spreadz-logo.png',
+    badge: '/favicon-48x48.png',
+    ...(senderAvatarUrl ? { image: senderAvatarUrl } : {}),
+  }
 
   let sent = 0
   let skipped = 0
@@ -268,7 +295,7 @@ export async function POST(request: Request) {
 
       try {
         attempted += 1
-        await webpush.sendNotification(subscription, notificationPayload)
+        await webpush.sendNotification(subscription, JSON.stringify(notificationPayload))
         sent += 1
         console.log('[Push] Notification sent successfully', {
           subscriptionId: row.id,

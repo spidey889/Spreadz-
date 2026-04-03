@@ -212,6 +212,7 @@ body {
           flex-shrink: 0;
         }
         .ai-card {
+          --context-accent-green: #69e09f;
           background: var(--headline-bg);
           position: relative;
           overflow: hidden;
@@ -232,7 +233,7 @@ body {
           top: 0;
           bottom: 0;
           width: 4px;
-          background: var(--accent-green);
+          background: var(--context-accent-green);
         }
         .card-row {
           display: flex;
@@ -246,7 +247,7 @@ body {
           display: inline-flex;
           align-items: center;
           gap: 0;
-          color: var(--accent-green);
+          color: var(--context-accent-green);
           font-size: 10px;
           font-weight: 700;
           letter-spacing: 0.26em;

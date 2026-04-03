@@ -292,6 +292,7 @@ export default function GlobalChat() {
   const friendRequestChannelRef = useRef<any>(null)
   const friendRequestsLoadedRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const activeInputAreaRef = useRef<HTMLDivElement | null>(null)
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string; contentOverride?: string } | null>(null)
   const prevRoomIndexRef = useRef<number>(0)
@@ -1087,6 +1088,61 @@ export default function GlobalChat() {
     }
   }, [currentRoomIndex, rooms])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const root = document.documentElement
+    const updateViewportHeight = () => {
+      const nextHeight = window.visualViewport?.height ?? window.innerHeight
+      root.style.setProperty('--app-viewport-height', `${Math.round(nextHeight)}px`)
+    }
+
+    updateViewportHeight()
+
+    const viewport = window.visualViewport
+    if (viewport) {
+      viewport.addEventListener('resize', updateViewportHeight)
+      viewport.addEventListener('scroll', updateViewportHeight)
+    } else {
+      window.addEventListener('resize', updateViewportHeight)
+    }
+
+    return () => {
+      if (viewport) {
+        viewport.removeEventListener('resize', updateViewportHeight)
+        viewport.removeEventListener('scroll', updateViewportHeight)
+      } else {
+        window.removeEventListener('resize', updateViewportHeight)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const root = document.documentElement
+    const node = activeInputAreaRef.current
+    if (!node) return
+
+    const updateComposerHeight = () => {
+      root.style.setProperty('--composer-reserved-space', `${Math.ceil(node.getBoundingClientRect().height)}px`)
+    }
+
+    updateComposerHeight()
+
+    if (typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(() => {
+      updateComposerHeight()
+    })
+
+    observer.observe(node)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [currentRoomIndex, isKeyboardOpen, activeGifPickerRoomId, gifPickerClosingRoomId])
+
   const pushFriendRequest = useCallback((request: FriendRequest) => {
     if (request.created_at) {
       const ageMs = Date.now() - new Date(request.created_at).getTime()
@@ -1843,7 +1899,7 @@ export default function GlobalChat() {
           return (
             <div
               key={room.id}
-              className="room-panel"
+              className={`room-panel${index === currentRoomIndex ? ' active-room' : ''}`}
               data-room-index={index}
               style={{ background: 'var(--bg)' }}
               onTouchStart={handleRoomTouchStart}
@@ -1983,7 +2039,10 @@ export default function GlobalChat() {
               )}
 
               {/* Input area */}
-              <div className="input-area">
+              <div
+                ref={index === currentRoomIndex ? activeInputAreaRef : undefined}
+                className="input-area"
+              >
                 <div className={`hint${isComposerExpanded ? ' hidden' : ''}`}>
                   <span className="hint-badge">Swipe Up</span>
                   <span>for new people &amp; topics</span>

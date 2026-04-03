@@ -208,9 +208,11 @@ body {
         .ai-card-wrap {
           margin: 4px 14px 0;
           padding: 0 10px 10px;
+          background: var(--bg);
           flex-shrink: 0;
         }
         .ai-card {
+          background: var(--bg);
           padding: 0 0 12px;
           border-bottom: 1px solid rgba(255,255,255,0.08);
         }

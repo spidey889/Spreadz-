@@ -98,6 +98,7 @@ body {
         :root {
           --app-viewport-height: 100dvh;
           --composer-reserved-space: 72px;
+          --keyboard-offset: 0px;
           --bg: #111214;
           --surface: #1a1d22;
           --surface-elevated: #20242b;
@@ -299,7 +300,7 @@ body {
           touch-action: pan-y;
         }
 
-        .messages { min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 14px calc(var(--composer-reserved-space) + 10px); }
+        .messages { min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 14px calc(var(--composer-reserved-space) + var(--keyboard-offset) + 10px); }
         .messages::-webkit-scrollbar { display: none; }
 
         .msg { display: flex; gap: 14px; width: 100%; padding: 0 10px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
@@ -360,7 +361,7 @@ body {
           position: fixed;
           left: 0;
           right: 0;
-          bottom: 0;
+          bottom: var(--keyboard-offset);
           z-index: 30;
         }
         .hint {

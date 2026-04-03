@@ -1093,8 +1093,12 @@ export default function GlobalChat() {
 
     const root = document.documentElement
     const updateViewportHeight = () => {
-      const nextHeight = window.visualViewport?.height ?? window.innerHeight
+      const viewport = window.visualViewport
+      const nextHeight = viewport?.height ?? window.innerHeight
+      const viewportOffsetTop = viewport?.offsetTop ?? 0
+      const keyboardOffset = Math.max(0, window.innerHeight - nextHeight - viewportOffsetTop)
       root.style.setProperty('--app-viewport-height', `${Math.round(nextHeight)}px`)
+      root.style.setProperty('--keyboard-offset', `${Math.round(keyboardOffset)}px`)
     }
 
     updateViewportHeight()
@@ -1886,7 +1890,6 @@ export default function GlobalChat() {
 
   return (
     <>
-      <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />
       <div className="rooms-container" ref={containerRef}>
         {rooms.map((room, index) => {
           const messages = roomMessages[room.id] || []

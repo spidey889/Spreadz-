@@ -102,6 +102,7 @@ body {
           --app-viewport-height: 100dvh;
           --composer-reserved-space: 72px;
           --keyboard-offset: 0px;
+          --composer-viewport-gap: 0px;
           --bg: #111214;
           --surface: #1a1d22;
           --surface-elevated: #20242b;
@@ -366,6 +367,7 @@ body {
           flex-shrink: 0;
           position: relative;
           z-index: 4;
+          transform: translateY(var(--composer-viewport-gap));
         }
         .global-composer {
           position: relative;
@@ -612,6 +614,7 @@ body {
           display: flex;
           align-items: center;
           gap: 4px;
+          width: 100%;
           background: var(--surface-soft);
           border: 1px solid rgba(255,255,255,0.04);
           border-radius: 12px;
@@ -680,36 +683,6 @@ body {
 
         .input-area {
           z-index: 4;
-        }
-
-        .composer-debug {
-          position: fixed;
-          top: calc(env(safe-area-inset-top, 0px) + 8px);
-          right: 8px;
-          z-index: 1400;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          max-width: min(220px, calc(100vw - 16px));
-          padding: 9px 10px;
-          border-radius: 10px;
-          background: rgba(9, 10, 12, 0.9);
-          border: 1px solid rgba(255,255,255,0.1);
-          color: #d6dbe4;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
-          font-size: 10px;
-          line-height: 1.35;
-          pointer-events: none;
-          white-space: nowrap;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
-        }
-        .composer-debug-title {
-          color: #ffffff;
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          margin-bottom: 2px;
         }
 
         .profile-overlay {

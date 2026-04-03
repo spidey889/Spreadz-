@@ -40,31 +40,6 @@ interface FriendRequest {
   created_at?: string
 }
 
-interface ComposerDebugMetrics {
-  appViewportHeight: number
-  baselineInnerHeight: number
-  windowInnerHeight: number
-  visualViewportHeight: number
-  visualViewportOffsetTop: number
-  rawKeyboardGap: number
-  layoutViewportShrink: number
-  appliedKeyboardOffset: number
-  composerBottom: string
-  composerHeight: number
-  composerRectBottom: number
-  viewportGap: number
-  reservedSpace: number
-  position: string
-  transformedAncestor: boolean
-  virtualKeyboardHeight: number
-  parentTag: string
-  parentClass: string
-  offsetParent: string
-  roomPanelHeight: number
-  roomMessagesHeight: number
-  messagesHeight: number
-}
-
 interface GifResult {
   id: string
   url: string
@@ -322,7 +297,7 @@ export default function GlobalChat() {
   const activeMessagesRef = useRef<HTMLDivElement | null>(null)
   const composerLayerRef = useRef<HTMLDivElement | null>(null)
   const composerAreaRef = useRef<HTMLDivElement | null>(null)
-  const composerBarRef = useRef<HTMLDivElement | null>(null)
+  const composerBarRef = useRef<HTMLFormElement | null>(null)
   const initialViewportHeightRef = useRef(0)
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string; contentOverride?: string } | null>(null)
@@ -341,7 +316,6 @@ export default function GlobalChat() {
   const profileSheetFrameRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
   const roomSwipeRef = useRef<RoomSwipeState | null>(null)
-  const [composerDebug, setComposerDebug] = useState<ComposerDebugMetrics | null>(null)
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
 
   const syncComposerMetrics = useCallback(() => {
@@ -361,6 +335,7 @@ export default function GlobalChat() {
     const layoutViewportShrink = Math.max(0, baselineInnerHeight - windowInnerHeight)
     const appliedKeyboardOffset = Math.max(0, rawKeyboardGap - layoutViewportShrink)
     const appViewportHeight = visualViewportHeight
+    const keyboardActive = rawKeyboardGap > 0 || layoutViewportShrink > 0
 
     root.style.setProperty('--app-viewport-height', `${appViewportHeight}px`)
     root.style.setProperty('--keyboard-offset', `${appliedKeyboardOffset}px`)
@@ -379,7 +354,9 @@ export default function GlobalChat() {
     const messagesHeight = Math.round(activeMessagesRef.current?.getBoundingClientRect().height ?? 0)
     const viewportBottom = visualViewportHeight + visualViewportOffsetTop
     const composerRectBottom = composerRect ? Math.round(composerRect.bottom) : 0
-    const viewportGap = composerRect ? Math.round(viewportBottom - composerRect.bottom) : 0
+    const viewportGap = composerRect ? Math.max(0, Math.round(viewportBottom - composerRect.bottom)) : 0
+    const composerViewportGap = keyboardActive && viewportGap > 1 ? viewportGap : 0
+    root.style.setProperty('--composer-viewport-gap', `${composerViewportGap}px`)
 
     let transformedAncestor = false
     let currentParent = composerLayerRef.current?.parentElement ?? null
@@ -408,7 +385,7 @@ export default function GlobalChat() {
       return className ? `${tag}.${className.replace(/\s+/g, '.')}` : tag
     }
 
-    const nextDebug: ComposerDebugMetrics = {
+    const debugMetrics = {
       appViewportHeight,
       baselineInnerHeight,
       windowInnerHeight,
@@ -435,8 +412,7 @@ export default function GlobalChat() {
       messagesHeight,
     }
 
-    console.debug('[ComposerDebug]', nextDebug)
-    setComposerDebug(nextDebug)
+    console.debug('[ComposerDebug]', debugMetrics)
   }, [])
 
   const applyProfileSheetOffset = useCallback((offset: number) => {
@@ -2242,9 +2218,24 @@ export default function GlobalChat() {
                     <span className="hint-badge">Swipe Up</span>
                     <span>for new people &amp; topics</span>
                   </div>
-                  <div ref={isCurrentRoom ? composerBarRef : undefined} className="input-wrap">
+                  <form
+                    ref={isCurrentRoom ? composerBarRef : undefined}
+                    className="input-wrap"
+                    autoComplete="off"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleSend(room.id)
+                    }}
+                  >
                     <input
                       type="text"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      data-form-type="other"
+                      enterKeyHint="send"
                       placeholder="What's on your mind?"
                       value={inputText}
                       onChange={(e) => {
@@ -2291,15 +2282,12 @@ export default function GlobalChat() {
                       </span>
                     </button>
                     <button
-                      type="button"
+                      type="submit"
                       className="send-btn"
                       aria-label="Send"
                       onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
                         const btn = e.currentTarget as HTMLButtonElement
                         btn.blur()
-                        handleSend(room.id)
                       }}
                     >
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2307,41 +2295,13 @@ export default function GlobalChat() {
                         <polygon points="22 2 15 22 11 13 2 9 22 2" />
                       </svg>
                     </button>
-                  </div>
+                  </form>
                 </div>
               </div>
             </div>
           )
         })}
       </div>
-
-      {composerDebug && (
-        <div className="composer-debug" aria-live="polite">
-          <div className="composer-debug-title">Composer Debug</div>
-          <div>innerHeight: {composerDebug.windowInnerHeight}</div>
-          <div>baseline: {composerDebug.baselineInnerHeight}</div>
-          <div>appH: {composerDebug.appViewportHeight}</div>
-          <div>vv.height: {composerDebug.visualViewportHeight}</div>
-          <div>vv.top: {composerDebug.visualViewportOffsetTop}</div>
-          <div>rawGap: {composerDebug.rawKeyboardGap}</div>
-          <div>layoutShrink: {composerDebug.layoutViewportShrink}</div>
-          <div>appliedOffset: {composerDebug.appliedKeyboardOffset}</div>
-          <div>bottomCSS: {composerDebug.composerBottom}</div>
-          <div>composerH: {composerDebug.composerHeight}</div>
-          <div>reserved: {composerDebug.reservedSpace}</div>
-          <div>rectBottom: {composerDebug.composerRectBottom}</div>
-          <div>viewportGap: {composerDebug.viewportGap}</div>
-          <div>vk.height: {composerDebug.virtualKeyboardHeight}</div>
-          <div>position: {composerDebug.position}</div>
-          <div>transformed: {composerDebug.transformedAncestor ? 'yes' : 'no'}</div>
-          <div>parent: {composerDebug.parentTag}</div>
-          <div>parentClass: {composerDebug.parentClass}</div>
-          <div>offsetParent: {composerDebug.offsetParent}</div>
-          <div>roomPanelH: {composerDebug.roomPanelHeight}</div>
-          <div>roomMsgsH: {composerDebug.roomMessagesHeight}</div>
-          <div>messagesH: {composerDebug.messagesHeight}</div>
-        </div>
-      )}
 
       {readOnlyProfile && (
         <div className="profile-overlay" onClick={closeReadOnlyProfile}>

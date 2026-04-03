@@ -29,9 +29,17 @@ interface Message {
   created_at?: string
   room_name?: string | null
   room_id?: string | null
-  user_uuid?: string | null
   senderUsername?: string | null
-  reveal_delay?: number
+}
+
+type MessageRow = {
+  id: string
+  content: string
+  created_at: string
+  display_name: string | null
+  college: string | null
+  room_name: string | null
+  room_id: string | null
 }
 
 interface FriendRequest {
@@ -122,6 +130,7 @@ const HACKER_NEWS_REVEAL_CLUSTER_MAX_MS = 3000
 const HACKER_NEWS_REVEAL_THINKING_MIN_MS = 8000
 const HACKER_NEWS_REVEAL_THINKING_MAX_MS = 12000
 const HACKER_NEWS_REVEAL_CLUSTER_CHANCE = 0.35
+const MESSAGE_SELECT_COLUMNS = 'id, content, created_at, display_name, college, room_name, room_id'
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (value: string) => value.startsWith(GIF_MESSAGE_PREFIX)
@@ -330,6 +339,7 @@ export default function GlobalChat() {
   const composerBarRef = useRef<HTMLDivElement | null>(null)
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string; contentOverride?: string } | null>(null)
+  const pendingOutgoingMessageIdsRef = useRef<Map<string, string>>(new Map())
   const prevRoomIndexRef = useRef<number>(0)
   const handledNotificationNavigationRef = useRef<string>('')
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
@@ -434,7 +444,39 @@ export default function GlobalChat() {
     }
   }, [])
 
-  const buildMessageFromRow = useCallback((m: any, fallbackUsername?: string): Message => {
+  const normalizeMessageRow = useCallback((value: any): MessageRow | null => {
+    const id = typeof value?.id === 'string' ? value.id.trim() : ''
+    const content = typeof value?.content === 'string' ? value.content : ''
+    const createdAt = typeof value?.created_at === 'string' ? value.created_at : ''
+
+    if (!id || !content || !createdAt) {
+      return null
+    }
+
+    return {
+      id,
+      content,
+      created_at: createdAt,
+      display_name: typeof value?.display_name === 'string' ? value.display_name : null,
+      college: typeof value?.college === 'string' ? value.college : null,
+      room_name: typeof value?.room_name === 'string' ? value.room_name : null,
+      room_id: typeof value?.room_id === 'string' ? value.room_id : null,
+    }
+  }, [])
+
+  const getPendingMessageKey = useCallback((value: Pick<MessageRow, 'room_id' | 'display_name' | 'content'>) => {
+    const roomId = typeof value.room_id === 'string' ? value.room_id.trim() : ''
+    const displayName = typeof value.display_name === 'string' ? value.display_name.trim() : ''
+    const content = typeof value.content === 'string' ? value.content.trim() : ''
+
+    if (!roomId || !displayName || !content) {
+      return ''
+    }
+
+    return `${roomId}::${displayName}::${content}`
+  }, [])
+
+  const buildMessageFromRow = useCallback((m: MessageRow, fallbackUsername?: string): Message => {
     const resolvedName = m.display_name || 'Anonymous'
     const resolvedCollege = m.college || ''
     return {
@@ -444,13 +486,11 @@ export default function GlobalChat() {
       university: resolvedCollege,
       text: m.content,
       timestamp: formatTime(m.created_at),
-      avatarUrl: m.avatar_url ?? displayNameToAvatarUrlRef.current[resolvedName] ?? null,
+      avatarUrl: displayNameToAvatarUrlRef.current[resolvedName] ?? null,
       created_at: m.created_at,
       room_name: m.room_name ?? null,
       room_id: m.room_id,
-      user_uuid: m.user_uuid ?? null,
       senderUsername: fallbackUsername ?? displayNameToUsernameRef.current[resolvedName] ?? null,
-      reveal_delay: m.reveal_delay || 0,
     }
   }, [])
 
@@ -679,43 +719,10 @@ export default function GlobalChat() {
     }
   }, [getCurrentUserId, getServiceWorkerRegistration, savePushSubscription])
 
-  const triggerServerPush = useCallback(async (params: { roomId: string; messageId: string }) => {
-    try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError) {
-        console.error('[Push] Failed to read auth session', sessionError)
-        return
-      }
-
-      const accessToken = sessionData.session?.access_token?.trim() || ''
-      if (!accessToken) {
-        console.error('[Push] Cannot trigger server push without an access token.')
-        return
-      }
-
-      const response = await fetch('/api/send-push', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          room_id: params.roomId,
-          message_id: params.messageId,
-        }),
-      })
-
-      if (!response.ok) {
-        const responsePayload = await response.json().catch(() => null)
-        console.error('[Push] Failed to trigger server push', {
-          status: response.status,
-          errorPayload: responsePayload,
-        })
-      }
-    } catch (error) {
-      console.error('[Push] Failed to trigger server push', error)
-    }
+  const triggerServerPush = useCallback(async (_params: { roomId: string; messageId: string }) => {
+    // The live messages table does not include an ownership column, so the secure
+    // server-side push route cannot verify sender ownership against message rows yet.
+    return
   }, [])
 
   const showServiceWorkerNotification = useCallback(async (payload: NotificationPayload) => {
@@ -766,11 +773,6 @@ export default function GlobalChat() {
   const handleIncomingMessageNotification = useCallback(async (message?: any) => {
     if (!message) return
 
-    const currentUserId = getCurrentUserId()
-    if (message?.user_uuid && currentUserId && message.user_uuid === currentUserId) {
-      return
-    }
-
     const notificationKey = getNotificationMessageKey(message)
     if (!rememberNotificationKey(notificationKey)) {
       return
@@ -781,7 +783,7 @@ export default function GlobalChat() {
     } catch (error) {
       console.error('[Notifications] New message notification failed', error)
     }
-  }, [buildIncomingNotificationPayload, getCurrentUserId, getNotificationMessageKey, rememberNotificationKey, showIncomingNotification])
+  }, [buildIncomingNotificationPayload, getNotificationMessageKey, rememberNotificationKey, showIncomingNotification])
 
   const getCurrentUsername = useCallback(() => {
     if (accountUsername.trim()) return accountUsername.trim()
@@ -1441,9 +1443,8 @@ export default function GlobalChat() {
       return
     }
 
-    msgs.forEach((m, idx) => {
-      const delay = idx < 2 ? 0 : (m.reveal_delay || 0)
-      scheduleReveal(roomId, m.id, delay)
+    msgs.forEach((m) => {
+      scheduleReveal(roomId, m.id, 0)
     })
   }, [scheduleReveal])
 
@@ -1454,46 +1455,75 @@ export default function GlobalChat() {
 
     const { data } = await supabase
       .from('messages')
-      .select('*')
+      .select(MESSAGE_SELECT_COLUMNS)
       .eq('room_id', room.id)
       .order('created_at', { ascending: true })
 
     if (data) {
-      await cacheUsernamesForDisplayNames(data.map((message: any) => message.display_name))
-      const msgs = data.map((m: any) => buildMessageFromRow(m))
+      const messageRows = data
+        .map((message: any) => normalizeMessageRow(message))
+        .filter((message): message is MessageRow => Boolean(message))
+
+      await cacheUsernamesForDisplayNames(messageRows.map(message => message.display_name))
+      const msgs = messageRows.map((message) => buildMessageFromRow(message))
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
 
       requestAnimationFrame(() => {
         triggerRevealsForMessages(room.id, msgs)
       })
     }
-  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, triggerRevealsForMessages])
+  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, normalizeMessageRow, triggerRevealsForMessages])
 
   const handleRealtimeMessage = useCallback((messageRow: any) => {
-    const roomId = messageRow.room_id
+    const normalizedMessage = normalizeMessageRow(messageRow)
+    if (!normalizedMessage) return
+
+    const roomId = normalizedMessage.room_id
     if (!roomId || !roomIdsRef.current.has(roomId)) return
 
-    const messageAuthorId = typeof messageRow.user_uuid === 'string' ? messageRow.user_uuid : ''
-    if (messageAuthorId && messageAuthorId === getCurrentUserId()) return
+    const pendingMessageKey = getPendingMessageKey(normalizedMessage)
+    const optimisticTempId = pendingMessageKey ? pendingOutgoingMessageIdsRef.current.get(pendingMessageKey) || '' : ''
+    if (pendingMessageKey && optimisticTempId) {
+      pendingOutgoingMessageIdsRef.current.delete(pendingMessageKey)
+    }
 
-    const incomingMessage = buildMessageFromRow(messageRow)
+    const incomingMessage = buildMessageFromRow(normalizedMessage)
+    let shouldNotify = !optimisticTempId
 
-    scheduleReveal(roomId, incomingMessage.id, incomingMessage.reveal_delay || 0)
+    scheduleReveal(roomId, incomingMessage.id, 0)
     setRoomMessages(prev => {
       const existing = prev[roomId] || []
-      if (existing.some(msg => msg.id === messageRow.id)) return prev
+      if (existing.some(msg => msg.id === normalizedMessage.id)) {
+        shouldNotify = false
+        return prev
+      }
+
+      if (optimisticTempId) {
+        const hasTempMessage = existing.some(msg => msg.id === optimisticTempId)
+        if (!hasTempMessage) {
+          return { ...prev, [roomId]: [...existing, incomingMessage] }
+        }
+
+        return {
+          ...prev,
+          [roomId]: existing.map(msg => msg.id === optimisticTempId ? incomingMessage : msg),
+        }
+      }
+
       return { ...prev, [roomId]: [...existing, incomingMessage] }
     })
 
-    void handleIncomingMessageNotification(messageRow)
+    if (shouldNotify) {
+      void handleIncomingMessageNotification(normalizedMessage)
+    }
 
     void (async () => {
-      await cacheUsernamesForDisplayNames([messageRow.display_name])
-      const hydratedMessage = buildMessageFromRow(messageRow)
+      await cacheUsernamesForDisplayNames([normalizedMessage.display_name])
+      const hydratedMessage = buildMessageFromRow(normalizedMessage)
 
       setRoomMessages(prev => {
         const existing = prev[roomId] || []
-        const messageIndex = existing.findIndex(msg => msg.id === messageRow.id)
+        const messageIndex = existing.findIndex(msg => msg.id === normalizedMessage.id)
         if (messageIndex === -1) return prev
 
         const currentMessage = existing[messageIndex]
@@ -1514,7 +1544,7 @@ export default function GlobalChat() {
         return { ...prev, [roomId]: nextRoomMessages }
       })
     })()
-  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, getCurrentUserId, handleIncomingMessageNotification, scheduleReveal])
+  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, getPendingMessageKey, handleIncomingMessageNotification, normalizeMessageRow, scheduleReveal])
 
 
   // When rooms load, fetch room index 0 immediately.
@@ -1881,7 +1911,6 @@ export default function GlobalChat() {
     const text = (contentOverride ?? inputTexts[roomId] ?? '').trim()
     if (!text) return
 
-    const userId = getCurrentUserId()
     const activeDisplayName = overrideName || displayName || localStorage.getItem(DISPLAY_NAME_STORAGE_KEY)
     if (!activeDisplayName) {
       pendingSendRef.current = { roomId, contentOverride }
@@ -1896,6 +1925,11 @@ export default function GlobalChat() {
     if (!activeUsername) return
     const activeRoomName = rooms.find(room => room.id === roomId)?.headline || ''
     const tempId = `temp-${Date.now()}`
+    const pendingMessageKey = getPendingMessageKey({
+      room_id: roomId,
+      display_name: activeDisplayName,
+      content: text,
+    })
 
     const optimisticMsg: Message = {
       id: tempId,
@@ -1906,9 +1940,11 @@ export default function GlobalChat() {
       timestamp: formatTime(),
       room_name: activeRoomName,
       room_id: roomId,
-      user_uuid: userId,
       senderUsername: activeUsername,
-      reveal_delay: 0,
+    }
+
+    if (pendingMessageKey) {
+      pendingOutgoingMessageIdsRef.current.set(pendingMessageKey, tempId)
     }
 
     // Reveal immediately for user's own message
@@ -1932,11 +1968,13 @@ export default function GlobalChat() {
         college: activeCollege,
         room_name: activeRoomName,
         room_id: roomId,
-        user_uuid: userId || null,
       })
-      .select()
+      .select(MESSAGE_SELECT_COLUMNS)
 
     if (error) {
+      if (pendingMessageKey) {
+        pendingOutgoingMessageIdsRef.current.delete(pendingMessageKey)
+      }
       setRoomMessages(prev => ({
         ...prev,
         [roomId]: (prev[roomId] || []).filter(m => m.id !== tempId)
@@ -1945,11 +1983,30 @@ export default function GlobalChat() {
     }
 
     if (data && data[0]) {
-      const m = data[0]
-      const serverMessage = buildMessageFromRow(m, activeUsername)
+      if (pendingMessageKey) {
+        pendingOutgoingMessageIdsRef.current.delete(pendingMessageKey)
+      }
+
+      const normalizedMessage = normalizeMessageRow(data[0])
+      if (!normalizedMessage) {
+        return
+      }
+
+      const serverMessage = buildMessageFromRow(normalizedMessage, activeUsername)
       setRoomMessages(prev => ({
         ...prev,
-        [roomId]: (prev[roomId] || []).map(msg => msg.id === tempId ? serverMessage : msg)
+        [roomId]: (() => {
+          const existing = prev[roomId] || []
+          const withoutTemp = existing.filter(msg => msg.id !== tempId)
+
+          if (withoutTemp.some(msg => msg.id === serverMessage.id)) {
+            return withoutTemp
+          }
+
+          return existing.some(msg => msg.id === tempId)
+            ? existing.map(msg => msg.id === tempId ? serverMessage : msg)
+            : [...withoutTemp, serverMessage]
+        })(),
       }))
 
       // Ensure the server-returned success message is also revealed

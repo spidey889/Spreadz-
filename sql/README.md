@@ -3,6 +3,7 @@
 This folder is for ad-hoc SQL scripts and notes related to Supabase and database changes.
 
 ## Index
+- `add_messages_user_uuid.sql` - adds nullable message ownership for secure push verification
 - `db_cleanup.sql` - friends merge, message ownership cleanup, RLS, and push subscription table/policies
 - `user_behaviour_migration.sql` - original FRIDAY tracking table migration
 

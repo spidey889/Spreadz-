@@ -60,6 +60,9 @@ interface ComposerDebugMetrics {
   parentTag: string
   parentClass: string
   offsetParent: string
+  roomPanelHeight: number
+  roomMessagesHeight: number
+  messagesHeight: number
 }
 
 interface GifResult {
@@ -314,6 +317,9 @@ export default function GlobalChat() {
   const friendRequestChannelRef = useRef<any>(null)
   const friendRequestsLoadedRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const activeRoomPanelRef = useRef<HTMLDivElement | null>(null)
+  const activeRoomMessagesRef = useRef<HTMLDivElement | null>(null)
+  const activeMessagesRef = useRef<HTMLDivElement | null>(null)
   const composerLayerRef = useRef<HTMLDivElement | null>(null)
   const composerAreaRef = useRef<HTMLDivElement | null>(null)
   const composerBarRef = useRef<HTMLDivElement | null>(null)
@@ -368,6 +374,9 @@ export default function GlobalChat() {
 
     const composerStyle = composerLayerRef.current ? window.getComputedStyle(composerLayerRef.current) : null
     const composerRect = composerLayerRef.current?.getBoundingClientRect()
+    const roomPanelHeight = Math.round(activeRoomPanelRef.current?.getBoundingClientRect().height ?? 0)
+    const roomMessagesHeight = Math.round(activeRoomMessagesRef.current?.getBoundingClientRect().height ?? 0)
+    const messagesHeight = Math.round(activeMessagesRef.current?.getBoundingClientRect().height ?? 0)
     const viewportBottom = visualViewportHeight + visualViewportOffsetTop
     const composerRectBottom = composerRect ? Math.round(composerRect.bottom) : 0
     const viewportGap = composerRect ? Math.round(viewportBottom - composerRect.bottom) : 0
@@ -421,6 +430,9 @@ export default function GlobalChat() {
         ? parentElement.className.trim()
         : '(none)',
       offsetParent: describeElement(offsetParentElement),
+      roomPanelHeight,
+      roomMessagesHeight,
+      messagesHeight,
     }
 
     console.debug('[ComposerDebug]', nextDebug)
@@ -1987,21 +1999,22 @@ export default function GlobalChat() {
   const profilePreviewColor = getUserColor(profilePreviewName)
   const isComposerExpanded = isKeyboardOpen || Boolean(activeGifPickerRoomId) || Boolean(gifPickerClosingRoomId)
   const activeGifSearch = gifSearchInput.trim()
-  const activeRoom = activeRoomId ? rooms[currentRoomIndex] ?? null : null
-  const activeRoomInputText = activeRoom ? inputTexts[activeRoom.id] || '' : ''
-  const isActiveGifPickerRendered = activeRoom ? activeGifPickerRoomId === activeRoom.id || gifPickerClosingRoomId === activeRoom.id : false
-  const isActiveGifPickerClosing = activeRoom ? gifPickerClosingRoomId === activeRoom.id : false
-  const isActiveGifPickerOpen = activeRoom ? activeGifPickerRoomId === activeRoom.id && !isActiveGifPickerClosing : false
 
   return (
     <>
       <div className="rooms-container" ref={containerRef}>
         {rooms.map((room, index) => {
           const messages = roomMessages[room.id] || []
+          const inputText = inputTexts[room.id] || ''
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
+          const isCurrentRoom = index === currentRoomIndex
+          const isGifPickerRendered = activeGifPickerRoomId === room.id || gifPickerClosingRoomId === room.id
+          const isGifPickerClosing = gifPickerClosingRoomId === room.id
+          const isGifPickerOpen = activeGifPickerRoomId === room.id && !isGifPickerClosing
 
           return (
             <div
+              ref={isCurrentRoom ? activeRoomPanelRef : undefined}
               key={room.id}
               className={`room-panel${index === currentRoomIndex ? ' active-room' : ''}`}
               data-room-index={index}
@@ -2055,8 +2068,12 @@ export default function GlobalChat() {
               </div>
 
               {/* Messages */}
-              <div className="room-messages" onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}>
-                <div className="messages">
+              <div
+                ref={isCurrentRoom ? activeRoomMessagesRef : undefined}
+                className="room-messages"
+                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
+              >
+                <div ref={isCurrentRoom ? activeMessagesRef : undefined} className="messages">
                 {messages.map((msg, msgIndex) => {
                     const isVisible = visibleMessageIds.has(msg.id)
                     if (!isVisible) return null
@@ -2133,173 +2150,170 @@ export default function GlobalChat() {
                 </div>
               </div>
 
+              <div ref={isCurrentRoom ? composerLayerRef : undefined} className="composer-layer">
+                {isGifPickerRendered && (
+                  <>
+                    <button
+                      type="button"
+                      className={`gif-picker-backdrop${isGifPickerClosing ? ' closing' : ''}`}
+                      aria-label="Close GIF picker"
+                      onClick={() => closeGifPicker(room.id)}
+                    />
+                    <div
+                      ref={bindGifPickerSheetRef}
+                      className={`gif-picker${isGifPickerClosing ? ' closing' : ''}${gifPickerDragging ? ' dragging' : ''}`}
+                      onClick={(e) => e.stopPropagation()}
+                      onTouchStart={handleGifPickerTouchStart}
+                      onTouchMove={handleGifPickerTouchMove}
+                      onTouchEnd={() => handleGifPickerTouchEnd(room.id)}
+                      onTouchCancel={() => {
+                        clearGifPickerTouchState()
+                        setGifPickerDragging(false)
+                        applyGifPickerOffset(0)
+                      }}
+                    >
+                      <div>
+                        <div className="gif-picker-handle-zone">
+                          <div className="gif-picker-handle" aria-hidden="true" />
+                        </div>
+                      </div>
+                      <div className="gif-search-shell">
+                        <span className="gif-search-icon" aria-hidden="true">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="7" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                          </svg>
+                        </span>
+                        <input
+                          type="text"
+                          className="gif-search-input"
+                          placeholder="Search reactions, memes, moods..."
+                          value={gifSearchInput}
+                          onChange={(e) => setGifSearchInput(e.target.value)}
+                          onFocus={() => setIsKeyboardOpen(true)}
+                          onBlur={() => setIsKeyboardOpen(false)}
+                        />
+                        <span className="gif-search-state">
+                          {activeGifSearch ? 'Search' : 'Trending'}
+                        </span>
+                      </div>
+                      <div className="gif-picker-grid" onContextMenu={(e) => e.preventDefault()}>
+                        {gifLoading && Array.from({ length: 9 }).map((_, skeletonIndex) => (
+                          <div
+                            key={`gif-skeleton-${skeletonIndex}`}
+                            className="gif-skeleton"
+                          />
+                        ))}
+                        {!gifLoading && gifError && <div className="gif-picker-status error">{gifError}</div>}
+                        {!gifLoading && !gifError && gifResults.length === 0 && (
+                          <div className="gif-picker-status">No GIFs found.</div>
+                        )}
+                        {!gifLoading && !gifError && gifResults.map((gif) => (
+                          <button
+                            key={gif.id}
+                            type="button"
+                            className="gif-tile"
+                            onClick={() => handleGifSelect(room.id, gif.url)}
+                            aria-label={`Send GIF: ${gif.title}`}
+                          >
+                            <div
+                              className="gif-tile-media"
+                              style={{ aspectRatio: `${gif.width} / ${gif.height}` }}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={gif.previewUrl}
+                                alt={gif.title || 'GIF'}
+                                className="gif-tile-image"
+                                loading="lazy"
+                                decoding="async"
+                                draggable={false}
+                              />
+                            </div>
+                            <span className="gif-tile-badge">GIF</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div ref={isCurrentRoom ? composerAreaRef : undefined} className="input-area global-composer">
+                  <div className={`hint${isComposerExpanded ? ' hidden' : ''}`}>
+                    <span className="hint-badge">Swipe Up</span>
+                    <span>for new people &amp; topics</span>
+                  </div>
+                  <div ref={isCurrentRoom ? composerBarRef : undefined} className="input-wrap">
+                    <input
+                      type="text"
+                      placeholder="What's on your mind?"
+                      value={inputText}
+                      onChange={(e) => {
+                        setInputTexts(prev => ({ ...prev, [room.id]: e.target.value }))
+                      }}
+                      onKeyDown={(e) => handleKeyDown(e, room.id)}
+                      onFocus={() => {
+                        setIsKeyboardOpen(true)
+                        if (activeGifPickerRoomId === room.id || gifPickerClosingRoomId === room.id) {
+                          closeGifPicker(room.id, 18)
+                        }
+                        setActiveGifPickerRoomId(null)
+                        requestAnimationFrame(() => {
+                          syncComposerMetrics()
+                        })
+                      }}
+                      onBlur={() => {
+                        setIsKeyboardOpen(false)
+                        requestAnimationFrame(() => {
+                          syncComposerMetrics()
+                        })
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className={`gif-btn${isGifPickerOpen ? ' active' : ''}`}
+                      aria-label={isGifPickerOpen ? 'Close GIF picker' : 'Open GIF picker'}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const btn = e.currentTarget as HTMLButtonElement
+                        btn.blur()
+                        toggleGifPicker(room.id)
+                      }}
+                    >
+                      <span className="gif-btn-icon" aria-hidden="true">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M7.35 4.9h8.15A3.5 3.5 0 0 1 19 8.4v5.72A4.88 4.88 0 0 1 14.12 19H9.7a3.95 3.95 0 0 1-3.95-3.95V6.5A1.6 1.6 0 0 1 7.35 4.9Z" />
+                          <path d="M14.85 19v-1.58a3.02 3.02 0 0 1 3.02-3.02H19" />
+                          <circle cx="10.05" cy="10.6" r="0.52" fill="currentColor" stroke="none" />
+                          <circle cx="14.2" cy="10.6" r="0.52" fill="currentColor" stroke="none" />
+                          <path d="M9.72 14c.63.5 1.47.75 2.53.75 1.05 0 1.89-.25 2.52-.75" />
+                        </svg>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="send-btn"
+                      aria-label="Send"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const btn = e.currentTarget as HTMLButtonElement
+                        btn.blur()
+                        handleSend(room.id)
+                      }}
+                    >
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13" />
+                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )
         })}
       </div>
-
-      {activeRoom && (
-        <div ref={composerLayerRef} className="composer-layer">
-          {isActiveGifPickerRendered && (
-            <>
-              <button
-                type="button"
-                className={`gif-picker-backdrop${isActiveGifPickerClosing ? ' closing' : ''}`}
-                aria-label="Close GIF picker"
-                onClick={() => closeGifPicker(activeRoom.id)}
-              />
-              <div
-                ref={bindGifPickerSheetRef}
-                className={`gif-picker${isActiveGifPickerClosing ? ' closing' : ''}${gifPickerDragging ? ' dragging' : ''}`}
-                onClick={(e) => e.stopPropagation()}
-                onTouchStart={handleGifPickerTouchStart}
-                onTouchMove={handleGifPickerTouchMove}
-                onTouchEnd={() => handleGifPickerTouchEnd(activeRoom.id)}
-                onTouchCancel={() => {
-                  clearGifPickerTouchState()
-                  setGifPickerDragging(false)
-                  applyGifPickerOffset(0)
-                }}
-              >
-                <div>
-                  <div className="gif-picker-handle-zone">
-                    <div className="gif-picker-handle" aria-hidden="true" />
-                  </div>
-                </div>
-                <div className="gif-search-shell">
-                  <span className="gif-search-icon" aria-hidden="true">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="11" cy="11" r="7" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                  </span>
-                  <input
-                    type="text"
-                    className="gif-search-input"
-                    placeholder="Search reactions, memes, moods..."
-                    value={gifSearchInput}
-                    onChange={(e) => setGifSearchInput(e.target.value)}
-                    onFocus={() => setIsKeyboardOpen(true)}
-                    onBlur={() => setIsKeyboardOpen(false)}
-                  />
-                  <span className="gif-search-state">
-                    {activeGifSearch ? 'Search' : 'Trending'}
-                  </span>
-                </div>
-                <div className="gif-picker-grid" onContextMenu={(e) => e.preventDefault()}>
-                  {gifLoading && Array.from({ length: 9 }).map((_, skeletonIndex) => (
-                    <div
-                      key={`gif-skeleton-${skeletonIndex}`}
-                      className="gif-skeleton"
-                    />
-                  ))}
-                  {!gifLoading && gifError && <div className="gif-picker-status error">{gifError}</div>}
-                  {!gifLoading && !gifError && gifResults.length === 0 && (
-                    <div className="gif-picker-status">No GIFs found.</div>
-                  )}
-                  {!gifLoading && !gifError && gifResults.map((gif) => (
-                    <button
-                      key={gif.id}
-                      type="button"
-                      className="gif-tile"
-                      onClick={() => handleGifSelect(activeRoom.id, gif.url)}
-                      aria-label={`Send GIF: ${gif.title}`}
-                    >
-                      <div
-                        className="gif-tile-media"
-                        style={{ aspectRatio: `${gif.width} / ${gif.height}` }}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={gif.previewUrl}
-                          alt={gif.title || 'GIF'}
-                          className="gif-tile-image"
-                          loading="lazy"
-                          decoding="async"
-                          draggable={false}
-                        />
-                      </div>
-                      <span className="gif-tile-badge">GIF</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-          <div ref={composerAreaRef} className="input-area global-composer">
-            <div className={`hint${isComposerExpanded ? ' hidden' : ''}`}>
-              <span className="hint-badge">Swipe Up</span>
-              <span>for new people &amp; topics</span>
-            </div>
-            <div ref={composerBarRef} className="input-wrap">
-              <input
-                type="text"
-                placeholder="What's on your mind?"
-                value={activeRoomInputText}
-                onChange={(e) => {
-                  setInputTexts(prev => ({ ...prev, [activeRoom.id]: e.target.value }))
-                }}
-                onKeyDown={(e) => handleKeyDown(e, activeRoom.id)}
-                onFocus={() => {
-                  setIsKeyboardOpen(true)
-                  if (activeGifPickerRoomId === activeRoom.id || gifPickerClosingRoomId === activeRoom.id) {
-                    closeGifPicker(activeRoom.id, 18)
-                  }
-                  setActiveGifPickerRoomId(null)
-                  requestAnimationFrame(() => {
-                    syncComposerMetrics()
-                  })
-                }}
-                onBlur={() => {
-                  setIsKeyboardOpen(false)
-                  requestAnimationFrame(() => {
-                    syncComposerMetrics()
-                  })
-                }}
-              />
-              <button
-                type="button"
-                className={`gif-btn${isActiveGifPickerOpen ? ' active' : ''}`}
-                aria-label={isActiveGifPickerOpen ? 'Close GIF picker' : 'Open GIF picker'}
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  const btn = e.currentTarget as HTMLButtonElement
-                  btn.blur()
-                  toggleGifPicker(activeRoom.id)
-                }}
-              >
-                <span className="gif-btn-icon" aria-hidden="true">
-                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M7.35 4.9h8.15A3.5 3.5 0 0 1 19 8.4v5.72A4.88 4.88 0 0 1 14.12 19H9.7a3.95 3.95 0 0 1-3.95-3.95V6.5A1.6 1.6 0 0 1 7.35 4.9Z" />
-                    <path d="M14.85 19v-1.58a3.02 3.02 0 0 1 3.02-3.02H19" />
-                    <circle cx="10.05" cy="10.6" r="0.52" fill="currentColor" stroke="none" />
-                    <circle cx="14.2" cy="10.6" r="0.52" fill="currentColor" stroke="none" />
-                    <path d="M9.72 14c.63.5 1.47.75 2.53.75 1.05 0 1.89-.25 2.52-.75" />
-                  </svg>
-                </span>
-              </button>
-              <button
-                type="button"
-                className="send-btn"
-                aria-label="Send"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  const btn = e.currentTarget as HTMLButtonElement
-                  btn.blur()
-                  handleSend(activeRoom.id)
-                }}
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {composerDebug && (
         <div className="composer-debug" aria-live="polite">
@@ -2323,6 +2337,9 @@ export default function GlobalChat() {
           <div>parent: {composerDebug.parentTag}</div>
           <div>parentClass: {composerDebug.parentClass}</div>
           <div>offsetParent: {composerDebug.offsetParent}</div>
+          <div>roomPanelH: {composerDebug.roomPanelHeight}</div>
+          <div>roomMsgsH: {composerDebug.roomMessagesHeight}</div>
+          <div>messagesH: {composerDebug.messagesHeight}</div>
         </div>
       )}
 

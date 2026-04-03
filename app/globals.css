@@ -77,12 +77,15 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
   touch-action: pan-y;
 }
 
 /* Inner messages scroll */
 .room-messages {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   overscroll-behavior-y: auto;
   scrollbar-width: none;
@@ -300,7 +303,7 @@ body {
           touch-action: pan-y;
         }
 
-        .messages { min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 14px calc(var(--composer-reserved-space) + 10px); }
+        .messages { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 14px 10px; }
         .messages::-webkit-scrollbar { display: none; }
 
         .msg { display: flex; gap: 14px; width: 100%; padding: 0 10px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
@@ -358,18 +361,11 @@ body {
           flex-shrink: 0;
         }
         .composer-layer {
-          position: fixed;
-          left: 0;
-          right: 0;
-          bottom: var(--keyboard-offset);
-          z-index: 30;
           display: flex;
           flex-direction: column;
-          justify-content: flex-end;
-          pointer-events: none;
-        }
-        .composer-layer > * {
-          pointer-events: auto;
+          flex-shrink: 0;
+          position: relative;
+          z-index: 4;
         }
         .global-composer {
           position: relative;

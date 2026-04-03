@@ -635,27 +635,26 @@ body {
 
         input { flex: 1; background: none; border: none; outline: none; font-size: 14px; color: var(--text-primary); font-family: inherit; }
         input::placeholder { color: #7d8491; }
-        .composer-input {
+        .chat-input-editable {
           flex: 1;
           min-width: 0;
-          display: block;
           background: none;
           border: none;
           outline: none;
-          color: var(--text-primary);
           font-size: 14px;
-          line-height: 1.45;
+          color: var(--text-primary);
           font-family: inherit;
-          resize: none;
-          overflow: hidden;
           min-height: 20px;
-          max-height: 88px;
-          padding: 0;
-          margin: 0;
-          appearance: none;
+          max-height: 120px;
+          overflow-y: auto;
+          word-break: break-word;
+          cursor: text;
         }
-        .composer-input::placeholder { color: #7d8491; }
-        .composer-input::-webkit-scrollbar { display: none; }
+        .chat-input-editable:empty::before {
+          content: attr(data-placeholder);
+          color: #7d8491;
+          pointer-events: none;
+        }
 
         .gif-btn {
           display: none;

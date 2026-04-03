@@ -1127,6 +1127,16 @@ export default function GlobalChat() {
     }
   }, [activeRoomId, currentRoomIndex, isKeyboardOpen, activeGifPickerRoomId, gifPickerClosingRoomId, syncComposerMetrics])
 
+  useEffect(() => {
+    const inputEl = composerBarRef.current?.querySelector('[contenteditable]') as HTMLElement | null
+    if (!inputEl || !activeRoomId) return
+
+    const nextText = inputTexts[activeRoomId] || ''
+    if ((inputEl.textContent || '') !== nextText) {
+      inputEl.textContent = nextText
+    }
+  }, [activeRoomId, inputTexts])
+
   const pushFriendRequest = useCallback((request: FriendRequest) => {
     if (request.created_at) {
       const ageMs = Date.now() - new Date(request.created_at).getTime()
@@ -1376,6 +1386,8 @@ export default function GlobalChat() {
     }))
     if (contentOverride === undefined) {
       setInputTexts(prev => ({ ...prev, [roomId]: '' }))
+      const inputEl = composerBarRef.current?.querySelector('[contenteditable]') as HTMLElement | null
+      if (inputEl) inputEl.textContent = ''
     }
 
     const { data, error } = await supabase
@@ -1829,14 +1841,6 @@ export default function GlobalChat() {
     setReadOnlyProfile(null)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, roomId: string) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      e.stopPropagation()
-      handleSend(roomId)
-    }
-  }
-
   const renderMessageBody = (msg: Message) => {
     const gifUrl = getGifUrlFromMessage(msg.text)
     if (gifUrl) {
@@ -1873,7 +1877,6 @@ export default function GlobalChat() {
       <div className="rooms-container" ref={containerRef}>
         {rooms.map((room, index) => {
           const messages = roomMessages[room.id] || []
-          const inputText = inputTexts[room.id] || ''
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
           const isCurrentRoom = index === currentRoomIndex
           const isGifPickerRendered = activeGifPickerRoomId === room.id || gifPickerClosingRoomId === room.id
@@ -2114,39 +2117,35 @@ export default function GlobalChat() {
                     ref={isCurrentRoom ? composerBarRef : undefined}
                     className="input-wrap"
                   >
-                    <textarea
-                      rows={1}
-                      className="composer-input"
-                      aria-label="Message"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      data-form-type="other"
-                      aria-autocomplete="none"
-                      enterKeyHint="send"
-                      placeholder="What's on your mind?"
-                      value={inputText}
-                      onChange={(e) => {
-                        setInputTexts(prev => ({ ...prev, [room.id]: e.target.value }))
+                    <div
+                      contentEditable={true}
+                      role="textbox"
+                      aria-multiline="false"
+                      aria-label="What's on your mind?"
+                      data-placeholder="What's on your mind?"
+                      className="chat-input-editable"
+                      onInput={(e) => {
+                        const text = e.currentTarget.textContent || ''
+                        setInputTexts(prev => ({ ...prev, [room.id]: text }))
                       }}
-                      onKeyDown={(e) => handleKeyDown(e, room.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handleSend(room.id)
+                          e.currentTarget.textContent = ''
+                        }
+                      }}
                       onFocus={() => {
                         setIsKeyboardOpen(true)
                         if (activeGifPickerRoomId === room.id || gifPickerClosingRoomId === room.id) {
                           closeGifPicker(room.id, 18)
                         }
                         setActiveGifPickerRoomId(null)
-                        requestAnimationFrame(() => {
-                          syncComposerMetrics()
-                        })
                       }}
                       onBlur={() => {
                         setIsKeyboardOpen(false)
-                        requestAnimationFrame(() => {
-                          syncComposerMetrics()
-                        })
                       }}
+                      suppressContentEditableWarning={true}
                     />
                     <button
                       type="button"

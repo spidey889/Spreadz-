@@ -350,8 +350,8 @@ body {
         }
 
         .input-area {
-          background: linear-gradient(180deg, rgba(17,18,20,0), rgba(17,18,20,0.94) 28%, rgba(17,18,20,1));
-          padding: 5px 18px calc(13px + env(safe-area-inset-bottom, 0px));
+          background: var(--bg);
+          padding: 4px 18px calc(8px + env(safe-area-inset-bottom, 0px));
           flex-shrink: 0;
         }
         .hint {
@@ -585,61 +585,36 @@ body {
         }
         
         .input-wrap {
-          --composer-send-size: 44px;
+          --composer-send-size: 38px;
           --composer-gif-hit-size: 41px;
           --composer-gif-icon-size: 31px;
           position: relative;
           display: flex;
           align-items: center;
           gap: 6px;
-          background: linear-gradient(180deg, rgba(24,26,31,0.98), rgba(16,18,22,0.99));
-          border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 25px;
-          padding: 5px 7px 5px 16px;
-          transition: box-shadow 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
-          box-shadow: 0 14px 24px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255,255,255,0.028);
-          backdrop-filter: blur(12px);
+          background: var(--surface-elevated);
+          border: none;
+          border-radius: 14px;
+          padding: 4px 5px 4px 12px;
+          transition: background 0.14s ease;
+          box-shadow: none;
+          backdrop-filter: none;
         }
         .input-wrap::after {
-          content: '';
-          position: absolute;
-          top: 50%;
-          right: 6px;
-          width: 56px;
-          height: 56px;
-          transform: translateY(-50%);
-          background: radial-gradient(circle, rgba(88,101,242,0.12), transparent 70%);
-          pointer-events: none;
+          content: none;
         }
         .input-wrap:focus-within {
-          box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 16px 30px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255,255,255,0.035);
-          border-color: rgba(255,255,255,0.12);
-          transform: translateY(-1px);
+          background: var(--surface-elevated);
+          box-shadow: none;
+          border-color: transparent;
+          transform: none;
         }
 
         input { flex: 1; background: none; border: none; outline: none; font-size: 15px; color: var(--text-primary); font-family: inherit; }
         input::placeholder { color: #7d8491; }
 
         .gif-btn {
-          appearance: none;
-          border: none;
-          background: none;
-          color: rgba(244,246,251,0.72);
-          width: var(--composer-gif-hit-size);
-          height: var(--composer-gif-hit-size);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0;
-          cursor: pointer;
-          transition: color 0.14s ease, transform 0.12s ease, opacity 0.14s ease;
-          flex-shrink: 0;
-          position: relative;
-          z-index: 1;
-          box-shadow: none;
-          border-radius: 50%;
-          opacity: 0.96;
-          align-self: center;
+          display: none;
         }
         .gif-btn-icon {
           display: inline-flex;
@@ -664,8 +639,8 @@ body {
           opacity: 1;
         }
 
-        .send-btn { background: linear-gradient(180deg, #6974ff, #5865F2); color: white; border: 1px solid rgba(255,255,255,0.16); border-radius: 50%; width: var(--composer-send-size); height: var(--composer-send-size); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s, box-shadow 0.2s; flex-shrink: 0; box-shadow: 0 10px 24px rgba(88, 101, 242, 0.28); position: relative; z-index: 1; }
-        .send-btn:hover { background: linear-gradient(180deg, #5f6af8, #4d58d6); }
+        .send-btn { background: var(--accent-green); color: #111214; border: none; border-radius: 12px; width: var(--composer-send-size); height: var(--composer-send-size); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, background 0.2s; flex-shrink: 0; box-shadow: none; position: relative; z-index: 1; }
+        .send-btn:hover { background: #72f0a9; }
         .send-btn:active { transform: scale(0.95); }
         .send-btn:focus-visible,
         .gif-btn:focus-visible,

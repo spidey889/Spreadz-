@@ -206,8 +206,19 @@ body {
         }
 
         .ai-card-wrap {
-          margin: 4px 14px 0;
-          padding: 0 10px 10px;
+          position: sticky;
+          top: 0;
+          z-index: 2;
+          padding: 4px 14px 8px;
+          background: var(--bg);
+          flex-shrink: 0;
+        }
+        .context-msg {
+          align-items: flex-start;
+          margin-top: 0;
+        }
+        .context-avatar-spacer {
+          width: 42px;
           flex-shrink: 0;
         }
         .ai-card {
@@ -216,6 +227,13 @@ body {
         }
         .ai-card.compact {
           padding-bottom: 10px;
+        }
+        .ai-card.compact .card-label {
+          color: rgba(124,255,183,0.64);
+        }
+        .ai-card.compact .ai-headline {
+          font-size: 15px;
+          color: #e7ebf0;
         }
         .ai-card::after {
           content: none;
@@ -296,7 +314,7 @@ body {
         .group-start { margin-top: 24px; }
         .group-continuation { margin-top: 2px; }
         .group-divider { height: 1px; width: calc(100% + 20px); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); margin: 22px -10px; }
-        .ai-card-wrap:not(.hidden) + .room-messages .messages > .msg-reveal:first-child .group-start { margin-top: 16px; }
+        .ai-card-wrap:not(.hidden) + .messages > .msg-reveal:first-child .group-start { margin-top: 16px; }
 
         .avatar {
           width: 42px;
@@ -1140,7 +1158,7 @@ body {
           }
           .header { padding-left: 26px; padding-right: 26px; }
           .header::after { left: 26px; right: 26px; }
-          .ai-card-wrap { margin-left: 28px; margin-right: 28px; }
+          .ai-card-wrap { padding-left: 28px; padding-right: 28px; }
           .messages { padding-left: 28px; padding-right: 28px; }
           .input-area { padding-left: 28px; padding-right: 28px; }
         }
@@ -1152,7 +1170,7 @@ body {
           .logo { transform: translate(-42px, 1px); }
           .logo-img { height: 76px; margin-top: -18px; margin-bottom: -15px; }
           .profile-avatar-btn { width: 30px; height: 30px; }
-          .ai-card-wrap { margin-left: 14px; margin-right: 14px; }
+          .ai-card-wrap { padding-left: 14px; padding-right: 14px; }
           .card-kicker { text-align: left; }
         }
       

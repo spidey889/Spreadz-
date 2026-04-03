@@ -216,11 +216,11 @@ body {
           position: relative;
           overflow: hidden;
           border-radius: 6px;
-          padding: 18px 18px 18px 24px;
+          padding: 14px 18px 14px 24px;
         }
         .ai-card.compact {
-          padding-top: 16px;
-          padding-bottom: 16px;
+          padding-top: 12px;
+          padding-bottom: 12px;
         }
         .ai-card::after {
           content: none;
@@ -240,7 +240,7 @@ body {
           justify-content: space-between;
           flex-wrap: wrap;
           gap: 6px;
-          margin-bottom: 12px;
+          margin-bottom: 8px;
         }
         .card-label {
           display: inline-flex;

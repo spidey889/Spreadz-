@@ -297,7 +297,7 @@ export default function GlobalChat() {
   const activeMessagesRef = useRef<HTMLDivElement | null>(null)
   const composerLayerRef = useRef<HTMLDivElement | null>(null)
   const composerAreaRef = useRef<HTMLDivElement | null>(null)
-  const composerBarRef = useRef<HTMLFormElement | null>(null)
+  const composerBarRef = useRef<HTMLDivElement | null>(null)
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string; contentOverride?: string } | null>(null)
   const prevRoomIndexRef = useRef<number>(0)
@@ -1829,7 +1829,7 @@ export default function GlobalChat() {
     setReadOnlyProfile(null)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, roomId: string) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, roomId: string) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       e.stopPropagation()
@@ -2110,23 +2110,20 @@ export default function GlobalChat() {
                     <span className="hint-badge">Swipe Up</span>
                     <span>for new people &amp; topics</span>
                   </div>
-                  <form
+                  <div
                     ref={isCurrentRoom ? composerBarRef : undefined}
                     className="input-wrap"
-                    autoComplete="off"
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleSend(room.id)
-                    }}
                   >
-                    <input
-                      type="text"
+                    <textarea
+                      rows={1}
+                      className="composer-input"
+                      aria-label="Message"
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="off"
                       spellCheck={false}
                       data-form-type="other"
+                      aria-autocomplete="none"
                       enterKeyHint="send"
                       placeholder="What's on your mind?"
                       value={inputText}
@@ -2174,12 +2171,13 @@ export default function GlobalChat() {
                       </span>
                     </button>
                     <button
-                      type="submit"
+                      type="button"
                       className="send-btn"
                       aria-label="Send"
                       onClick={(e) => {
                         const btn = e.currentTarget as HTMLButtonElement
                         btn.blur()
+                        handleSend(room.id)
                       }}
                     >
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2187,7 +2185,7 @@ export default function GlobalChat() {
                         <polygon points="22 2 15 22 11 13 2 9 22 2" />
                       </svg>
                     </button>
-                  </form>
+                  </div>
                 </div>
               </div>
             </div>

@@ -3,7 +3,7 @@
 This folder is for ad-hoc SQL scripts and notes related to Supabase/DB changes.
 
 ## Index
-- `db_cleanup.sql` — friends merge + RLS + column cleanup
+- `db_cleanup.sql` — friends merge + RLS + column cleanup + push subscription table/policies
 - `user_behaviour_migration.sql` — original FRIDAY tracking table migration
 
 ## Conventions

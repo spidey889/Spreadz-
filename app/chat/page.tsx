@@ -76,7 +76,6 @@ const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
 const NOTIFICATION_COOLDOWN_MS = 2500
-const PUSH_NOTIFICATION_PREVIEW_MAX_LENGTH = 120
 
 const urlBase64ToUint8Array = (base64String: string) => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -203,15 +202,6 @@ export default function GlobalChat() {
       return storedUserId
     }
     return ''
-  }, [])
-
-  const buildPushMessagePreview = useCallback((messageText: string) => {
-    const trimmedMessage = messageText.trim()
-    if (trimmedMessage.length <= PUSH_NOTIFICATION_PREVIEW_MAX_LENGTH) {
-      return trimmedMessage
-    }
-
-    return `${trimmedMessage.slice(0, PUSH_NOTIFICATION_PREVIEW_MAX_LENGTH - 3)}...`
   }, [])
 
   const getOptimisticMessageKey = useCallback((roomId: string, userUuid: string, text: string) => {
@@ -455,21 +445,31 @@ export default function GlobalChat() {
 
   const triggerServerPush = useCallback(async (params: {
     roomId: string
-    senderName: string
-    messagePreview: string
-    senderUuid: string
+    messageId: string
   }) => {
     try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+      if (sessionError) {
+        console.error('[Push] Failed to read auth session', sessionError)
+        return
+      }
+
+      const accessToken = sessionData.session?.access_token?.trim() || ''
+      if (!accessToken) {
+        console.error('[Push] Cannot trigger server push without an access token.')
+        return
+      }
+
       const response = await fetch('/api/send-push', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           room_id: params.roomId,
-          sender_name: params.senderName,
-          message_preview: params.messagePreview,
-          sender_uuid: params.senderUuid,
+          message_id: params.messageId,
         }),
       })
 
@@ -594,7 +594,12 @@ export default function GlobalChat() {
     const enabled = await enableNotifications()
     if (!enabled) return
 
-    await ensurePushSubscriptionSaved(true)
+    const subscriptionSaved = await ensurePushSubscriptionSaved(true)
+    if (!subscriptionSaved) {
+      setNotificationStatus('error')
+      setNotificationErrorMessage('Notifications were enabled, but push setup could not be completed. Please try again.')
+      return
+    }
 
     setNotificationSheetOpen(false)
     showBrowserNotification({
@@ -1366,12 +1371,10 @@ export default function GlobalChat() {
       handleNotificationPromptAfterSend()
       void triggerServerPush({
         roomId,
-        senderName: activeName,
-        messagePreview: buildPushMessagePreview(serverMessage.text),
-        senderUuid: userId,
+        messageId: serverMessage.id,
       })
     }
-  }, [buildMessageFromRow, buildPushMessagePreview, getCurrentUserId, getOptimisticMessageKey, handleNewMessageDebug, handleNotificationPromptAfterSend, inputTexts, scheduleReveal, syncVisibleMessageId, triggerServerPush, university, username])
+  }, [buildMessageFromRow, getCurrentUserId, getOptimisticMessageKey, handleNewMessageDebug, handleNotificationPromptAfterSend, inputTexts, scheduleReveal, syncVisibleMessageId, triggerServerPush, university, username])
 
   const handleProfileSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault()

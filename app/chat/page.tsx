@@ -2179,8 +2179,11 @@ export default function GlobalChat() {
                         handleSend(room.id)
                       }}
                     >
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M7 17L17 12L7 7" />
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path
+                          d="M4.7 11.7L18.65 5.89C19.62 5.49 20.58 6.45 20.18 7.41L14.37 21.36C13.94 22.39 12.45 22.29 12.16 21.22L10.51 15.1L4.38 13.45C3.32 13.16 3.22 11.67 4.24 11.24L17.62 7.26L11.64 13.24"
+                          fill="currentColor"
+                        />
                       </svg>
                     </button>
                   </div>

@@ -29,6 +29,7 @@ interface Message {
   created_at?: string
   room_name?: string | null
   room_id?: string | null
+  user_uuid?: string | null
   senderUsername?: string | null
   reveal_delay?: number
 }
@@ -38,6 +39,13 @@ interface FriendRequest {
   requester_uuid: string
   sender_name: string
   created_at?: string
+}
+
+type NotificationPayload = {
+  title: string
+  body: string
+  url: string
+  tag: string
 }
 
 interface GifResult {
@@ -92,6 +100,12 @@ const COLLEGE_STORAGE_KEY = 'spreadz_college'
 const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
+const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
+const CLIENT_REFRESH_VERSION = '2026-04-03-master-push-notifications'
+const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
+const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
+const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
+const NOTIFICATION_COOLDOWN_MS = 2500
 const AVATAR_MAX_BYTES = 200 * 1024
 const AVATAR_MAX_DIMENSION = 400
 const AVATAR_QUALITY_STEPS = [0.7, 0.6, 0.5, 0.4, 0.3]
@@ -242,6 +256,19 @@ const compressAvatarFile = async (file: File) => {
   }
 }
 
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const normalizedBase64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(normalizedBase64)
+  const outputArray = new Uint8Array(rawData.length)
+
+  for (let index = 0; index < rawData.length; index += 1) {
+    outputArray[index] = rawData.charCodeAt(index)
+  }
+
+  return outputArray
+}
+
 export default function GlobalChat() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [roomMessages, setRoomMessages] = useState<Record<string, Message[]>>({})
@@ -275,6 +302,9 @@ export default function GlobalChat() {
   const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
   const [sheetClosing, setSheetClosing] = useState(false)
   const [friendsSheetOpen, setFriendsSheetOpen] = useState(false)
+  const [notificationSheetOpen, setNotificationSheetOpen] = useState(false)
+  const [notificationStatus, setNotificationStatus] = useState<'idle' | 'enabling' | 'enabled' | 'unsupported' | 'error'>('idle')
+  const [notificationErrorMessage, setNotificationErrorMessage] = useState('')
   const [friends, setFriends] = useState<{ id: string; username: string }[]>([])
   const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
   const [friendRequestQueue, setFriendRequestQueue] = useState<FriendRequest[]>([])
@@ -301,6 +331,9 @@ export default function GlobalChat() {
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string; contentOverride?: string } | null>(null)
   const prevRoomIndexRef = useRef<number>(0)
+  const handledNotificationNavigationRef = useRef<string>('')
+  const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
+  const notificationCooldownUntilRef = useRef(0)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const profileSheetRef = useRef<HTMLFormElement>(null)
   const gifPickerTouchStartYRef = useRef<number | null>(null)
@@ -415,6 +448,7 @@ export default function GlobalChat() {
       created_at: m.created_at,
       room_name: m.room_name ?? null,
       room_id: m.room_id,
+      user_uuid: m.user_uuid ?? null,
       senderUsername: fallbackUsername ?? displayNameToUsernameRef.current[resolvedName] ?? null,
       reveal_delay: m.reveal_delay || 0,
     }
@@ -441,6 +475,313 @@ export default function GlobalChat() {
     }
     return ''
   }, [])
+
+  const getNotificationMessageKey = useCallback((message: any) => {
+    if (typeof message?.id === 'string' && message.id.trim()) {
+      return message.id.trim()
+    }
+
+    const roomId = typeof message?.room_id === 'string' && message.room_id.trim() ? message.room_id.trim() : 'unknown-room'
+    const createdAt = typeof message?.created_at === 'string' && message.created_at.trim() ? message.created_at.trim() : 'unknown-created-at'
+    const content = typeof message?.content === 'string' && message.content.trim()
+      ? message.content.trim()
+      : typeof message?.text === 'string' && message.text.trim()
+        ? message.text.trim()
+        : 'unknown-content'
+
+    return `${roomId}:${createdAt}:${content}`
+  }, [])
+
+  const buildIncomingNotificationPayload = useCallback((message: any): NotificationPayload => {
+    const sender = typeof message?.display_name === 'string' && message.display_name.trim()
+      ? message.display_name.trim()
+      : typeof message?.username === 'string' && message.username.trim()
+        ? message.username.trim()
+        : 'Someone'
+    const content = typeof message?.content === 'string' && message.content.trim()
+      ? message.content.trim()
+      : typeof message?.text === 'string' && message.text.trim()
+        ? message.text.trim()
+        : 'sent a new message'
+    const preview = content.length > 88 ? `${content.slice(0, 85)}...` : content
+    const notificationParams = new URLSearchParams()
+
+    if (typeof message?.room_id === 'string' && message.room_id.trim()) {
+      notificationParams.set('roomId', message.room_id.trim())
+    }
+
+    if (typeof message?.id === 'string' && message.id.trim()) {
+      notificationParams.set('messageId', message.id.trim())
+    }
+
+    const targetUrl = notificationParams.toString() ? `/chat?${notificationParams.toString()}` : '/chat'
+
+    return {
+      title: sender,
+      body: preview,
+      url: targetUrl,
+      tag: `spreadz-message-${message?.id || message?.room_id || 'live'}`,
+    }
+  }, [])
+
+  const showBrowserNotification = useCallback((payload: NotificationPayload) => {
+    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') {
+      return
+    }
+
+    const targetUrl = new URL(payload.url || '/chat', window.location.origin).href
+    const notification = new Notification(payload.title, {
+      body: payload.body,
+      icon: '/icon-192x192.png',
+      tag: payload.tag,
+      data: { url: targetUrl },
+    })
+
+    notification.onclick = () => {
+      window.focus()
+      notification.close()
+      window.location.assign(targetUrl)
+    }
+  }, [])
+
+  const rememberNotificationKey = useCallback((notificationKey: string) => {
+    if (notifiedMessageKeysRef.current.has(notificationKey)) {
+      return false
+    }
+
+    notifiedMessageKeysRef.current.add(notificationKey)
+
+    if (notifiedMessageKeysRef.current.size > 200) {
+      const oldestNotificationKey = notifiedMessageKeysRef.current.values().next().value
+      if (oldestNotificationKey) {
+        notifiedMessageKeysRef.current.delete(oldestNotificationKey)
+      }
+    }
+
+    return true
+  }, [])
+
+  const getServiceWorkerRegistration = useCallback(async (): Promise<ServiceWorkerRegistration | null> => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      return null
+    }
+
+    try {
+      const existingRegistration =
+        (await navigator.serviceWorker.getRegistration('/')) ||
+        (await navigator.serviceWorker.getRegistration())
+
+      if (existingRegistration?.active) {
+        return existingRegistration
+      }
+
+      await navigator.serviceWorker.register('/sw.js')
+
+      const readyRegistration = await Promise.race<ServiceWorkerRegistration | null>([
+        navigator.serviceWorker.ready,
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 10000)),
+      ])
+
+      return readyRegistration
+    } catch (error) {
+      console.error('[Notifications] Service worker registration failed', error)
+      return null
+    }
+  }, [])
+
+  const savePushSubscription = useCallback(async (subscription: PushSubscriptionJSON, userUuid: string) => {
+    const endpoint =
+      typeof subscription.endpoint === 'string' && subscription.endpoint.trim()
+        ? subscription.endpoint.trim()
+        : ''
+
+    if (!endpoint) {
+      throw new Error('Push subscription is missing an endpoint.')
+    }
+
+    const subscriptionPayload = {
+      user_uuid: userUuid,
+      endpoint,
+      subscription: subscription as any,
+    }
+
+    const { count, error: updateError } = await supabase
+      .from('push_subscriptions')
+      .update(subscriptionPayload, { count: 'exact' })
+      .eq('endpoint', endpoint)
+
+    if (updateError) {
+      throw updateError
+    }
+
+    if ((count ?? 0) > 0) {
+      return
+    }
+
+    const { error: insertError } = await supabase
+      .from('push_subscriptions')
+      .insert(subscriptionPayload)
+
+    if (insertError) {
+      throw insertError
+    }
+  }, [])
+
+  const ensurePushSubscriptionSaved = useCallback(async (forceFreshSubscription = false) => {
+    const userUuid = getCurrentUserId()
+    if (!userUuid) {
+      console.error('[Push] Cannot save subscription because user id is not ready.')
+      return false
+    }
+
+    if (typeof window === 'undefined' || !('PushManager' in window)) {
+      console.error('[Push] Push subscriptions are not supported in this browser.')
+      return false
+    }
+
+    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    if (!vapidPublicKey) {
+      console.error('[Push] NEXT_PUBLIC_VAPID_PUBLIC_KEY is missing.')
+      return false
+    }
+
+    try {
+      const registration = await getServiceWorkerRegistration()
+      if (!registration) {
+        console.error('[Push] Service worker is not ready yet.')
+        return false
+      }
+
+      let subscription = await registration.pushManager.getSubscription()
+
+      if (forceFreshSubscription && subscription) {
+        const unsubscribed = await subscription.unsubscribe()
+        if (!unsubscribed) {
+          console.error('[Push] Failed to unsubscribe existing push subscription.')
+          return false
+        }
+
+        subscription = null
+      }
+
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        })
+      }
+
+      await savePushSubscription(subscription.toJSON(), userUuid)
+      return true
+    } catch (error) {
+      console.error('[Push] Failed to save push subscription', error)
+      return false
+    }
+  }, [getCurrentUserId, getServiceWorkerRegistration, savePushSubscription])
+
+  const triggerServerPush = useCallback(async (params: { roomId: string; messageId: string }) => {
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+      if (sessionError) {
+        console.error('[Push] Failed to read auth session', sessionError)
+        return
+      }
+
+      const accessToken = sessionData.session?.access_token?.trim() || ''
+      if (!accessToken) {
+        console.error('[Push] Cannot trigger server push without an access token.')
+        return
+      }
+
+      const response = await fetch('/api/send-push', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          room_id: params.roomId,
+          message_id: params.messageId,
+        }),
+      })
+
+      if (!response.ok) {
+        const responsePayload = await response.json().catch(() => null)
+        console.error('[Push] Failed to trigger server push', {
+          status: response.status,
+          errorPayload: responsePayload,
+        })
+      }
+    } catch (error) {
+      console.error('[Push] Failed to trigger server push', error)
+    }
+  }, [])
+
+  const showServiceWorkerNotification = useCallback(async (payload: NotificationPayload) => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      return
+    }
+
+    const registration = await getServiceWorkerRegistration()
+    if (!registration) {
+      return
+    }
+
+    const targetUrl = new URL(payload.url || '/chat', window.location.origin).href
+
+    await registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: '/icon.png',
+      tag: payload.tag,
+      data: { url: targetUrl },
+    })
+  }, [getServiceWorkerRegistration])
+
+  const showIncomingNotification = useCallback(async (payload: NotificationPayload) => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const now = Date.now()
+    if (now < notificationCooldownUntilRef.current) {
+      return
+    }
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      notificationCooldownUntilRef.current = now + NOTIFICATION_COOLDOWN_MS
+
+      try {
+        showBrowserNotification(payload)
+        return
+      } catch (notificationError) {
+        console.error('[Notifications] Notification API failed, falling back to service worker', notificationError)
+      }
+    }
+
+    notificationCooldownUntilRef.current = now + NOTIFICATION_COOLDOWN_MS
+    await showServiceWorkerNotification(payload)
+  }, [showBrowserNotification, showServiceWorkerNotification])
+
+  const handleIncomingMessageNotification = useCallback(async (message?: any) => {
+    if (!message) return
+
+    const currentUserId = getCurrentUserId()
+    if (message?.user_uuid && currentUserId && message.user_uuid === currentUserId) {
+      return
+    }
+
+    const notificationKey = getNotificationMessageKey(message)
+    if (!rememberNotificationKey(notificationKey)) {
+      return
+    }
+
+    try {
+      await showIncomingNotification(buildIncomingNotificationPayload(message))
+    } catch (error) {
+      console.error('[Notifications] New message notification failed', error)
+    }
+  }, [buildIncomingNotificationPayload, getCurrentUserId, getNotificationMessageKey, rememberNotificationKey, showIncomingNotification])
 
   const getCurrentUsername = useCallback(() => {
     if (accountUsername.trim()) return accountUsername.trim()
@@ -636,9 +977,167 @@ export default function GlobalChat() {
     }
   }, [persistSentRoomIds])
 
+  const enableNotifications = useCallback(async (): Promise<boolean> => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setNotificationStatus('unsupported')
+      setNotificationErrorMessage('This browser does not support notifications.')
+      return false
+    }
+
+    if (Notification.permission === 'denied') {
+      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
+      setNotificationStatus('error')
+      setNotificationErrorMessage('Notifications are blocked for this app or site.')
+      return false
+    }
+
+    setNotificationStatus('enabling')
+    setNotificationErrorMessage('')
+
+    try {
+      const permission = Notification.permission === 'granted'
+        ? 'granted'
+        : await Notification.requestPermission()
+
+      if (permission !== 'granted') {
+        if (permission === 'denied') {
+          localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
+          setNotificationStatus('error')
+          setNotificationErrorMessage('Notifications were blocked for this app or site.')
+        } else {
+          setNotificationStatus('idle')
+          setNotificationErrorMessage('')
+        }
+        return false
+      }
+
+      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'enabled')
+      setNotificationStatus('enabled')
+      setNotificationErrorMessage('')
+      return true
+    } catch (error) {
+      console.error('[Notifications] Enable failed', error)
+      setNotificationStatus('error')
+      setNotificationErrorMessage(error instanceof Error ? error.message : 'Notification setup failed.')
+      return false
+    }
+  }, [])
+
+  const handleEnableNotifications = useCallback(async () => {
+    const enabled = await enableNotifications()
+    if (!enabled) return
+
+    const subscriptionSaved = await ensurePushSubscriptionSaved(true)
+    if (!subscriptionSaved) {
+      setNotificationStatus('error')
+      setNotificationErrorMessage('Notifications were enabled, but push setup could not be completed. Please try again.')
+      return
+    }
+
+    setNotificationSheetOpen(false)
+    showBrowserNotification({
+      title: 'Notifications are on',
+      body: 'You will now get alerts when new messages come in.',
+      url: '/chat',
+      tag: 'spreadz-notifications-enabled',
+    })
+  }, [enableNotifications, ensurePushSubscriptionSaved, showBrowserNotification])
+
+  const closeNotificationSheet = useCallback(() => {
+    setNotificationSheetOpen(false)
+  }, [])
+
+  const handleNotificationPromptAfterSend = useCallback(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return
+
+    if (Notification.permission === 'granted') {
+      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'enabled')
+      setNotificationStatus('enabled')
+      setNotificationErrorMessage('')
+      return
+    }
+
+    if (Notification.permission === 'denied') {
+      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
+      setNotificationStatus('error')
+      setNotificationErrorMessage('Notifications are blocked for this app or site.')
+      return
+    }
+
+    const promptStatus = localStorage.getItem(PUSH_PROMPT_STATUS_STORAGE_KEY)
+    if (promptStatus === 'enabled' || promptStatus === 'denied') return
+
+    const sentCount = Number(localStorage.getItem(PUSH_SENT_COUNT_STORAGE_KEY) || '0') + 1
+    localStorage.setItem(PUSH_SENT_COUNT_STORAGE_KEY, String(sentCount))
+
+    if (sentCount >= PUSH_PROMPT_MESSAGE_THRESHOLD) {
+      setNotificationSheetOpen(true)
+    }
+  }, [])
+
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  useEffect(() => {
+    if (!isMounted || typeof window === 'undefined') return
+
+    const appliedVersion = localStorage.getItem(CLIENT_REFRESH_STORAGE_KEY)
+    if (appliedVersion === CLIENT_REFRESH_VERSION) return
+
+    localStorage.setItem(CLIENT_REFRESH_STORAGE_KEY, CLIENT_REFRESH_VERSION)
+
+    const refreshClient = async () => {
+      try {
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations()
+          await Promise.all(registrations.map(registration => registration.update()))
+        }
+
+        if ('caches' in window) {
+          const cacheKeys = await caches.keys()
+          const cacheKeysToDelete = cacheKeys.filter(key => key === 'start-url' || key.includes('workbox-precache'))
+          await Promise.all(cacheKeysToDelete.map(key => caches.delete(key)))
+        }
+      } catch (error) {
+        console.error('[App] Client refresh failed', error)
+      } finally {
+        window.location.reload()
+      }
+    }
+
+    void refreshClient()
+  }, [isMounted])
+
+  useEffect(() => {
+    if (!isMounted || typeof window === 'undefined') return
+
+    if (!('Notification' in window)) {
+      setNotificationStatus('unsupported')
+      setNotificationErrorMessage('This browser does not support notifications.')
+      return
+    }
+
+    if (Notification.permission === 'granted') {
+      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'enabled')
+      setNotificationStatus('enabled')
+      setNotificationErrorMessage('')
+      return
+    }
+
+    if (Notification.permission === 'denied') {
+      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
+      setNotificationStatus('error')
+      setNotificationErrorMessage('Notifications are blocked for this app or site.')
+    }
+  }, [isMounted])
+
+  useEffect(() => {
+    if (!authReady || !isMounted || typeof window === 'undefined' || !('Notification' in window)) return
+    if (Notification.permission !== 'granted') return
+
+    void ensurePushSubscriptionSaved()
+  }, [authReady, ensurePushSubscriptionSaved, isMounted])
 
   useEffect(() => {
     if (displayName.trim() && accountUsername.trim()) {
@@ -986,6 +1485,8 @@ export default function GlobalChat() {
       return { ...prev, [roomId]: [...existing, incomingMessage] }
     })
 
+    void handleIncomingMessageNotification(messageRow)
+
     void (async () => {
       await cacheUsernamesForDisplayNames([messageRow.display_name])
       const hydratedMessage = buildMessageFromRow(messageRow)
@@ -1013,7 +1514,7 @@ export default function GlobalChat() {
         return { ...prev, [roomId]: nextRoomMessages }
       })
     })()
-  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, getCurrentUserId, scheduleReveal])
+  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, getCurrentUserId, handleIncomingMessageNotification, scheduleReveal])
 
 
   // When rooms load, fetch room index 0 immediately.
@@ -1021,6 +1522,37 @@ export default function GlobalChat() {
     if (rooms.length === 0) return
     fetchMessagesForRoom(rooms[0])
   }, [rooms, fetchMessagesForRoom])
+
+  useEffect(() => {
+    if (!isMounted || rooms.length === 0 || typeof window === 'undefined') return
+
+    const searchParams = new URLSearchParams(window.location.search)
+    const targetRoomId = searchParams.get('roomId')
+    const targetMessageId = searchParams.get('messageId') || ''
+
+    if (!targetRoomId) return
+
+    const navigationKey = `${targetRoomId}:${targetMessageId}`
+    if (handledNotificationNavigationRef.current === navigationKey) return
+
+    const targetIndex = rooms.findIndex(room => room.id === targetRoomId)
+    if (targetIndex === -1) return
+
+    handledNotificationNavigationRef.current = navigationKey
+
+    const targetRoom = rooms[targetIndex]
+    setCurrentRoomIndex(targetIndex)
+    void fetchMessagesForRoom(targetRoom)
+
+    window.setTimeout(() => {
+      const targetPanel = containerRef.current?.querySelector(`[data-room-index="${targetIndex}"]`) as HTMLElement | null
+      if (containerRef.current && targetPanel) {
+        containerRef.current.scrollTo({ top: targetPanel.offsetTop, behavior: 'smooth' })
+      }
+
+      window.history.replaceState({}, '', '/chat')
+    }, 50)
+  }, [fetchMessagesForRoom, isMounted, rooms])
 
   // Keep one long-lived messages subscription so room changes do not interrupt realtime inserts.
   useEffect(() => {
@@ -1349,6 +1881,7 @@ export default function GlobalChat() {
     const text = (contentOverride ?? inputTexts[roomId] ?? '').trim()
     if (!text) return
 
+    const userId = getCurrentUserId()
     const activeDisplayName = overrideName || displayName || localStorage.getItem(DISPLAY_NAME_STORAGE_KEY)
     if (!activeDisplayName) {
       pendingSendRef.current = { roomId, contentOverride }
@@ -1373,6 +1906,7 @@ export default function GlobalChat() {
       timestamp: formatTime(),
       room_name: activeRoomName,
       room_id: roomId,
+      user_uuid: userId,
       senderUsername: activeUsername,
       reveal_delay: 0,
     }
@@ -1392,7 +1926,14 @@ export default function GlobalChat() {
 
     const { data, error } = await supabase
       .from('messages')
-      .insert({ content: text, display_name: activeDisplayName, college: activeCollege, room_name: activeRoomName, room_id: roomId })
+      .insert({
+        content: text,
+        display_name: activeDisplayName,
+        college: activeCollege,
+        room_name: activeRoomName,
+        room_id: roomId,
+        user_uuid: userId || null,
+      })
       .select()
 
     if (error) {
@@ -1413,6 +1954,11 @@ export default function GlobalChat() {
 
       // Ensure the server-returned success message is also revealed
       scheduleReveal(roomId, serverMessage.id, 0)
+      handleNotificationPromptAfterSend()
+      void triggerServerPush({
+        roomId,
+        messageId: serverMessage.id,
+      })
       trackMessageSent(roomId, activeRoomName)
       await incrementUserMessagesSent(activeUsername)
       await updateRoomMessageStats(roomId, activeUsername)
@@ -2397,6 +2943,40 @@ export default function GlobalChat() {
             </button>
             {reportStatus === 'done' && <div className="sheet-confirm">Reported</div>}
             {reportStatus === 'error' && <div className="sheet-confirm error">Report failed</div>}
+          </div>
+        </div>
+      )}
+
+      {notificationSheetOpen && (
+        <div className="sheet-overlay" onClick={closeNotificationSheet}>
+          <div className="sheet notify-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <div className="notify-title">Turn on notifications</div>
+            <div className="notify-sub">
+              After you enable this, new incoming chat messages can show up as notifications on this device.
+            </div>
+            <div className="notify-actions">
+              <button
+                type="button"
+                className="notify-btn notify-btn-secondary"
+                onClick={closeNotificationSheet}
+              >
+                Not now
+              </button>
+              <button
+                type="button"
+                className="notify-btn notify-btn-primary"
+                onClick={() => void handleEnableNotifications()}
+                disabled={notificationStatus === 'enabling'}
+              >
+                {notificationStatus === 'enabling' ? 'Enabling...' : 'Enable notifications'}
+              </button>
+            </div>
+            {notificationStatus === 'error' && (
+              <div className="notify-error">
+                {notificationErrorMessage || 'Notifications are not ready here yet. Try again from the installed app or deployed build.'}
+              </div>
+            )}
           </div>
         </div>
       )}

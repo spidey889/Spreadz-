@@ -78,6 +78,7 @@ export type Database = {
           college: string | null
           room_name: string | null
           room_id: string | null
+          user_uuid: string | null
         }
         Insert: {
           content: string
@@ -86,6 +87,7 @@ export type Database = {
           college?: string | null
           room_name?: string | null
           room_id?: string | null
+          user_uuid?: string | null
         }
         Update: {
           content?: string
@@ -94,6 +96,34 @@ export type Database = {
           college?: string | null
           room_name?: string | null
           room_id?: string | null
+          user_uuid?: string | null
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          user_uuid: string | null
+          endpoint: string | null
+          subscription: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Insert: {
+          id?: string
+          user_uuid?: string | null
+          endpoint?: string | null
+          subscription?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_uuid?: string | null
+          endpoint?: string | null
+          subscription?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }

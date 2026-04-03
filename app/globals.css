@@ -208,45 +208,53 @@ body {
         .ai-card-wrap {
           margin: 4px 14px 0;
           padding: 0 10px 10px;
-          background: var(--headline-bg);
+          background: transparent;
           flex-shrink: 0;
         }
         .ai-card {
           background: var(--headline-bg);
-          padding: 0 0 12px;
+          position: relative;
+          overflow: hidden;
+          border-radius: 6px;
+          padding: 18px 18px 18px 24px;
         }
         .ai-card.compact {
-          padding-bottom: 10px;
+          padding-top: 16px;
+          padding-bottom: 16px;
         }
         .ai-card::after {
           content: none;
+        }
+        .ai-card::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 4px;
+          background: var(--accent-green);
         }
         .card-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
-          gap: 8px;
-          margin-bottom: 5px;
+          gap: 6px;
+          margin-bottom: 12px;
         }
         .card-label {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          color: rgba(124,255,183,0.78);
+          gap: 0;
+          color: var(--accent-green);
           font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.18em;
+          font-weight: 700;
+          letter-spacing: 0.26em;
           text-transform: uppercase;
           white-space: nowrap;
         }
         .card-status-dot {
-          width: 5px;
-          height: 5px;
-          border-radius: 999px;
-          background: var(--accent-green);
-          opacity: 0.8;
-          flex-shrink: 0;
+          display: none;
         }
         .card-kicker {
           color: var(--text-muted);
@@ -256,18 +264,15 @@ body {
           text-align: right;
         }
         .ai-headline {
-          font-size: 16px;
-          color: var(--text-primary);
-          font-weight: 600;
-          line-height: 1.4;
-          letter-spacing: -0.015em;
+          font-size: 18px;
+          color: #f5f7fa;
+          font-weight: 700;
+          line-height: 1.35;
+          letter-spacing: -0.02em;
           text-wrap: pretty;
         }
         .card-support {
-          margin-top: 5px;
-          color: var(--text-muted);
-          font-size: 12px;
-          line-height: 1.45;
+          display: none;
         }
 
         @keyframes slideUpFade {

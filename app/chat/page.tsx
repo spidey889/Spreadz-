@@ -1882,15 +1882,15 @@ export default function GlobalChat() {
 
               {/* Headline card */}
               <div className={`ai-card-wrap${isComposerExpanded ? ' hidden' : ''}`}>
-                <div className={`ai-card${cardCollapsed ? ' compact' : ''}`}>
-                  <div className="card-row">
-                    <div className="card-label">
-                      <span className="card-status-dot" aria-hidden="true" />
-                      CONTEXT
+                  <div className={`ai-card${cardCollapsed ? ' compact' : ''}`}>
+                    <div className="card-row">
+                      <div className="card-label">
+                        <span className="card-status-dot" aria-hidden="true" />
+                        LIVE DISCUSSION
+                      </div>
                     </div>
-                  </div>
-                  <div className="ai-headline">{room.headline}</div>
-                  {!cardCollapsed && <div className="card-support">Only college students are allowed here.... ya we block others. Have fun! 😉</div>}
+                    <div className="ai-headline">{room.headline}</div>
+                    {!cardCollapsed && <div className="card-support">Only college students are allowed here.... ya we block others. Have fun! 😉</div>}
                 </div>
               </div>
 

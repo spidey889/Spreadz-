@@ -1855,7 +1855,7 @@ export default function GlobalChat() {
               <div className={`header${isComposerExpanded ? ' hidden' : ''}`}>
                 <div className="header-side" aria-hidden="true" />
                 <div className="logo">
-                  <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={216} height={108} priority />
+                  <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={176} height={88} priority />
                 </div>
                 <div className="header-side">
                   <button

@@ -103,7 +103,8 @@ body {
           --composer-reserved-space: 72px;
           --keyboard-offset: 0px;
           --composer-viewport-gap: 0px;
-          --bg: #111214;
+          --bg: #05070a;
+          --panel-bg: linear-gradient(to bottom, #0b0f14, #05070a);
           --surface: #1a1d22;
           --surface-elevated: #20242b;
           --surface-soft: #15181c;
@@ -116,14 +117,14 @@ body {
           --text-secondary: #AAB2BE;
           --text-muted: #7E8692;
           --headline-bg: #0D0D0D;
-          --accent-green: #71b9ff;
-          --accent-green-soft: rgba(113,185,255,0.16);
+          --accent-green: #7cffb7;
+          --accent-green-soft: rgba(124,255,183,0.16);
           --shadow-card: 0 20px 44px rgba(0, 0, 0, 0.34);
           color-scheme: dark;
         }
 
         html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; }
-        body { background: radial-gradient(circle at top, rgba(113,185,255,0.15), transparent 34%), var(--bg); color: var(--text-primary); }
+        body { background: var(--panel-bg); color: var(--text-primary); }
 
         .rooms-container { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; }
         .room-panel {
@@ -139,9 +140,22 @@ body {
         .room-panel::before {
           content: '';
           position: absolute;
-          inset: 0 0 auto;
-          height: 260px;
-          background: radial-gradient(circle at top center, rgba(113,185,255,0.18), transparent 72%);
+          inset: 0;
+          background: radial-gradient(circle at 50% 38%, rgba(255,255,255,0.04), rgba(255,255,255,0.015) 30%, rgba(0,0,0,0.06) 68%, rgba(0,0,0,0.2) 100%);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .room-panel::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image:
+            radial-gradient(rgba(255,255,255,0.09) 0.6px, transparent 0.6px),
+            radial-gradient(rgba(255,255,255,0.07) 0.6px, transparent 0.6px);
+          background-position: 0 0, 7px 9px;
+          background-size: 17px 17px, 23px 23px;
+          opacity: 0.025;
+          mix-blend-mode: soft-light;
           pointer-events: none;
           z-index: 0;
         }

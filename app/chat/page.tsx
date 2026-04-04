@@ -343,8 +343,6 @@ export default function GlobalChat() {
   const channelRef = useRef<any>(null)
   const friendRequestChannelRef = useRef<any>(null)
   const friendRequestsLoadedRef = useRef(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const activeRoomPanelRef = useRef<HTMLDivElement | null>(null)
   const activeRoomMessagesRef = useRef<HTMLDivElement | null>(null)
   const activeMessagesRef = useRef<HTMLDivElement | null>(null)
   const composerLayerRef = useRef<HTMLDivElement | null>(null)
@@ -354,7 +352,7 @@ export default function GlobalChat() {
   const pendingSendRef = useRef<{ roomId: string; contentOverride?: string } | null>(null)
   const pendingOutgoingMessageIdsRef = useRef<Map<string, string>>(new Map())
   const pendingGifLoadScrollRoomIdRef = useRef<string | null>(null)
-  const prevRoomIndexRef = useRef<number>(0)
+  const roomSwipeTouchStartYRef = useRef<number | null>(null)
   const handledNotificationNavigationRef = useRef<string>('')
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
   const notificationCooldownUntilRef = useRef(0)
@@ -390,6 +388,12 @@ export default function GlobalChat() {
     if (!element) return true
 
     return element.scrollTop + element.clientHeight >= element.scrollHeight - ROOM_SCROLL_EDGE_THRESHOLD_PX
+  }, [])
+
+  const isMessageListAtTop = useCallback((element: HTMLDivElement | null) => {
+    if (!element) return true
+
+    return element.scrollTop <= ROOM_SCROLL_EDGE_THRESHOLD_PX
   }, [])
 
   const updateRoomBottomState = useCallback((roomId: string, element: HTMLDivElement | null) => {
@@ -1493,17 +1497,6 @@ export default function GlobalChat() {
     }
   }, [activeGifPickerRoomId, fetchGifResults, gifSearchInput])
 
-  const hasScrolledToTopRef = useRef(false)
-  // Always force scroll to room 1 when rooms open
-  useEffect(() => {
-    if (rooms.length > 0 && !hasScrolledToTopRef.current) {
-      hasScrolledToTopRef.current = true
-      setTimeout(() => {
-        containerRef.current?.scrollTo({ top: 0, behavior: 'instant' })
-      }, 500)
-    }
-  }, [rooms])
-
   const triggerRevealsForMessages = useCallback((roomId: string, msgs: Message[]) => {
     if (roomId === HACKER_NEWS_ROOM_ID) {
       if (msgs.length === 0) return
@@ -1550,6 +1543,68 @@ export default function GlobalChat() {
       })
     }
   }, [buildMessageFromRow, cacheUsernamesForDisplayNames, normalizeMessageRow, triggerRevealsForMessages])
+
+  const switchToRoomIndex = useCallback((nextIndex: number) => {
+    if (rooms.length === 0) return
+
+    const boundedIndex = Math.max(0, Math.min(nextIndex, rooms.length - 1))
+    const nextRoom = rooms[boundedIndex]
+    if (!nextRoom) return
+
+    if (boundedIndex === currentRoomIndex) {
+      void fetchMessagesForRoom(nextRoom)
+      return
+    }
+
+    const previousRoom = rooms[currentRoomIndex]
+    if (previousRoom) {
+      trackRoomLeave(previousRoom.id)
+    }
+
+    trackRoomEnter(nextRoom.id, nextRoom.headline)
+    setCurrentRoomIndex(boundedIndex)
+    void fetchMessagesForRoom(nextRoom)
+  }, [currentRoomIndex, fetchMessagesForRoom, rooms])
+
+  const switchToNextRoom = useCallback(() => {
+    switchToRoomIndex(currentRoomIndex + 1)
+  }, [currentRoomIndex, switchToRoomIndex])
+
+  const switchToPreviousRoom = useCallback(() => {
+    switchToRoomIndex(currentRoomIndex - 1)
+  }, [currentRoomIndex, switchToRoomIndex])
+
+  const handleRoomTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1) {
+      roomSwipeTouchStartYRef.current = null
+      return
+    }
+
+    roomSwipeTouchStartYRef.current = e.touches[0].clientY
+  }, [])
+
+  const handleRoomTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    const touchStartY = roomSwipeTouchStartYRef.current
+    roomSwipeTouchStartYRef.current = null
+
+    if (touchStartY === null || e.changedTouches.length !== 1) return
+
+    const deltaY = e.changedTouches[0].clientY - touchStartY
+    if (Math.abs(deltaY) <= 60) return
+
+    const messageScrollEl = e.currentTarget
+
+    if (deltaY < 0) {
+      if (isMessageListAtBottom(messageScrollEl)) {
+        switchToNextRoom()
+      }
+      return
+    }
+
+    if (isMessageListAtTop(messageScrollEl)) {
+      switchToPreviousRoom()
+    }
+  }, [isMessageListAtBottom, isMessageListAtTop, switchToNextRoom, switchToPreviousRoom])
 
   const handleRealtimeMessage = useCallback((messageRow: any) => {
     const normalizedMessage = normalizeMessageRow(messageRow)
@@ -1651,18 +1706,14 @@ export default function GlobalChat() {
     handledNotificationNavigationRef.current = navigationKey
 
     const targetRoom = rooms[targetIndex]
-    setCurrentRoomIndex(targetIndex)
-    void fetchMessagesForRoom(targetRoom)
+    if (targetIndex === currentRoomIndex) {
+      void fetchMessagesForRoom(targetRoom)
+    } else {
+      switchToRoomIndex(targetIndex)
+    }
 
-    window.setTimeout(() => {
-      const targetPanel = containerRef.current?.querySelector(`[data-room-index="${targetIndex}"]`) as HTMLElement | null
-      if (containerRef.current && targetPanel) {
-        containerRef.current.scrollTo({ top: targetPanel.offsetTop, behavior: 'smooth' })
-      }
-
-      window.history.replaceState({}, '', '/chat')
-    }, 50)
-  }, [fetchMessagesForRoom, isMounted, rooms])
+    window.history.replaceState({}, '', '/chat')
+  }, [currentRoomIndex, fetchMessagesForRoom, isMounted, rooms, switchToRoomIndex])
 
   // Keep one long-lived messages subscription so room changes do not interrupt realtime inserts.
   useEffect(() => {
@@ -1688,43 +1739,6 @@ export default function GlobalChat() {
       }
     }
   }, [authReady, rooms.length, handleRealtimeMessage])
-
-  // Detect room changes via IntersectionObserver + FRIDAY tracking
-  useEffect(() => {
-    if (rooms.length === 0) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const idx = Number(entry.target.getAttribute('data-room-index'))
-            if (!isNaN(idx) && idx !== currentRoomIndex) {
-              // FRIDAY: synchronous memory-only tracking
-              const prevRoom = rooms[prevRoomIndexRef.current]
-              if (prevRoom) trackRoomLeave(prevRoom.id)
-              trackRoomEnter(rooms[idx].id, rooms[idx].headline)
-              prevRoomIndexRef.current = idx
-
-              const nextRoom = rooms[idx]
-
-              setCurrentRoomIndex(idx)
-              fetchMessagesForRoom(nextRoom)
-            }
-          }
-        }
-      },
-      {
-        root: containerRef.current,
-        threshold: 0.6,
-      }
-    )
-
-    containerRef.current
-      ?.querySelectorAll<HTMLElement>('[data-room-index]')
-      .forEach((roomPanel) => observer.observe(roomPanel))
-
-    return () => observer.disconnect()
-  }, [rooms, currentRoomIndex, fetchMessagesForRoom, interestDismissed])
 
   useEffect(() => {
     scrollCurrentRoomToBottom('smooth')
@@ -2508,7 +2522,7 @@ export default function GlobalChat() {
 
   return (
     <>
-      <div className="rooms-container" ref={containerRef}>
+      <div className="rooms-container">
         {rooms.map((room, index) => {
           const messages = roomMessages[room.id] || []
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
@@ -2521,10 +2535,8 @@ export default function GlobalChat() {
 
           return (
             <div
-              ref={isCurrentRoom ? activeRoomPanelRef : undefined}
               key={room.id}
               className={`room-panel${index === currentRoomIndex ? ' active-room' : ''}`}
-              data-room-index={index}
               style={{ background: 'var(--bg)' }}
             >
               {/* Header */}
@@ -2574,6 +2586,8 @@ export default function GlobalChat() {
               <div
                 ref={isCurrentRoom ? activeRoomMessagesRef : undefined}
                 className="room-messages"
+                onTouchStart={handleRoomTouchStart}
+                onTouchEnd={handleRoomTouchEnd}
                 onScroll={(e) => updateRoomBottomState(room.id, e.currentTarget)}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
               >
@@ -2760,7 +2774,18 @@ export default function GlobalChat() {
                   </>
                 )}
                 <div ref={isCurrentRoom ? composerAreaRef : undefined} className="input-area global-composer">
-                  <div className={`hint${isComposerExpanded || !isCurrentRoom || !isActiveRoomAtBottom ? ' hidden' : ''}`}>
+                  <div
+                    className={`hint${isComposerExpanded || !isCurrentRoom || !isActiveRoomAtBottom ? ' hidden' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={switchToNextRoom}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        switchToNextRoom()
+                      }
+                    }}
+                  >
                     <span className="hint-badge">Swipe Up</span>
                     <span>for new people &amp; topics</span>
                   </div>

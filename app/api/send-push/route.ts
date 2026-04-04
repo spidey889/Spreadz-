@@ -33,13 +33,6 @@ type PushNotificationPayload = {
 let vapidConfigured = false
 const PUSH_NOTIFICATION_PREVIEW_MAX_LENGTH = 120
 
-type PostgrestLikeError = {
-  code?: string
-  details?: string | null
-  hint?: string | null
-  message?: string
-}
-
 const maskEndpoint = (endpoint: string) => {
   if (!endpoint) return 'unknown-endpoint'
   if (endpoint.length <= 24) return endpoint
@@ -58,11 +51,13 @@ const ensureConfig = () => {
     throw new Error('Missing Supabase URL configuration')
   }
 
+  if (!supabaseAnonKey) {
+    throw new Error('Missing Supabase anon key configuration')
+  }
+
   if (!supabaseServiceRoleKey) {
     throw new Error('Missing Supabase service role configuration')
   }
-
-  const supabaseAuthKey = supabaseAnonKey || supabaseServiceRoleKey
 
   if (!vapidPublicKey || !vapidPrivateKey || !vapidSubject) {
     throw new Error('Missing VAPID configuration')
@@ -74,7 +69,7 @@ const ensureConfig = () => {
   }
 
   return {
-    authSupabase: createClient<Database>(supabaseUrl, supabaseAuthKey, {
+    authSupabase: createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -87,33 +82,6 @@ const ensureConfig = () => {
       },
     }),
   }
-}
-
-const getPostgrestErrorText = (error: PostgrestLikeError | null | undefined) => {
-  return [error?.message, error?.details, error?.hint]
-    .filter((value): value is string => Boolean(value && value.trim()))
-    .join(' ')
-    .toLowerCase()
-}
-
-const isMissingMessagesUserUuidError = (error: PostgrestLikeError | null | undefined) => {
-  const errorText = getPostgrestErrorText(error)
-
-  return (
-    error?.code === '42703' ||
-    error?.code === 'PGRST204' ||
-    (errorText.includes('messages') && errorText.includes('user_uuid'))
-  )
-}
-
-const isMissingPushSubscriptionsSchemaError = (error: PostgrestLikeError | null | undefined) => {
-  const errorText = getPostgrestErrorText(error)
-
-  return (
-    error?.code === '42P01' ||
-    error?.code === 'PGRST204' ||
-    errorText.includes('push_subscriptions')
-  )
 }
 
 const normalizeSubscription = (value: Json | null): StoredPushSubscription | null => {
@@ -251,17 +219,6 @@ export async function POST(request: Request) {
 
   if (messageError) {
     console.error('[Push] Failed to verify message ownership', messageError)
-
-    if (isMissingMessagesUserUuidError(messageError)) {
-      return NextResponse.json(
-        {
-          error: 'Push delivery requires the messages.user_uuid column. Apply sql/add_messages_user_uuid.sql to Supabase.',
-          code: 'MESSAGES_USER_UUID_MISSING',
-        },
-        { status: 503 }
-      )
-    }
-
     return NextResponse.json({ error: 'Failed to verify message' }, { status: 500 })
   }
 
@@ -287,24 +244,12 @@ export async function POST(request: Request) {
       senderAvatarUrl = senderProfile.avatar_url.trim()
     }
   }
-
   const { data: subscriptions, error: fetchError } = await adminSupabase
     .from('push_subscriptions')
     .select('id, user_uuid, subscription')
 
   if (fetchError) {
     console.error('[Push] Failed to load subscriptions', fetchError)
-
-    if (isMissingPushSubscriptionsSchemaError(fetchError)) {
-      return NextResponse.json(
-        {
-          error: 'Push delivery requires the push_subscriptions table. Apply the push subscription SQL setup to Supabase.',
-          code: 'PUSH_SUBSCRIPTIONS_SCHEMA_MISSING',
-        },
-        { status: 503 }
-      )
-    }
-
     return NextResponse.json({ error: 'Failed to load subscriptions' }, { status: 500 })
   }
 

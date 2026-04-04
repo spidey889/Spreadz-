@@ -76,7 +76,12 @@ interface ReadOnlyProfile {
   reportMessage: Message | null
 }
 
-const ROOM_SCROLL_EDGE_THRESHOLD_PX = 10
+interface RoomSwipeState {
+  startX: number
+  startY: number
+  lastY: number
+  isVerticalGesture: boolean
+}
 
 const getUserColor = (username: string) => {
   const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
@@ -304,7 +309,6 @@ export default function GlobalChat() {
   const [currentRoomIndex, setCurrentRoomIndex] = useState(0)
   const [cardCollapsed, setCardCollapsed] = useState(false)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
-  const [roomIsAtBottomById, setRoomIsAtBottomById] = useState<Record<string, boolean>>({})
   const [isMounted, setIsMounted] = useState(false)
   const [authReady, setAuthReady] = useState(false)
   const [displayName, setDisplayName] = useState('')
@@ -371,6 +375,7 @@ export default function GlobalChat() {
   const profileSheetOffsetYRef = useRef(0)
   const profileSheetFrameRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
+  const roomSwipeRef = useRef<RoomSwipeState | null>(null)
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
 
   const syncComposerMetrics = useCallback(() => {
@@ -385,23 +390,6 @@ export default function GlobalChat() {
     const reservedSpace = Math.ceil(composerBarHeight + composerPaddingTop + composerPaddingBottom)
     root.style.setProperty('--composer-reserved-space', `${reservedSpace}px`)
   }, [])
-
-  const isMessageListAtBottom = useCallback((element: HTMLDivElement | null) => {
-    if (!element) return true
-
-    return element.scrollTop + element.clientHeight >= element.scrollHeight - ROOM_SCROLL_EDGE_THRESHOLD_PX
-  }, [])
-
-  const updateRoomBottomState = useCallback((roomId: string, element: HTMLDivElement | null) => {
-    if (!roomId || !element) return
-
-    const nextIsAtBottom = isMessageListAtBottom(element)
-    setRoomIsAtBottomById((prev) => (
-      prev[roomId] === nextIsAtBottom
-        ? prev
-        : { ...prev, [roomId]: nextIsAtBottom }
-    ))
-  }, [isMessageListAtBottom])
 
   const scrollCurrentRoomToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     const endEl = messageEndRefs.current[currentRoomIndex]
@@ -1731,16 +1719,6 @@ export default function GlobalChat() {
   }, [roomMessages, currentRoomIndex, scrollCurrentRoomToBottom, visibleMessageIdsByRoom])
 
   useEffect(() => {
-    if (!activeRoomId || !activeRoomMessagesRef.current) return
-
-    const frameId = window.requestAnimationFrame(() => {
-      updateRoomBottomState(activeRoomId, activeRoomMessagesRef.current)
-    })
-
-    return () => window.cancelAnimationFrame(frameId)
-  }, [activeRoomId, currentRoomIndex, roomMessages, updateRoomBottomState, visibleMessageIdsByRoom])
-
-  useEffect(() => {
     setCardCollapsed(false)
 
     const activeRoomId = rooms[currentRoomIndex]?.id
@@ -2452,6 +2430,80 @@ export default function GlobalChat() {
     applyProfileSheetOffset(0)
   }
 
+  const isInteractiveGestureTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false
+
+    return Boolean(
+      target.closest(
+        'input, textarea, button, select, option, label, a, [role="button"], [contenteditable="true"]'
+      )
+    )
+  }, [])
+
+  const handleRoomTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1 || isInteractiveGestureTarget(e.target)) {
+      roomSwipeRef.current = null
+      return
+    }
+
+    const touch = e.touches[0]
+    roomSwipeRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      lastY: touch.clientY,
+      isVerticalGesture: false,
+    }
+  }
+
+  const handleRoomTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    const swipeState = roomSwipeRef.current
+    if (!swipeState || e.touches.length !== 1) return
+
+    const touch = e.touches[0]
+    const totalX = touch.clientX - swipeState.startX
+    const totalY = touch.clientY - swipeState.startY
+
+    if (!swipeState.isVerticalGesture) {
+      if (Math.abs(totalX) < 8 && Math.abs(totalY) < 8) return
+      if (Math.abs(totalY) <= Math.abs(totalX)) {
+        roomSwipeRef.current = null
+        return
+      }
+      swipeState.isVerticalGesture = true
+    }
+
+    const upwardDelta = swipeState.lastY - touch.clientY
+    swipeState.lastY = touch.clientY
+
+    if (upwardDelta <= 0) return
+
+    let remainingDelta = upwardDelta
+    const messageScrollEl = e.currentTarget.querySelector<HTMLDivElement>('.room-messages')
+
+    if (messageScrollEl) {
+      const remainingMessageScroll = Math.max(
+        0,
+        messageScrollEl.scrollHeight - messageScrollEl.clientHeight - messageScrollEl.scrollTop
+      )
+
+      if (remainingMessageScroll > 0) {
+        const messageDelta = Math.min(remainingDelta, remainingMessageScroll)
+        messageScrollEl.scrollTop += messageDelta
+        remainingDelta -= messageDelta
+      }
+    }
+
+    if (remainingDelta > 0 && containerRef.current) {
+      containerRef.current.scrollTop += remainingDelta
+    }
+
+    e.preventDefault()
+  }
+
+  const handleRoomTouchEnd = () => {
+    roomSwipeRef.current = null
+  }
+
   const openReadOnlyProfile = (profile: ReadOnlyProfile) => {
     setReadOnlyProfile(profile)
   }
@@ -2504,7 +2556,6 @@ export default function GlobalChat() {
   const profilePreviewColor = getUserColor(profilePreviewName)
   const isComposerExpanded = isKeyboardOpen || Boolean(activeGifPickerRoomId) || Boolean(gifPickerClosingRoomId)
   const activeGifSearch = gifSearchInput.trim()
-  const isActiveRoomAtBottom = activeRoomId ? roomIsAtBottomById[activeRoomId] ?? true : true
 
   return (
     <>
@@ -2526,6 +2577,10 @@ export default function GlobalChat() {
               className={`room-panel${index === currentRoomIndex ? ' active-room' : ''}`}
               data-room-index={index}
               style={{ background: 'var(--bg)' }}
+              onTouchStart={handleRoomTouchStart}
+              onTouchMove={handleRoomTouchMove}
+              onTouchEnd={handleRoomTouchEnd}
+              onTouchCancel={handleRoomTouchEnd}
             >
               {/* Header */}
               <div className={`header${isComposerExpanded ? ' hidden' : ''}`}>
@@ -2574,7 +2629,6 @@ export default function GlobalChat() {
               <div
                 ref={isCurrentRoom ? activeRoomMessagesRef : undefined}
                 className="room-messages"
-                onScroll={(e) => updateRoomBottomState(room.id, e.currentTarget)}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
               >
                 <div ref={isCurrentRoom ? activeMessagesRef : undefined} className="messages">
@@ -2760,7 +2814,7 @@ export default function GlobalChat() {
                   </>
                 )}
                 <div ref={isCurrentRoom ? composerAreaRef : undefined} className="input-area global-composer">
-                  <div className={`hint${isComposerExpanded || !isCurrentRoom || !isActiveRoomAtBottom ? ' hidden' : ''}`}>
+                  <div className={`hint${isComposerExpanded ? ' hidden' : ''}`}>
                     <span className="hint-badge">Swipe Up</span>
                     <span>for new people &amp; topics</span>
                   </div>

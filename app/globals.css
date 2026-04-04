@@ -111,12 +111,56 @@ body {
           flex-direction: column;
           min-height: 0;
           overflow: hidden;
+          transform: translateY(100%);
           opacity: 0;
           pointer-events: none;
-          transition: opacity 0.2s ease;
+          transition: transform 240ms ease-out, opacity 240ms ease-out;
+          will-change: transform, opacity;
         }
         .room-panel.active-room {
+          transform: translateY(0);
           opacity: 1;
+          pointer-events: auto;
+          z-index: 2;
+        }
+        .room-panel.room-before {
+          transform: translateY(-100%);
+          opacity: 0;
+          z-index: 1;
+        }
+        .room-panel.room-after {
+          transform: translateY(100%);
+          opacity: 0;
+          z-index: 1;
+        }
+        .room-panel.is-entering {
+          opacity: 1;
+          z-index: 3;
+          pointer-events: auto;
+        }
+        .room-panel.is-leaving {
+          opacity: 1;
+          z-index: 2;
+          pointer-events: none;
+        }
+        .rooms-container.transition-next .room-panel.active-room.is-leaving {
+          transform: translateY(-100%);
+          opacity: 1;
+        }
+        .rooms-container.transition-next .room-panel.is-entering {
+          transform: translateY(0);
+          opacity: 1;
+          z-index: 3;
+          pointer-events: auto;
+        }
+        .rooms-container.transition-prev .room-panel.active-room.is-leaving {
+          transform: translateY(100%);
+          opacity: 1;
+        }
+        .rooms-container.transition-prev .room-panel.is-entering {
+          transform: translateY(0);
+          opacity: 1;
+          z-index: 3;
           pointer-events: auto;
         }
         .room-panel::before {

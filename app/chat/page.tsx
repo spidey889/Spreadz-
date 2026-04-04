@@ -111,6 +111,7 @@ const formatProfileJoinedLabel = (isoString?: string | null) => {
 
 const INTEREST_OPTIONS = ['Tech & AI', 'Sports', 'Politics', 'Entertainment', 'Business', 'Science', 'Gaming', 'Campus Life']
 const ROOM_SCROLL_EDGE_THRESHOLD_PX = 10
+const ROOM_TRANSITION_DURATION_MS = 240
 const USER_UUID_STORAGE_KEY = 'spreadz_user_uuid'
 const DISPLAY_NAME_STORAGE_KEY = 'spreadz_display_name'
 const USERNAME_STORAGE_KEY = 'spreadz_username'
@@ -300,6 +301,9 @@ export default function GlobalChat() {
   const [gifLoading, setGifLoading] = useState(false)
   const [gifError, setGifError] = useState('')
   const [currentRoomIndex, setCurrentRoomIndex] = useState(0)
+  const [isRoomTransitioning, setIsRoomTransitioning] = useState(false)
+  const [transitionDirection, setTransitionDirection] = useState<'next' | 'prev' | null>(null)
+  const [transitionFromIndex, setTransitionFromIndex] = useState<number | null>(null)
   const [cardCollapsed, setCardCollapsed] = useState(false)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
@@ -361,6 +365,7 @@ export default function GlobalChat() {
   const gifPickerFrameRef = useRef<number | null>(null)
   const gifPickerCloseTimeoutRef = useRef<number | null>(null)
   const touchStartYRef = useRef<number | null>(null)
+  const roomTransitionTimeoutRef = useRef<number | null>(null)
   const profileSheetTouchStartYRef = useRef<number | null>(null)
   const profileSheetOffsetYRef = useRef(0)
   const profileSheetFrameRef = useRef<number | null>(null)
@@ -400,17 +405,53 @@ export default function GlobalChat() {
     roomIsAtBottomByIdRef.current[roomId] = isMessageListAtBottom(element)
   }, [isMessageListAtBottom])
 
-  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length === 1) {
-      touchStartYRef.current = e.touches[0].clientY
+  const finishRoomTransition = useCallback(() => {
+    setIsRoomTransitioning(false)
+    setTransitionDirection(null)
+    setTransitionFromIndex(null)
+
+    if (roomTransitionTimeoutRef.current !== null) {
+      window.clearTimeout(roomTransitionTimeoutRef.current)
+      roomTransitionTimeoutRef.current = null
     }
   }, [])
+
+  const triggerRoomTransition = useCallback((direction: 'next' | 'prev') => {
+    if (isRoomTransitioning || rooms.length === 0) return
+
+    const nextIndex = direction === 'next'
+      ? Math.min(currentRoomIndex + 1, rooms.length - 1)
+      : Math.max(currentRoomIndex - 1, 0)
+
+    if (nextIndex === currentRoomIndex) return
+
+    setTransitionFromIndex(currentRoomIndex)
+    setTransitionDirection(direction)
+    setIsRoomTransitioning(true)
+    setCurrentRoomIndex(nextIndex)
+
+    if (typeof window !== 'undefined') {
+      if (roomTransitionTimeoutRef.current !== null) {
+        window.clearTimeout(roomTransitionTimeoutRef.current)
+      }
+
+      roomTransitionTimeoutRef.current = window.setTimeout(() => {
+        finishRoomTransition()
+      }, ROOM_TRANSITION_DURATION_MS)
+    }
+  }, [currentRoomIndex, finishRoomTransition, isRoomTransitioning, rooms.length])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isRoomTransitioning && e.touches.length === 1) {
+      touchStartYRef.current = e.touches[0].clientY
+    }
+  }, [isRoomTransitioning])
 
   const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     const startY = touchStartYRef.current
     touchStartYRef.current = null
 
-    if (startY === null || e.changedTouches.length === 0) return
+    if (isRoomTransitioning || startY === null || e.changedTouches.length === 0) return
 
     const endY = e.changedTouches[0].clientY
     const deltaY = endY - startY
@@ -424,14 +465,14 @@ export default function GlobalChat() {
     if (Math.abs(deltaY) < THRESHOLD) return
 
     if (deltaY < 0 && atBottom) {
-      setCurrentRoomIndex((i) => Math.min(i + 1, rooms.length - 1))
+      triggerRoomTransition('next')
       return
     }
 
     if (deltaY > 0 && atTop) {
-      setCurrentRoomIndex((i) => Math.max(i - 1, 0))
+      triggerRoomTransition('prev')
     }
-  }, [rooms.length])
+  }, [isRoomTransitioning, triggerRoomTransition])
 
   const applyProfileSheetOffset = useCallback((offset: number) => {
     profileSheetOffsetYRef.current = offset
@@ -1708,6 +1749,14 @@ export default function GlobalChat() {
   }, [activeRoomId, currentRoomIndex, isKeyboardOpen, activeGifPickerRoomId, gifPickerClosingRoomId, syncComposerMetrics])
 
   useEffect(() => {
+    return () => {
+      if (roomTransitionTimeoutRef.current !== null) {
+        window.clearTimeout(roomTransitionTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     const inputEl = composerBarRef.current?.querySelector('[contenteditable]') as HTMLElement | null
     if (!inputEl || !activeRoomId) return
 
@@ -2440,19 +2489,29 @@ export default function GlobalChat() {
   if (!activeRoom) return null
   const gifTriggerLabel = 'Open emoji and GIF picker'
   const isGifPickerOpen = false
+  const roomsContainerClassName = `rooms-container${isRoomTransitioning && transitionDirection ? ` is-transitioning transition-${transitionDirection}` : ''}`
 
   return (
     <>
-      <div className="rooms-container">
+      <div className={roomsContainerClassName}>
         {rooms.map((room, index) => {
           const messages = roomMessages[room.id] || []
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
           const isCurrentRoom = index === currentRoomIndex
+          const isLeavingRoom = isRoomTransitioning && transitionFromIndex === index
+          const isEnteringRoom = isRoomTransitioning && isCurrentRoom
+          const roomPanelClassName = [
+            'room-panel',
+            isLeavingRoom
+              ? 'active-room is-leaving'
+              : (isCurrentRoom ? 'active-room' : (index < currentRoomIndex ? 'room-before' : 'room-after')),
+            isEnteringRoom ? 'is-entering' : '',
+          ].filter(Boolean).join(' ')
 
           return (
             <div
               key={room.id}
-              className={`room-panel${isCurrentRoom ? ' active-room' : ''}`}
+              className={roomPanelClassName}
               style={{ background: 'var(--bg)' }}
             >
               <div className={`header${isComposerExpanded ? ' hidden' : ''}`}>

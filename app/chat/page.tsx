@@ -2517,24 +2517,23 @@ export default function GlobalChat() {
 
     if (!isSwipingUp && !isSwipingDown) return
 
-    if (isSwipingUp && !isMessageListAtBottom(messageScrollEl)) {
-      return
-    }
+    const shouldSwitchToNextRoom = isSwipingUp && isMessageListAtBottom(messageScrollEl)
+    const shouldSwitchToPreviousRoom = isSwipingDown && isMessageListAtTop(messageScrollEl)
 
-    if (isSwipingDown && !isMessageListAtTop(messageScrollEl)) {
+    if (!shouldSwitchToNextRoom && !shouldSwitchToPreviousRoom) {
       return
     }
 
     if (!containerRef.current) return
 
-    if (isSwipingUp) {
+    e.preventDefault()
+
+    if (shouldSwitchToNextRoom) {
       containerRef.current.scrollTop += Math.abs(touchDeltaY)
-      e.preventDefault()
       return
     }
 
     containerRef.current.scrollTop -= touchDeltaY
-    e.preventDefault()
   }
 
   const handleRoomTouchEnd = () => {

@@ -124,12 +124,6 @@ const GIF_MESSAGE_PREFIX = '[gif]:'
 const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
 const GIPHY_LIMIT = 20
 const GIF_PICKER_CLOSE_DURATION_MS = 36
-const GIF_QUICK_SEARCHES = [
-  { label: 'Laughing', query: 'laughing reaction' },
-  { label: 'Hype', query: 'hype reaction' },
-  { label: 'No way', query: 'mind blown reaction' },
-  { label: 'Awkward', query: 'awkward reaction' },
-]
 const HACKER_NEWS_ROOM_ID = 'b87b934f-7b1a-41b6-9d89-3319a3442c0c'
 const HACKER_NEWS_REVEAL_DEFAULT_MIN_MS = 4000
 const HACKER_NEWS_REVEAL_DEFAULT_MAX_MS = 12000
@@ -2528,7 +2522,6 @@ export default function GlobalChat() {
   const profilePreviewColor = getUserColor(profilePreviewName)
   const isComposerExpanded = isKeyboardOpen || Boolean(activeGifPickerRoomId) || Boolean(gifPickerClosingRoomId)
   const activeGifSearch = gifSearchInput.trim()
-  const normalizedGifSearch = activeGifSearch.toLowerCase()
 
   return (
     <>
@@ -2541,17 +2534,7 @@ export default function GlobalChat() {
           const isGifPickerClosing = gifPickerClosingRoomId === room.id
           const isGifPickerOpen = activeGifPickerRoomId === room.id && !isGifPickerClosing
           const gifTriggerLabel = isGifPickerOpen ? 'Close emoji and GIF picker' : 'Open emoji and GIF picker'
-          const gifPickerKicker = activeGifSearch ? 'Search mode' : 'Express yourself'
-          const gifPickerTitle = activeGifSearch ? 'Find the right reaction' : 'Reaction gallery'
-          const gifPickerSubtitle = activeGifSearch
-            ? `Showing GIF matches for "${activeGifSearch}". Tap one to send it instantly.`
-            : 'Search by mood, meme, or vibe, or grab something trending right now.'
-          const gifPickerSectionTitle = activeGifSearch ? 'Search results' : 'Trending now'
-          const gifPickerCountLabel = gifLoading
-            ? 'Loading…'
-            : gifError
-              ? 'Retry'
-              : `${gifResults.length} GIF${gifResults.length === 1 ? '' : 's'}`
+          const gifPickerMode = activeGifSearch ? 'Search' : 'Trending'
 
           return (
             <div
@@ -2716,11 +2699,10 @@ export default function GlobalChat() {
                         <div className="gif-picker-handle-zone">
                           <div className="gif-picker-handle" aria-hidden="true" />
                         </div>
-                        <div className="gif-picker-top">
-                          <div className="gif-picker-copy">
-                            <span className="gif-picker-kicker">{gifPickerKicker}</span>
-                            <h3 className="gif-picker-title">{gifPickerTitle}</h3>
-                            <p className="gif-picker-subtitle">{gifPickerSubtitle}</p>
+                        <div className="gif-picker-topline">
+                          <div className="gif-picker-topline-copy">
+                            <span className="gif-picker-label">GIFs</span>
+                            <span className="gif-picker-mode">{gifPickerMode}</span>
                           </div>
                           <button
                             type="button"
@@ -2728,7 +2710,7 @@ export default function GlobalChat() {
                             aria-label="Close GIF picker"
                             onClick={() => closeGifPicker(room.id)}
                           >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                               <path d="M18 6L6 18" />
                               <path d="M6 6L18 18" />
                             </svg>
@@ -2738,81 +2720,58 @@ export default function GlobalChat() {
                           <span className="gif-search-icon" aria-hidden="true">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <circle cx="11" cy="11" r="7" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                          </svg>
-                        </span>
-                        <input
-                          type="text"
-                          className="gif-search-input"
-                          placeholder="Search reactions, memes, moods..."
-                          value={gifSearchInput}
-                          onChange={(e) => setGifSearchInput(e.target.value)}
-                          onFocus={() => setIsKeyboardOpen(true)}
-                          onBlur={() => setIsKeyboardOpen(false)}
-                        />
-                        <span className="gif-search-state">
-                          {activeGifSearch ? 'Search' : 'Trending'}
+                              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg>
                           </span>
-                        </div>
-                        <div className="gif-quick-scroll" aria-label="Quick GIF searches">
-                          {GIF_QUICK_SEARCHES.map((search) => {
-                            const isQuickSearchActive = normalizedGifSearch === search.query.toLowerCase()
-                            return (
-                              <button
-                                key={search.query}
-                                type="button"
-                                className={`gif-quick-chip${isQuickSearchActive ? ' active' : ''}`}
-                                aria-pressed={isQuickSearchActive}
-                                onClick={() => setGifSearchInput(search.query)}
-                              >
-                                {search.label}
-                              </button>
-                            )
-                          })}
-                        </div>
-                        <div className="gif-picker-section-bar">
-                          <span className="gif-picker-section-title">{gifPickerSectionTitle}</span>
-                          <span className="gif-picker-count">{gifPickerCountLabel}</span>
+                          <input
+                            type="text"
+                            className="gif-search-input"
+                            placeholder="Search reactions, memes, moods..."
+                            value={gifSearchInput}
+                            onChange={(e) => setGifSearchInput(e.target.value)}
+                            onFocus={() => setIsKeyboardOpen(true)}
+                            onBlur={() => setIsKeyboardOpen(false)}
+                          />
                         </div>
                         <div className="gif-picker-grid" onContextMenu={(e) => e.preventDefault()}>
                           {gifLoading && Array.from({ length: 9 }).map((_, skeletonIndex) => (
                             <div
-                            key={`gif-skeleton-${skeletonIndex}`}
-                            className="gif-skeleton"
-                          />
-                        ))}
-                        {!gifLoading && gifError && (
-                          <div className="gif-picker-status error">Couldn&apos;t load GIFs right now. Try searching again in a second.</div>
-                        )}
-                        {!gifLoading && !gifError && gifResults.length === 0 && (
-                          <div className="gif-picker-status">Nothing matched that vibe yet. Try another mood or meme keyword.</div>
-                        )}
-                        {!gifLoading && !gifError && gifResults.map((gif) => (
-                          <button
-                            key={gif.id}
-                            type="button"
-                            className="gif-tile"
-                            onClick={() => handleGifSelect(room.id, gif.url)}
-                            aria-label={`Send GIF: ${gif.title}`}
-                          >
-                            <div
-                              className="gif-tile-media"
-                              style={{ aspectRatio: `${gif.width} / ${gif.height}` }}
+                              key={`gif-skeleton-${skeletonIndex}`}
+                              className="gif-skeleton"
+                            />
+                          ))}
+                          {!gifLoading && gifError && (
+                            <div className="gif-picker-status error">Couldn&apos;t load GIFs right now.</div>
+                          )}
+                          {!gifLoading && !gifError && gifResults.length === 0 && (
+                            <div className="gif-picker-status">No GIFs found.</div>
+                          )}
+                          {!gifLoading && !gifError && gifResults.map((gif) => (
+                            <button
+                              key={gif.id}
+                              type="button"
+                              className="gif-tile"
+                              onClick={() => handleGifSelect(room.id, gif.url)}
+                              aria-label={`Send GIF: ${gif.title}`}
                             >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={gif.previewUrl}
-                                alt={gif.title || 'GIF'}
-                                className="gif-tile-image"
-                                loading="lazy"
-                                decoding="async"
-                                draggable={false}
-                              />
-                            </div>
-                            <span className="gif-tile-badge">GIF</span>
-                          </button>
-                        ))}
-                      </div>
+                              <div
+                                className="gif-tile-media"
+                                style={{ aspectRatio: `${gif.width} / ${gif.height}` }}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={gif.previewUrl}
+                                  alt={gif.title || 'GIF'}
+                                  className="gif-tile-image"
+                                  loading="lazy"
+                                  decoding="async"
+                                  draggable={false}
+                                />
+                              </div>
+                              <span className="gif-tile-badge">GIF</span>
+                            </button>
+                          ))}
+                        </div>
                     </div>
                   </>
                 )}

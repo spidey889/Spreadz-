@@ -2542,7 +2542,7 @@ export default function GlobalChat() {
               key={room.id}
               className={`room-panel${index === currentRoomIndex ? ' active-room' : ''}`}
               data-room-index={index}
-              style={{ background: 'var(--bg)' }}
+              style={{ background: 'var(--panel-bg)' }}
               onTouchStart={handleRoomTouchStart}
               onTouchMove={handleRoomTouchMove}
               onTouchEnd={handleRoomTouchEnd}

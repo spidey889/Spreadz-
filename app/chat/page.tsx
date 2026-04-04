@@ -111,7 +111,12 @@ const formatProfileJoinedLabel = (isoString?: string | null) => {
 
 const INTEREST_OPTIONS = ['Tech & AI', 'Sports', 'Politics', 'Entertainment', 'Business', 'Science', 'Gaming', 'Campus Life']
 const ROOM_SCROLL_EDGE_THRESHOLD_PX = 10
-const ROOM_TRANSITION_DURATION_MS = 240
+const ROOM_DRAG_SETTLE_DURATION_MS = 260
+const ROOM_DRAG_ACTIVATION_DELTA_PX = 12
+const ROOM_DRAG_EDGE_THRESHOLD_PX = 2
+const ROOM_DRAG_COMMIT_RATIO = 0.24
+const ROOM_DRAG_COMMIT_MIN_PX = 96
+const ROOM_DRAG_COMMIT_MAX_PX = 180
 const USER_UUID_STORAGE_KEY = 'spreadz_user_uuid'
 const DISPLAY_NAME_STORAGE_KEY = 'spreadz_display_name'
 const USERNAME_STORAGE_KEY = 'spreadz_username'
@@ -301,9 +306,6 @@ export default function GlobalChat() {
   const [gifLoading, setGifLoading] = useState(false)
   const [gifError, setGifError] = useState('')
   const [currentRoomIndex, setCurrentRoomIndex] = useState(0)
-  const [isRoomTransitioning, setIsRoomTransitioning] = useState(false)
-  const [transitionDirection, setTransitionDirection] = useState<'next' | 'prev' | null>(null)
-  const [transitionFromIndex, setTransitionFromIndex] = useState<number | null>(null)
   const [cardCollapsed, setCardCollapsed] = useState(false)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
@@ -340,6 +342,7 @@ export default function GlobalChat() {
   const gifSearchCacheRef = useRef<Record<string, GifResult[]>>({})
   const roomIdsRef = useRef<Set<string>>(new Set())
   const sentRoomIdsRef = useRef<Set<string>>(new Set())
+  const roomPanelRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
   const friendRequestChannelRef = useRef<any>(null)
@@ -364,7 +367,15 @@ export default function GlobalChat() {
   const gifPickerOffsetYRef = useRef(0)
   const gifPickerFrameRef = useRef<number | null>(null)
   const gifPickerCloseTimeoutRef = useRef<number | null>(null)
-  const touchStartYRef = useRef<number | null>(null)
+  const currentRoomIndexRef = useRef(0)
+  const dragStartYRef = useRef<number | null>(null)
+  const dragCurrentYRef = useRef<number | null>(null)
+  const dragOffsetYRef = useRef(0)
+  const dragDirectionRef = useRef<'next' | 'prev' | null>(null)
+  const transitionTargetIndexRef = useRef<number | null>(null)
+  const isDraggingRoomRef = useRef(false)
+  const isAnimatingRoomRef = useRef(false)
+  const roomDragFrameRef = useRef<number | null>(null)
   const roomTransitionTimeoutRef = useRef<number | null>(null)
   const profileSheetTouchStartYRef = useRef<number | null>(null)
   const profileSheetOffsetYRef = useRef(0)
@@ -372,6 +383,10 @@ export default function GlobalChat() {
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
   const roomIsAtBottomByIdRef = useRef<Record<string, boolean>>({})
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
+
+  useEffect(() => {
+    currentRoomIndexRef.current = currentRoomIndex
+  }, [currentRoomIndex])
 
   const syncComposerMetrics = useCallback(() => {
     if (typeof window === 'undefined') return
@@ -405,74 +420,227 @@ export default function GlobalChat() {
     roomIsAtBottomByIdRef.current[roomId] = isMessageListAtBottom(element)
   }, [isMessageListAtBottom])
 
-  const finishRoomTransition = useCallback(() => {
-    setIsRoomTransitioning(false)
-    setTransitionDirection(null)
-    setTransitionFromIndex(null)
-
-    if (roomTransitionTimeoutRef.current !== null) {
-      window.clearTimeout(roomTransitionTimeoutRef.current)
-      roomTransitionTimeoutRef.current = null
+  const clearRoomDragFrame = useCallback(() => {
+    if (roomDragFrameRef.current !== null && typeof window !== 'undefined') {
+      window.cancelAnimationFrame(roomDragFrameRef.current)
+      roomDragFrameRef.current = null
     }
   }, [])
 
-  const triggerRoomTransition = useCallback((direction: 'next' | 'prev') => {
-    if (isRoomTransitioning || rooms.length === 0) return
+  const clearRoomPanelStyles = useCallback((indexes: number[]) => {
+    indexes.forEach((index) => {
+      const panel = roomPanelRefs.current[index]
+      if (!panel) return
 
-    const nextIndex = direction === 'next'
-      ? Math.min(currentRoomIndex + 1, rooms.length - 1)
-      : Math.max(currentRoomIndex - 1, 0)
+      panel.style.transform = ''
+      panel.style.transition = ''
+      panel.style.willChange = ''
+      panel.style.pointerEvents = ''
+      panel.style.zIndex = ''
+    })
+  }, [])
 
-    if (nextIndex === currentRoomIndex) return
+  const resetRoomGestureState = useCallback(() => {
+    dragStartYRef.current = null
+    dragCurrentYRef.current = null
+    dragOffsetYRef.current = 0
+    dragDirectionRef.current = null
+    transitionTargetIndexRef.current = null
+    isDraggingRoomRef.current = false
+  }, [])
 
-    setTransitionFromIndex(currentRoomIndex)
-    setTransitionDirection(direction)
-    setIsRoomTransitioning(true)
-    setCurrentRoomIndex(nextIndex)
+  const scheduleRoomDragPaint = useCallback(() => {
+    if (roomDragFrameRef.current !== null || typeof window === 'undefined') return
 
-    if (typeof window !== 'undefined') {
-      if (roomTransitionTimeoutRef.current !== null) {
-        window.clearTimeout(roomTransitionTimeoutRef.current)
-      }
+    roomDragFrameRef.current = window.requestAnimationFrame(() => {
+      roomDragFrameRef.current = null
 
-      roomTransitionTimeoutRef.current = window.setTimeout(() => {
-        finishRoomTransition()
-      }, ROOM_TRANSITION_DURATION_MS)
-    }
-  }, [currentRoomIndex, finishRoomTransition, isRoomTransitioning, rooms.length])
+      const fromIndex = currentRoomIndexRef.current
+      const targetIndex = transitionTargetIndexRef.current
+      const direction = dragDirectionRef.current
+      const activePanel = roomPanelRefs.current[fromIndex]
+      const targetPanel = targetIndex === null ? null : roomPanelRefs.current[targetIndex]
 
-  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if (!isRoomTransitioning && e.touches.length === 1) {
-      touchStartYRef.current = e.touches[0].clientY
-    }
-  }, [isRoomTransitioning])
+      if (!activePanel || !targetPanel || !direction) return
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    const startY = touchStartYRef.current
-    touchStartYRef.current = null
+      const viewportHeight = activePanel.getBoundingClientRect().height || window.innerHeight
+      const offset = dragOffsetYRef.current
 
-    if (isRoomTransitioning || startY === null || e.changedTouches.length === 0) return
+      activePanel.style.transition = 'none'
+      targetPanel.style.transition = 'none'
+      activePanel.style.willChange = 'transform'
+      targetPanel.style.willChange = 'transform'
+      activePanel.style.pointerEvents = 'auto'
+      targetPanel.style.pointerEvents = 'none'
+      activePanel.style.zIndex = '2'
+      targetPanel.style.zIndex = '3'
+      activePanel.style.transform = `translate3d(0, ${offset}px, 0)`
+      targetPanel.style.transform = direction === 'next'
+        ? `translate3d(0, ${viewportHeight + offset}px, 0)`
+        : `translate3d(0, ${-viewportHeight + offset}px, 0)`
+    })
+  }, [])
 
-    const endY = e.changedTouches[0].clientY
-    const deltaY = endY - startY
-    const el = activeRoomMessagesRef.current
-    if (!el) return
+  const settleRoomPanels = useCallback((shouldComplete: boolean) => {
+    const fromIndex = currentRoomIndexRef.current
+    const targetIndex = transitionTargetIndexRef.current
+    const direction = dragDirectionRef.current
+    const cleanupIndexes = [fromIndex, ...(targetIndex === null ? [] : [targetIndex])]
+    const activePanel = roomPanelRefs.current[fromIndex]
+    const targetPanel = targetIndex === null ? null : roomPanelRefs.current[targetIndex]
 
-    const atTop = el.scrollTop <= 10
-    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10
-    const THRESHOLD = 60
+    clearRoomDragFrame()
 
-    if (Math.abs(deltaY) < THRESHOLD) return
-
-    if (deltaY < 0 && atBottom) {
-      triggerRoomTransition('next')
+    if (!activePanel || !targetPanel || !direction || targetIndex === null || typeof window === 'undefined') {
+      clearRoomPanelStyles(cleanupIndexes)
+      resetRoomGestureState()
+      isAnimatingRoomRef.current = false
       return
     }
 
-    if (deltaY > 0 && atTop) {
-      triggerRoomTransition('prev')
+    const viewportHeight = activePanel.getBoundingClientRect().height || window.innerHeight
+    const offscreenTargetY = direction === 'next' ? viewportHeight : -viewportHeight
+    const completedActiveY = direction === 'next' ? -viewportHeight : viewportHeight
+
+    isDraggingRoomRef.current = false
+    isAnimatingRoomRef.current = true
+
+    activePanel.style.transition = `transform ${ROOM_DRAG_SETTLE_DURATION_MS}ms ease-out`
+    targetPanel.style.transition = `transform ${ROOM_DRAG_SETTLE_DURATION_MS}ms ease-out`
+    activePanel.style.willChange = 'transform'
+    targetPanel.style.willChange = 'transform'
+    activePanel.style.pointerEvents = 'none'
+    targetPanel.style.pointerEvents = 'none'
+    activePanel.style.zIndex = '2'
+    targetPanel.style.zIndex = '3'
+    activePanel.style.transform = shouldComplete
+      ? `translate3d(0, ${completedActiveY}px, 0)`
+      : 'translate3d(0, 0, 0)'
+    targetPanel.style.transform = shouldComplete
+      ? 'translate3d(0, 0, 0)'
+      : `translate3d(0, ${offscreenTargetY}px, 0)`
+
+    if (roomTransitionTimeoutRef.current !== null) {
+      window.clearTimeout(roomTransitionTimeoutRef.current)
     }
-  }, [isRoomTransitioning, triggerRoomTransition])
+
+    roomTransitionTimeoutRef.current = window.setTimeout(() => {
+      if (shouldComplete) {
+        currentRoomIndexRef.current = targetIndex
+        setCurrentRoomIndex(targetIndex)
+      }
+
+      window.requestAnimationFrame(() => {
+        clearRoomPanelStyles(cleanupIndexes)
+        resetRoomGestureState()
+        isAnimatingRoomRef.current = false
+        roomTransitionTimeoutRef.current = null
+      })
+    }, ROOM_DRAG_SETTLE_DURATION_MS)
+  }, [clearRoomDragFrame, clearRoomPanelStyles, resetRoomGestureState])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (isAnimatingRoomRef.current || e.touches.length !== 1) {
+      resetRoomGestureState()
+      return
+    }
+
+    dragStartYRef.current = e.touches[0].clientY
+    dragCurrentYRef.current = e.touches[0].clientY
+    dragOffsetYRef.current = 0
+    dragDirectionRef.current = null
+    transitionTargetIndexRef.current = null
+    isDraggingRoomRef.current = false
+  }, [resetRoomGestureState])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (isAnimatingRoomRef.current || e.touches.length !== 1) return
+
+    const startY = dragStartYRef.current
+    if (startY === null) return
+
+    const currentY = e.touches[0].clientY
+    const deltaY = currentY - startY
+    const messageScrollEl = activeRoomMessagesRef.current
+    if (!messageScrollEl) return
+
+    dragCurrentYRef.current = currentY
+
+    if (!isDraggingRoomRef.current) {
+      if (Math.abs(deltaY) < ROOM_DRAG_ACTIVATION_DELTA_PX) return
+
+      const atTop = messageScrollEl.scrollTop <= ROOM_DRAG_EDGE_THRESHOLD_PX
+      const atBottom = messageScrollEl.scrollTop + messageScrollEl.clientHeight >= messageScrollEl.scrollHeight - ROOM_DRAG_EDGE_THRESHOLD_PX
+      const roomIndex = currentRoomIndexRef.current
+      const hasPrevRoom = roomIndex > 0
+      const hasNextRoom = roomIndex < rooms.length - 1
+
+      if (deltaY > 0 && atTop && hasPrevRoom) {
+        isDraggingRoomRef.current = true
+        dragDirectionRef.current = 'prev'
+        transitionTargetIndexRef.current = roomIndex - 1
+      } else if (deltaY < 0 && atBottom && hasNextRoom) {
+        isDraggingRoomRef.current = true
+        dragDirectionRef.current = 'next'
+        transitionTargetIndexRef.current = roomIndex + 1
+      } else {
+        return
+      }
+    }
+
+    const activePanel = roomPanelRefs.current[currentRoomIndexRef.current]
+    if (!activePanel) return
+
+    const viewportHeight = activePanel.getBoundingClientRect().height || window.innerHeight
+    const direction = dragDirectionRef.current
+    if (!direction) return
+
+    if (e.cancelable) {
+      e.preventDefault()
+    }
+
+    dragOffsetYRef.current = direction === 'next'
+      ? Math.max(-viewportHeight, Math.min(0, deltaY))
+      : Math.min(viewportHeight, Math.max(0, deltaY))
+
+    scheduleRoomDragPaint()
+  }, [rooms.length, scheduleRoomDragPaint])
+
+  const handleTouchEnd = useCallback(() => {
+    const startY = dragStartYRef.current
+    const releaseY = dragCurrentYRef.current
+    dragStartYRef.current = null
+    dragCurrentYRef.current = null
+
+    if (!isDraggingRoomRef.current) {
+      resetRoomGestureState()
+      return
+    }
+
+    const activePanel = roomPanelRefs.current[currentRoomIndexRef.current]
+    const viewportHeight = activePanel?.getBoundingClientRect().height || (typeof window !== 'undefined' ? window.innerHeight : 0)
+    const completionThreshold = Math.min(
+      Math.max(viewportHeight * ROOM_DRAG_COMMIT_RATIO, ROOM_DRAG_COMMIT_MIN_PX),
+      ROOM_DRAG_COMMIT_MAX_PX
+    )
+    const dragDistance = startY === null || releaseY === null
+      ? dragOffsetYRef.current
+      : releaseY - startY
+
+    settleRoomPanels(Math.abs(dragDistance) >= completionThreshold)
+  }, [resetRoomGestureState, settleRoomPanels])
+
+  const handleTouchCancel = useCallback(() => {
+    dragStartYRef.current = null
+    dragCurrentYRef.current = null
+
+    if (!isDraggingRoomRef.current) {
+      resetRoomGestureState()
+      return
+    }
+
+    settleRoomPanels(false)
+  }, [resetRoomGestureState, settleRoomPanels])
 
   const applyProfileSheetOffset = useCallback((offset: number) => {
     profileSheetOffsetYRef.current = offset
@@ -1675,13 +1843,24 @@ export default function GlobalChat() {
   }, [buildMessageFromRow, cacheUsernamesForDisplayNames, getCurrentUserId, getPendingMessageKey, handleIncomingMessageNotification, normalizeMessageRow, scheduleReveal])
 
 
-  // Fetch messages for the active room as room state changes.
+  // Fetch messages for the active room and its adjacent neighbors as room state changes.
   useEffect(() => {
     const activeRoom = rooms[currentRoomIndex]
     if (!activeRoom) return
 
     trackRoomEnter(activeRoom.id, activeRoom.headline)
     void fetchMessagesForRoom(activeRoom)
+
+    const previousRoom = rooms[currentRoomIndex - 1]
+    const nextRoom = rooms[currentRoomIndex + 1]
+
+    if (previousRoom) {
+      void fetchMessagesForRoom(previousRoom)
+    }
+
+    if (nextRoom) {
+      void fetchMessagesForRoom(nextRoom)
+    }
   }, [currentRoomIndex, fetchMessagesForRoom, rooms])
 
   // Keep one long-lived messages subscription so room changes do not interrupt realtime inserts.
@@ -1750,11 +1929,21 @@ export default function GlobalChat() {
 
   useEffect(() => {
     return () => {
+      clearRoomDragFrame()
       if (roomTransitionTimeoutRef.current !== null) {
         window.clearTimeout(roomTransitionTimeoutRef.current)
       }
     }
-  }, [])
+  }, [clearRoomDragFrame])
+
+  useEffect(() => {
+    if (isDraggingRoomRef.current || isAnimatingRoomRef.current) return
+
+    clearRoomPanelStyles(
+      [currentRoomIndex - 1, currentRoomIndex, currentRoomIndex + 1]
+        .filter(index => index >= 0 && index < rooms.length)
+    )
+  }, [clearRoomPanelStyles, currentRoomIndex, rooms.length])
 
   useEffect(() => {
     const inputEl = composerBarRef.current?.querySelector('[contenteditable]') as HTMLElement | null
@@ -2485,33 +2674,30 @@ export default function GlobalChat() {
   const profilePreviewColor = getUserColor(profilePreviewName)
   const isComposerExpanded = isKeyboardOpen
   const activeRoom = rooms[currentRoomIndex]
+  const visibleRoomIndexes = [currentRoomIndex - 1, currentRoomIndex, currentRoomIndex + 1]
+    .filter(index => index >= 0 && index < rooms.length)
 
   if (!activeRoom) return null
   const gifTriggerLabel = 'Open emoji and GIF picker'
   const isGifPickerOpen = false
-  const roomsContainerClassName = `rooms-container${isRoomTransitioning && transitionDirection ? ` is-transitioning transition-${transitionDirection}` : ''}`
 
   return (
     <>
-      <div className={roomsContainerClassName}>
-        {rooms.map((room, index) => {
+      <div className="rooms-container">
+        {visibleRoomIndexes.map((index) => {
+          const room = rooms[index]
           const messages = roomMessages[room.id] || []
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
           const isCurrentRoom = index === currentRoomIndex
-          const isLeavingRoom = isRoomTransitioning && transitionFromIndex === index
-          const isEnteringRoom = isRoomTransitioning && isCurrentRoom
-          const roomPanelClassName = [
-            'room-panel',
-            isLeavingRoom
-              ? 'active-room is-leaving'
-              : (isCurrentRoom ? 'active-room' : (index < currentRoomIndex ? 'room-before' : 'room-after')),
-            isEnteringRoom ? 'is-entering' : '',
-          ].filter(Boolean).join(' ')
+          const roomPanelClassName = `room-panel ${isCurrentRoom ? 'active-room' : (index < currentRoomIndex ? 'room-before' : 'room-after')}`
 
           return (
             <div
               key={room.id}
               className={roomPanelClassName}
+              ref={(el) => {
+                roomPanelRefs.current[index] = el
+              }}
               style={{ background: 'var(--bg)' }}
             >
               <div className={`header${isComposerExpanded ? ' hidden' : ''}`}>
@@ -2559,7 +2745,9 @@ export default function GlobalChat() {
                 ref={isCurrentRoom ? activeRoomMessagesRef : undefined}
                 className="room-messages"
                 onTouchStart={isCurrentRoom ? handleTouchStart : undefined}
+                onTouchMove={isCurrentRoom ? handleTouchMove : undefined}
                 onTouchEnd={isCurrentRoom ? handleTouchEnd : undefined}
+                onTouchCancel={isCurrentRoom ? handleTouchCancel : undefined}
                 onScroll={(e) => updateRoomBottomState(room.id, e.currentTarget)}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
               >

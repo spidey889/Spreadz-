@@ -116,14 +116,14 @@ body {
           --text-secondary: #AAB2BE;
           --text-muted: #7E8692;
           --headline-bg: #0D0D0D;
-          --accent-green: #7cffb7;
-          --accent-green-soft: rgba(124,255,183,0.16);
+          --accent-green: #71b9ff;
+          --accent-green-soft: rgba(113,185,255,0.16);
           --shadow-card: 0 20px 44px rgba(0, 0, 0, 0.34);
           color-scheme: dark;
         }
 
         html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; }
-        body { background: radial-gradient(circle at top, rgba(124,255,183,0.08), transparent 24%), var(--bg); color: var(--text-primary); }
+        body { background: radial-gradient(circle at top, rgba(113,185,255,0.09), transparent 24%), var(--bg); color: var(--text-primary); }
 
         .rooms-container { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; }
         .room-panel {
@@ -141,7 +141,7 @@ body {
           position: absolute;
           inset: 0 0 auto;
           height: 220px;
-          background: radial-gradient(circle at top center, rgba(124,255,183,0.12), transparent 62%);
+          background: radial-gradient(circle at top center, rgba(113,185,255,0.12), transparent 62%);
           pointer-events: none;
           z-index: 0;
         }
@@ -220,8 +220,8 @@ body {
           flex-shrink: 0;
         }
         .ai-card {
-          --context-accent-green: #67d996;
-          --context-accent-rail: #56c383;
+          --context-accent-green: #7ec4ff;
+          --context-accent-rail: #57a8f5;
           background: var(--headline-bg);
           position: relative;
           overflow: hidden;

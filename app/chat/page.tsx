@@ -76,13 +76,6 @@ interface ReadOnlyProfile {
   reportMessage: Message | null
 }
 
-interface RoomSwipeState {
-  startX: number
-  startY: number
-  lastY: number
-  isVerticalGesture: boolean
-}
-
 const getUserColor = (username: string) => {
   const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
   let hash = 0
@@ -118,6 +111,7 @@ const formatProfileJoinedLabel = (isoString?: string | null) => {
 }
 
 const INTEREST_OPTIONS = ['Tech & AI', 'Sports', 'Politics', 'Entertainment', 'Business', 'Science', 'Gaming', 'Campus Life']
+const ROOM_SCROLL_EDGE_THRESHOLD_PX = 10
 const USER_UUID_STORAGE_KEY = 'spreadz_user_uuid'
 const DISPLAY_NAME_STORAGE_KEY = 'spreadz_display_name'
 const USERNAME_STORAGE_KEY = 'spreadz_username'
@@ -375,7 +369,7 @@ export default function GlobalChat() {
   const profileSheetOffsetYRef = useRef(0)
   const profileSheetFrameRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
-  const roomSwipeRef = useRef<RoomSwipeState | null>(null)
+  const roomIsAtBottomByIdRef = useRef<Record<string, boolean>>({})
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
 
   const syncComposerMetrics = useCallback(() => {
@@ -397,6 +391,18 @@ export default function GlobalChat() {
 
     endEl.scrollIntoView({ behavior, block: 'end' })
   }, [currentRoomIndex])
+
+  const isMessageListAtBottom = useCallback((element: HTMLDivElement | null) => {
+    if (!element) return true
+
+    return element.scrollTop + element.clientHeight >= element.scrollHeight - ROOM_SCROLL_EDGE_THRESHOLD_PX
+  }, [])
+
+  const updateRoomBottomState = useCallback((roomId: string, element: HTMLDivElement | null) => {
+    if (!roomId || !element) return
+
+    roomIsAtBottomByIdRef.current[roomId] = isMessageListAtBottom(element)
+  }, [isMessageListAtBottom])
 
   const applyProfileSheetOffset = useCallback((offset: number) => {
     profileSheetOffsetYRef.current = offset
@@ -2430,80 +2436,6 @@ export default function GlobalChat() {
     applyProfileSheetOffset(0)
   }
 
-  const isInteractiveGestureTarget = useCallback((target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement)) return false
-
-    return Boolean(
-      target.closest(
-        'input, textarea, button, select, option, label, a, [role="button"], [contenteditable="true"]'
-      )
-    )
-  }, [])
-
-  const handleRoomTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length !== 1 || isInteractiveGestureTarget(e.target)) {
-      roomSwipeRef.current = null
-      return
-    }
-
-    const touch = e.touches[0]
-    roomSwipeRef.current = {
-      startX: touch.clientX,
-      startY: touch.clientY,
-      lastY: touch.clientY,
-      isVerticalGesture: false,
-    }
-  }
-
-  const handleRoomTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    const swipeState = roomSwipeRef.current
-    if (!swipeState || e.touches.length !== 1) return
-
-    const touch = e.touches[0]
-    const totalX = touch.clientX - swipeState.startX
-    const totalY = touch.clientY - swipeState.startY
-
-    if (!swipeState.isVerticalGesture) {
-      if (Math.abs(totalX) < 8 && Math.abs(totalY) < 8) return
-      if (Math.abs(totalY) <= Math.abs(totalX)) {
-        roomSwipeRef.current = null
-        return
-      }
-      swipeState.isVerticalGesture = true
-    }
-
-    const upwardDelta = swipeState.lastY - touch.clientY
-    swipeState.lastY = touch.clientY
-
-    if (upwardDelta <= 0) return
-
-    let remainingDelta = upwardDelta
-    const messageScrollEl = e.currentTarget.querySelector<HTMLDivElement>('.room-messages')
-
-    if (messageScrollEl) {
-      const remainingMessageScroll = Math.max(
-        0,
-        messageScrollEl.scrollHeight - messageScrollEl.clientHeight - messageScrollEl.scrollTop
-      )
-
-      if (remainingMessageScroll > 0) {
-        const messageDelta = Math.min(remainingDelta, remainingMessageScroll)
-        messageScrollEl.scrollTop += messageDelta
-        remainingDelta -= messageDelta
-      }
-    }
-
-    if (remainingDelta > 0 && containerRef.current) {
-      containerRef.current.scrollTop += remainingDelta
-    }
-
-    e.preventDefault()
-  }
-
-  const handleRoomTouchEnd = () => {
-    roomSwipeRef.current = null
-  }
-
   const openReadOnlyProfile = (profile: ReadOnlyProfile) => {
     setReadOnlyProfile(profile)
   }
@@ -2577,10 +2509,6 @@ export default function GlobalChat() {
               className={`room-panel${index === currentRoomIndex ? ' active-room' : ''}`}
               data-room-index={index}
               style={{ background: 'var(--bg)' }}
-              onTouchStart={handleRoomTouchStart}
-              onTouchMove={handleRoomTouchMove}
-              onTouchEnd={handleRoomTouchEnd}
-              onTouchCancel={handleRoomTouchEnd}
             >
               {/* Header */}
               <div className={`header${isComposerExpanded ? ' hidden' : ''}`}>
@@ -2629,6 +2557,7 @@ export default function GlobalChat() {
               <div
                 ref={isCurrentRoom ? activeRoomMessagesRef : undefined}
                 className="room-messages"
+                onScroll={(e) => updateRoomBottomState(room.id, e.currentTarget)}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
               >
                 <div ref={isCurrentRoom ? activeMessagesRef : undefined} className="messages">

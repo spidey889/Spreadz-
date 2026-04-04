@@ -76,13 +76,6 @@ interface ReadOnlyProfile {
   reportMessage: Message | null
 }
 
-interface RoomSwipeState {
-  startX: number
-  startY: number
-  lastY: number
-  isVerticalGesture: boolean
-}
-
 const ROOM_SCROLL_EDGE_THRESHOLD_PX = 10
 
 const getUserColor = (username: string) => {
@@ -378,7 +371,6 @@ export default function GlobalChat() {
   const profileSheetOffsetYRef = useRef(0)
   const profileSheetFrameRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
-  const roomSwipeRef = useRef<RoomSwipeState | null>(null)
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
 
   const syncComposerMetrics = useCallback(() => {
@@ -398,12 +390,6 @@ export default function GlobalChat() {
     if (!element) return true
 
     return element.scrollTop + element.clientHeight >= element.scrollHeight - ROOM_SCROLL_EDGE_THRESHOLD_PX
-  }, [])
-
-  const isMessageListAtTop = useCallback((element: HTMLDivElement | null) => {
-    if (!element) return true
-
-    return element.scrollTop <= ROOM_SCROLL_EDGE_THRESHOLD_PX
   }, [])
 
   const updateRoomBottomState = useCallback((roomId: string, element: HTMLDivElement | null) => {
@@ -2466,84 +2452,6 @@ export default function GlobalChat() {
     applyProfileSheetOffset(0)
   }
 
-  const isInteractiveGestureTarget = useCallback((target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement)) return false
-
-    return Boolean(
-      target.closest(
-        'input, textarea, button, select, option, label, a, [role="button"], [contenteditable="true"]'
-      )
-    )
-  }, [])
-
-  const handleRoomTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length !== 1 || isInteractiveGestureTarget(e.target)) {
-      roomSwipeRef.current = null
-      return
-    }
-
-    const touch = e.touches[0]
-    roomSwipeRef.current = {
-      startX: touch.clientX,
-      startY: touch.clientY,
-      lastY: touch.clientY,
-      isVerticalGesture: false,
-    }
-  }
-
-  const handleRoomTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    const swipeState = roomSwipeRef.current
-    if (!swipeState || e.touches.length !== 1) return
-
-    const touch = e.touches[0]
-    const totalX = touch.clientX - swipeState.startX
-    const totalY = touch.clientY - swipeState.startY
-
-    if (!swipeState.isVerticalGesture) {
-      if (Math.abs(totalX) < 8 && Math.abs(totalY) < 8) return
-      if (Math.abs(totalY) <= Math.abs(totalX)) {
-        roomSwipeRef.current = null
-        return
-      }
-      swipeState.isVerticalGesture = true
-    }
-
-    const touchDeltaY = touch.clientY - swipeState.lastY
-    swipeState.lastY = touch.clientY
-
-    const messageScrollEl = activeRoomMessagesRef.current
-    const isSwipingUp = touchDeltaY < 0
-    const isSwipingDown = touchDeltaY > 0
-
-    if (!isSwipingUp && !isSwipingDown) return
-
-    const isScrollable = messageScrollEl
-      ? messageScrollEl.scrollHeight > messageScrollEl.clientHeight + 2
-      : false
-
-    const shouldSwitchToNextRoom = isSwipingUp && (!isScrollable || isMessageListAtBottom(messageScrollEl))
-    const shouldSwitchToPreviousRoom = isSwipingDown && (!isScrollable || isMessageListAtTop(messageScrollEl))
-
-    if (!shouldSwitchToNextRoom && !shouldSwitchToPreviousRoom) {
-      return
-    }
-
-    if (!containerRef.current) return
-
-    e.preventDefault()
-
-    if (shouldSwitchToNextRoom) {
-      containerRef.current.scrollTop += Math.abs(touchDeltaY)
-      return
-    }
-
-    containerRef.current.scrollTop -= touchDeltaY
-  }
-
-  const handleRoomTouchEnd = () => {
-    roomSwipeRef.current = null
-  }
-
   const openReadOnlyProfile = (profile: ReadOnlyProfile) => {
     setReadOnlyProfile(profile)
   }
@@ -2666,10 +2574,6 @@ export default function GlobalChat() {
               <div
                 ref={isCurrentRoom ? activeRoomMessagesRef : undefined}
                 className="room-messages"
-                onTouchStart={handleRoomTouchStart}
-                onTouchMove={handleRoomTouchMove}
-                onTouchEnd={handleRoomTouchEnd}
-                onTouchCancel={handleRoomTouchEnd}
                 onScroll={(e) => updateRoomBottomState(room.id, e.currentTarget)}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
               >

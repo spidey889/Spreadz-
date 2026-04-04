@@ -83,6 +83,8 @@ interface RoomSwipeState {
   isVerticalGesture: boolean
 }
 
+const ROOM_SCROLL_EDGE_THRESHOLD_PX = 10
+
 const getUserColor = (username: string) => {
   const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
   let hash = 0
@@ -309,6 +311,7 @@ export default function GlobalChat() {
   const [currentRoomIndex, setCurrentRoomIndex] = useState(0)
   const [cardCollapsed, setCardCollapsed] = useState(false)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
+  const [roomIsAtBottomById, setRoomIsAtBottomById] = useState<Record<string, boolean>>({})
   const [isMounted, setIsMounted] = useState(false)
   const [authReady, setAuthReady] = useState(false)
   const [displayName, setDisplayName] = useState('')
@@ -390,6 +393,29 @@ export default function GlobalChat() {
     const reservedSpace = Math.ceil(composerBarHeight + composerPaddingTop + composerPaddingBottom)
     root.style.setProperty('--composer-reserved-space', `${reservedSpace}px`)
   }, [])
+
+  const isMessageListAtBottom = useCallback((element: HTMLDivElement | null) => {
+    if (!element) return true
+
+    return element.scrollTop + element.clientHeight >= element.scrollHeight - ROOM_SCROLL_EDGE_THRESHOLD_PX
+  }, [])
+
+  const isMessageListAtTop = useCallback((element: HTMLDivElement | null) => {
+    if (!element) return true
+
+    return element.scrollTop <= ROOM_SCROLL_EDGE_THRESHOLD_PX
+  }, [])
+
+  const updateRoomBottomState = useCallback((roomId: string, element: HTMLDivElement | null) => {
+    if (!roomId || !element) return
+
+    const nextIsAtBottom = isMessageListAtBottom(element)
+    setRoomIsAtBottomById((prev) => (
+      prev[roomId] === nextIsAtBottom
+        ? prev
+        : { ...prev, [roomId]: nextIsAtBottom }
+    ))
+  }, [isMessageListAtBottom])
 
   const scrollCurrentRoomToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     const endEl = messageEndRefs.current[currentRoomIndex]
@@ -1719,6 +1745,16 @@ export default function GlobalChat() {
   }, [roomMessages, currentRoomIndex, scrollCurrentRoomToBottom, visibleMessageIdsByRoom])
 
   useEffect(() => {
+    if (!activeRoomId || !activeRoomMessagesRef.current) return
+
+    const frameId = window.requestAnimationFrame(() => {
+      updateRoomBottomState(activeRoomId, activeRoomMessagesRef.current)
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [activeRoomId, currentRoomIndex, roomMessages, updateRoomBottomState, visibleMessageIdsByRoom])
+
+  useEffect(() => {
     setCardCollapsed(false)
 
     const activeRoomId = rooms[currentRoomIndex]?.id
@@ -2472,31 +2508,32 @@ export default function GlobalChat() {
       swipeState.isVerticalGesture = true
     }
 
-    const upwardDelta = swipeState.lastY - touch.clientY
+    const touchDeltaY = touch.clientY - swipeState.lastY
     swipeState.lastY = touch.clientY
 
-    if (upwardDelta <= 0) return
-
-    let remainingDelta = upwardDelta
     const messageScrollEl = e.currentTarget.querySelector<HTMLDivElement>('.room-messages')
+    const isSwipingUp = touchDeltaY < 0
+    const isSwipingDown = touchDeltaY > 0
 
-    if (messageScrollEl) {
-      const remainingMessageScroll = Math.max(
-        0,
-        messageScrollEl.scrollHeight - messageScrollEl.clientHeight - messageScrollEl.scrollTop
-      )
+    if (!isSwipingUp && !isSwipingDown) return
 
-      if (remainingMessageScroll > 0) {
-        const messageDelta = Math.min(remainingDelta, remainingMessageScroll)
-        messageScrollEl.scrollTop += messageDelta
-        remainingDelta -= messageDelta
-      }
+    if (isSwipingUp && !isMessageListAtBottom(messageScrollEl)) {
+      return
     }
 
-    if (remainingDelta > 0 && containerRef.current) {
-      containerRef.current.scrollTop += remainingDelta
+    if (isSwipingDown && !isMessageListAtTop(messageScrollEl)) {
+      return
     }
 
+    if (!containerRef.current) return
+
+    if (isSwipingUp) {
+      containerRef.current.scrollTop += Math.abs(touchDeltaY)
+      e.preventDefault()
+      return
+    }
+
+    containerRef.current.scrollTop -= touchDeltaY
     e.preventDefault()
   }
 
@@ -2556,6 +2593,7 @@ export default function GlobalChat() {
   const profilePreviewColor = getUserColor(profilePreviewName)
   const isComposerExpanded = isKeyboardOpen || Boolean(activeGifPickerRoomId) || Boolean(gifPickerClosingRoomId)
   const activeGifSearch = gifSearchInput.trim()
+  const isActiveRoomAtBottom = activeRoomId ? roomIsAtBottomById[activeRoomId] ?? true : true
 
   return (
     <>
@@ -2629,6 +2667,7 @@ export default function GlobalChat() {
               <div
                 ref={isCurrentRoom ? activeRoomMessagesRef : undefined}
                 className="room-messages"
+                onScroll={(e) => updateRoomBottomState(room.id, e.currentTarget)}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
               >
                 <div ref={isCurrentRoom ? activeMessagesRef : undefined} className="messages">
@@ -2814,7 +2853,7 @@ export default function GlobalChat() {
                   </>
                 )}
                 <div ref={isCurrentRoom ? composerAreaRef : undefined} className="input-area global-composer">
-                  <div className={`hint${isComposerExpanded ? ' hidden' : ''}`}>
+                  <div className={`hint${isComposerExpanded || !isCurrentRoom || !isActiveRoomAtBottom ? ' hidden' : ''}`}>
                     <span className="hint-badge">Swipe Up</span>
                     <span>for new people &amp; topics</span>
                   </div>

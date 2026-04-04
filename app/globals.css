@@ -103,7 +103,7 @@ body {
           --composer-reserved-space: 72px;
           --keyboard-offset: 0px;
           --composer-viewport-gap: 0px;
-          --bg: #111214;
+          --bg: #121417;
           --surface: #1a1d22;
           --surface-elevated: #20242b;
           --surface-soft: #15181c;
@@ -123,7 +123,7 @@ body {
         }
 
         html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; }
-        body { background: radial-gradient(circle at top, rgba(113,185,255,0.15), transparent 34%), var(--bg); color: var(--text-primary); }
+        body { background-color: var(--bg); color: var(--text-primary); }
 
         .rooms-container { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; }
         .room-panel {
@@ -136,15 +136,7 @@ body {
           position: relative;
           isolation: isolate;
         }
-        .room-panel::before {
-          content: '';
-          position: absolute;
-          inset: 0 0 auto;
-          height: 260px;
-          background: radial-gradient(circle at top center, rgba(113,185,255,0.18), transparent 72%);
-          pointer-events: none;
-          z-index: 0;
-        }
+        .room-panel::before { content: none; }
 
         .header,
         .ai-card-wrap,

@@ -2511,7 +2511,7 @@ export default function GlobalChat() {
     const touchDeltaY = touch.clientY - swipeState.lastY
     swipeState.lastY = touch.clientY
 
-    const messageScrollEl = e.currentTarget.querySelector<HTMLDivElement>('.room-messages')
+    const messageScrollEl = e.currentTarget
     const isSwipingUp = touchDeltaY < 0
     const isSwipingDown = touchDeltaY > 0
 
@@ -2615,10 +2615,6 @@ export default function GlobalChat() {
               className={`room-panel${index === currentRoomIndex ? ' active-room' : ''}`}
               data-room-index={index}
               style={{ background: 'var(--bg)' }}
-              onTouchStart={handleRoomTouchStart}
-              onTouchMove={handleRoomTouchMove}
-              onTouchEnd={handleRoomTouchEnd}
-              onTouchCancel={handleRoomTouchEnd}
             >
               {/* Header */}
               <div className={`header${isComposerExpanded ? ' hidden' : ''}`}>
@@ -2667,6 +2663,10 @@ export default function GlobalChat() {
               <div
                 ref={isCurrentRoom ? activeRoomMessagesRef : undefined}
                 className="room-messages"
+                onTouchStart={handleRoomTouchStart}
+                onTouchMove={handleRoomTouchMove}
+                onTouchEnd={handleRoomTouchEnd}
+                onTouchCancel={handleRoomTouchEnd}
                 onScroll={(e) => updateRoomBottomState(room.id, e.currentTarget)}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
               >

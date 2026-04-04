@@ -302,7 +302,7 @@ body {
           letter-spacing: 0.26em;
           text-transform: uppercase;
           white-space: nowrap;
-          animation: shine 3s ease-in-out infinite;
+          animation: shine 2s ease-in-out 5s infinite;
         }
         .card-status-dot {
           display: none;
@@ -385,7 +385,7 @@ body {
           color: #8f97a3;
           font-weight: 600;
           letter-spacing: 0.02em;
-          opacity: 0.65;
+          opacity: 0.5;
           display: inline-block;
           background-image: linear-gradient(
             90deg,

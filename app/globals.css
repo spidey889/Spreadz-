@@ -65,14 +65,11 @@ body {
   border-radius: 4px;
 }
 
-/* Snap scroll container for rooms */
+/* Layered room container */
 .rooms-container {
+  position: relative;
   height: 100dvh;
-  overflow-y: auto;
-  scroll-snap-type: y mandatory;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
+  overflow: hidden;
 }
 
 .rooms-container::-webkit-scrollbar {
@@ -81,14 +78,23 @@ body {
 
 /* Each room panel */
 .room-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
   height: 100dvh;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
-  touch-action: pan-y;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.room-panel.active-room {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Inner messages scroll */
@@ -135,16 +141,28 @@ body {
         html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
         body { background: radial-gradient(circle at top, rgba(113,185,255,0.15), transparent 34%), var(--bg); color: var(--text-primary); }
 
-        .rooms-container { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; }
+        .rooms-container {
+          position: relative;
+          height: 100dvh;
+          overflow: hidden;
+        }
         .room-panel {
+          position: absolute;
+          inset: 0;
+          width: 100%;
           height: 100dvh;
           display: flex;
           flex-direction: column;
           min-height: 0;
-          scroll-snap-align: start;
           overflow: hidden;
-          position: relative;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.2s ease;
           isolation: isolate;
+        }
+        .room-panel.active-room {
+          opacity: 1;
+          pointer-events: auto;
         }
         .room-panel::before {
           content: '';

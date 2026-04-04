@@ -357,6 +357,7 @@ export default function GlobalChat() {
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string; contentOverride?: string } | null>(null)
   const pendingOutgoingMessageIdsRef = useRef<Map<string, string>>(new Map())
+  const pendingGifLoadScrollRoomIdRef = useRef<string | null>(null)
   const prevRoomIndexRef = useRef<number>(0)
   const handledNotificationNavigationRef = useRef<string>('')
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
@@ -389,6 +390,13 @@ export default function GlobalChat() {
     const reservedSpace = Math.ceil(composerBarHeight + composerPaddingTop + composerPaddingBottom)
     root.style.setProperty('--composer-reserved-space', `${reservedSpace}px`)
   }, [])
+
+  const scrollCurrentRoomToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const endEl = messageEndRefs.current[currentRoomIndex]
+    if (!endEl) return
+
+    endEl.scrollIntoView({ behavior, block: 'end' })
+  }, [currentRoomIndex])
 
   const applyProfileSheetOffset = useCallback((offset: number) => {
     profileSheetOffsetYRef.current = offset
@@ -1707,12 +1715,8 @@ export default function GlobalChat() {
   }, [rooms, currentRoomIndex, fetchMessagesForRoom, interestDismissed])
 
   useEffect(() => {
-    const endEl = messageEndRefs.current[currentRoomIndex]
-    const scrollEl = endEl?.closest('.room-messages') as HTMLDivElement | null
-    if (scrollEl) {
-      scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' })
-    }
-  }, [roomMessages, currentRoomIndex, visibleMessageIdsByRoom])
+    scrollCurrentRoomToBottom('smooth')
+  }, [roomMessages, currentRoomIndex, scrollCurrentRoomToBottom, visibleMessageIdsByRoom])
 
   useEffect(() => {
     setCardCollapsed(false)
@@ -1984,6 +1988,7 @@ export default function GlobalChat() {
     const activeCollege = overrideCollege !== undefined ? overrideCollege : (university || localStorage.getItem(COLLEGE_STORAGE_KEY) || '')
     const activeUsername = await ensureAccountUsername(activeDisplayName, activeCollege)
     if (!activeUsername) return
+    pendingGifLoadScrollRoomIdRef.current = activeRoomId === roomId && isGifMessage(text) ? roomId : null
     const activeRoomName = rooms.find(room => room.id === roomId)?.headline || ''
     const tempId = `temp-${Date.now()}`
     const pendingMessageKey = getPendingMessageKey({
@@ -2525,6 +2530,12 @@ export default function GlobalChat() {
             src={gifUrl}
             alt={`${msg.username} sent a GIF`}
             className="msg-gif"
+            onLoad={() => {
+              if (pendingGifLoadScrollRoomIdRef.current === msg.room_id && msg.room_id === activeRoomId) {
+                pendingGifLoadScrollRoomIdRef.current = null
+                scrollCurrentRoomToBottom('smooth')
+              }
+            }}
             draggable={false}
           />
         </div>
@@ -2772,7 +2783,7 @@ export default function GlobalChat() {
                           {!gifLoading && !gifError && gifResults.length === 0 && (
                             <div className="gif-picker-status">No GIFs found.</div>
                           )}
-                          {!gifLoading && !gifError && gifResults.map((gif) => (
+                          {!gifLoading && !gifError && gifResults.map((gif, gifIndex) => (
                             <button
                               key={gif.id}
                               type="button"
@@ -2789,7 +2800,7 @@ export default function GlobalChat() {
                                   src={gif.previewUrl}
                                   alt={gif.title || 'GIF'}
                                   className="gif-tile-image"
-                                  loading="lazy"
+                                  loading={gifIndex < 6 ? 'eager' : 'lazy'}
                                   decoding="async"
                                   draggable={false}
                                 />

@@ -382,18 +382,17 @@ body {
         .msg-username { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: #FFFFFF; }
         .msg-university {
           font-size: 11px;
-          color: #8f97a3;
+          color: rgba(255, 255, 255, 0.55);
           font-weight: 600;
           letter-spacing: 0.02em;
-          opacity: 0.5;
           display: inline-block;
           background-image: linear-gradient(
             90deg,
-            #8f97a3 0%,
-            #8f97a3 42%,
-            #aab3c0 50%,
-            #8f97a3 58%,
-            #8f97a3 100%
+            rgba(255, 255, 255, 0.55) 0%,
+            rgba(255, 255, 255, 0.55) 42%,
+            rgba(255, 255, 255, 0.72) 50%,
+            rgba(255, 255, 255, 0.55) 58%,
+            rgba(255, 255, 255, 0.55) 100%
           );
           background-size: 220% 100%;
           background-position: 140% 50%;
@@ -406,7 +405,7 @@ body {
 
         .msg-text { font-size: 15px; color: var(--text-msg); line-height: 1.6; margin-top: 0; padding-right: 8px; word-wrap: break-word; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         .msg-media {
-          width: min(100%, 280px);
+          width: min(60%, 180px);
           margin-top: 6px;
           border-radius: 18px;
           overflow: hidden;
@@ -418,7 +417,7 @@ body {
           display: block;
           width: 100%;
           height: auto;
-          max-height: 280px;
+          max-height: 160px;
           object-fit: cover;
           background: #15181c;
         }
@@ -682,8 +681,8 @@ body {
         .gif-tile-media {
           position: relative;
           width: 100%;
-          min-height: 0;
-          background: #12141a;
+          min-height: 80px;
+          background: #222;
         }
         .gif-tile-image {
           display: block;

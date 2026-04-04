@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
@@ -371,10 +371,6 @@ export default function GlobalChat() {
   const profileSheetOffsetYRef = useRef(0)
   const profileSheetFrameRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
-  // Scroll-gating: control when snap-scroll is allowed
-  const roomTouchStartYRef = useRef<number | null>(null)
-  const roomSnapEnabledRef = useRef(false)
-  const roomTouchActiveRef = useRef(false)
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
 
   const syncComposerMetrics = useCallback(() => {
@@ -413,85 +409,6 @@ export default function GlobalChat() {
 
     endEl.scrollIntoView({ behavior, block: 'end' })
   }, [currentRoomIndex])
-
-  // Scroll-gating: toggle snap mode on the rooms-container
-  const setSnapEnabled = useCallback((enabled: boolean) => {
-    const container = containerRef.current
-    if (!container) return
-    if (enabled === roomSnapEnabledRef.current) return
-    roomSnapEnabledRef.current = enabled
-    if (enabled) {
-      container.classList.add('snap-enabled')
-    } else {
-      container.classList.remove('snap-enabled')
-    }
-  }, [])
-
-  const getActiveRoomMessagesEl = useCallback((): HTMLDivElement | null => {
-    return activeRoomMessagesRef.current
-  }, [])
-
-  const isAtTop = useCallback((el: HTMLDivElement) => {
-    return el.scrollTop <= ROOM_SCROLL_EDGE_THRESHOLD_PX
-  }, [])
-
-  const isAtBottom = useCallback((el: HTMLDivElement) => {
-    return el.scrollTop + el.clientHeight >= el.scrollHeight - ROOM_SCROLL_EDGE_THRESHOLD_PX
-  }, [])
-
-  const handleRoomContainerTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    roomTouchStartYRef.current = e.touches[0]?.clientY ?? null
-    roomTouchActiveRef.current = true
-    // Start with snap disabled so inner scroll works
-    setSnapEnabled(false)
-  }, [setSnapEnabled])
-
-  const handleRoomContainerTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    const startY = roomTouchStartYRef.current
-    const currentY = e.touches[0]?.clientY
-    if (startY === null || currentY === undefined) return
-
-    const deltaY = startY - currentY // positive = swiping up, negative = swiping down
-    const messagesEl = getActiveRoomMessagesEl()
-
-    if (!messagesEl) {
-      // No messages element — allow snap (between rooms)
-      setSnapEnabled(true)
-      return
-    }
-
-    const hasScrollableContent = messagesEl.scrollHeight > messagesEl.clientHeight + ROOM_SCROLL_EDGE_THRESHOLD_PX
-
-    if (!hasScrollableContent) {
-      // Messages don't overflow — allow snap to switch rooms
-      setSnapEnabled(true)
-      return
-    }
-
-    const atTop = isAtTop(messagesEl)
-    const atBottom = isAtBottom(messagesEl)
-
-    // Only enable snap (room transition) if:
-    // - At the very top AND swiping downward (to go to previous room)
-    // - At the very bottom AND swiping upward (to go to next room)
-    if ((atTop && deltaY < -30) || (atBottom && deltaY > 30)) {
-      setSnapEnabled(true)
-    } else {
-      setSnapEnabled(false)
-    }
-  }, [getActiveRoomMessagesEl, isAtBottom, isAtTop, setSnapEnabled])
-
-  const handleRoomContainerTouchEnd = useCallback(() => {
-    roomTouchStartYRef.current = null
-    roomTouchActiveRef.current = false
-    // After touch ends, re-enable snap so programmatic scrollTo works and
-    // the container settles on a panel boundary
-    setTimeout(() => {
-      if (!roomTouchActiveRef.current) {
-        setSnapEnabled(true)
-      }
-    }, 300)
-  }, [setSnapEnabled])
 
   const applyProfileSheetOffset = useCallback((offset: number) => {
     profileSheetOffsetYRef.current = offset
@@ -1583,10 +1500,9 @@ export default function GlobalChat() {
       hasScrolledToTopRef.current = true
       setTimeout(() => {
         containerRef.current?.scrollTo({ top: 0, behavior: 'instant' })
-        setSnapEnabled(true)
       }, 500)
     }
-  }, [rooms, setSnapEnabled])
+  }, [rooms])
 
   const triggerRevealsForMessages = useCallback((roomId: string, msgs: Message[]) => {
     if (roomId === HACKER_NEWS_ROOM_ID) {
@@ -2592,14 +2508,7 @@ export default function GlobalChat() {
 
   return (
     <>
-      <div
-        className="rooms-container"
-        ref={containerRef}
-        onTouchStart={handleRoomContainerTouchStart}
-        onTouchMove={handleRoomContainerTouchMove}
-        onTouchEnd={handleRoomContainerTouchEnd}
-        onTouchCancel={handleRoomContainerTouchEnd}
-      >
+      <div className="rooms-container" ref={containerRef}>
         {rooms.map((room, index) => {
           const messages = roomMessages[room.id] || []
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()

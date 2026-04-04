@@ -360,6 +360,7 @@ export default function GlobalChat() {
   const gifPickerOffsetYRef = useRef(0)
   const gifPickerFrameRef = useRef<number | null>(null)
   const gifPickerCloseTimeoutRef = useRef<number | null>(null)
+  const touchStartYRef = useRef<number | null>(null)
   const profileSheetTouchStartYRef = useRef<number | null>(null)
   const profileSheetOffsetYRef = useRef(0)
   const profileSheetFrameRef = useRef<number | null>(null)
@@ -398,6 +399,39 @@ export default function GlobalChat() {
 
     roomIsAtBottomByIdRef.current[roomId] = isMessageListAtBottom(element)
   }, [isMessageListAtBottom])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1) {
+      touchStartYRef.current = e.touches[0].clientY
+    }
+  }, [])
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    const startY = touchStartYRef.current
+    touchStartYRef.current = null
+
+    if (startY === null || e.changedTouches.length === 0) return
+
+    const endY = e.changedTouches[0].clientY
+    const deltaY = endY - startY
+    const el = activeRoomMessagesRef.current
+    if (!el) return
+
+    const atTop = el.scrollTop <= 10
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10
+    const THRESHOLD = 60
+
+    if (Math.abs(deltaY) < THRESHOLD) return
+
+    if (deltaY < 0 && atBottom) {
+      setCurrentRoomIndex((i) => Math.min(i + 1, rooms.length - 1))
+      return
+    }
+
+    if (deltaY > 0 && atTop) {
+      setCurrentRoomIndex((i) => Math.max(i - 1, 0))
+    }
+  }, [rooms.length])
 
   const applyProfileSheetOffset = useCallback((offset: number) => {
     profileSheetOffsetYRef.current = offset
@@ -1373,11 +1407,6 @@ export default function GlobalChat() {
       if (data && data.length > 0) {
         // Set rooms in default order immediately
         setRooms(data)
-        if (data[0]) {
-          trackRoomEnter(data[0].id, data[0].headline)
-        }
-
-
       }
     }
     fetchRooms()
@@ -1605,11 +1634,14 @@ export default function GlobalChat() {
   }, [buildMessageFromRow, cacheUsernamesForDisplayNames, getCurrentUserId, getPendingMessageKey, handleIncomingMessageNotification, normalizeMessageRow, scheduleReveal])
 
 
-  // When rooms load, fetch room index 0 immediately.
+  // Fetch messages for the active room as room state changes.
   useEffect(() => {
-    if (rooms.length === 0) return
-    fetchMessagesForRoom(rooms[0])
-  }, [rooms, fetchMessagesForRoom])
+    const activeRoom = rooms[currentRoomIndex]
+    if (!activeRoom) return
+
+    trackRoomEnter(activeRoom.id, activeRoom.headline)
+    void fetchMessagesForRoom(activeRoom)
+  }, [currentRoomIndex, fetchMessagesForRoom, rooms])
 
   // Keep one long-lived messages subscription so room changes do not interrupt realtime inserts.
   useEffect(() => {
@@ -2403,229 +2435,237 @@ export default function GlobalChat() {
   const profilePreviewInitials = getInitials(profilePreviewName)
   const profilePreviewColor = getUserColor(profilePreviewName)
   const isComposerExpanded = isKeyboardOpen
-  const room = rooms[currentRoomIndex]
+  const activeRoom = rooms[currentRoomIndex]
 
-  if (!room) return null
-
-  const messages = roomMessages[room.id] || []
-  const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
+  if (!activeRoom) return null
   const gifTriggerLabel = 'Open emoji and GIF picker'
   const isGifPickerOpen = false
 
   return (
     <>
       <div className="rooms-container">
-        <div
-          className="room-panel"
-          style={{ background: 'var(--bg)' }}
-        >
-          <div className={`header${isComposerExpanded ? ' hidden' : ''}`}>
-            <div className="header-side" aria-hidden="true" />
-            <div className="logo">
-              <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={176} height={88} priority />
-            </div>
-            <div className="header-side">
-              <button
-                type="button"
-                className={`profile-avatar-btn${!hasAvatarPhoto && !displayName.trim() ? ' empty' : ''}`}
-                style={!hasAvatarPhoto && displayName.trim() ? { backgroundColor: getUserColor(displayName) } : undefined}
-                aria-label="Open profile"
-                onClick={handleProfileButtonClick}
-              >
-                {hasAvatarPhoto ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={currentAvatarUrl} src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" />
-                ) : displayName.trim() ? (
-                  getInitials(displayName)
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 20a6 6 0 0 0-12 0" />
-                    <circle cx="12" cy="10" r="4" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          </div>
+        {rooms.map((room, index) => {
+          const messages = roomMessages[room.id] || []
+          const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
+          const isCurrentRoom = index === currentRoomIndex
 
-          <div className={`ai-card-wrap${isComposerExpanded ? ' hidden' : ''}`}>
-            <div className={`ai-card${cardCollapsed ? ' compact' : ''}`}>
-              <div className="card-row">
-                <div className="card-label">
-                  <span className="card-status-dot" aria-hidden="true" />
-                  LIVE DISCUSSION
+          return (
+            <div
+              key={room.id}
+              className={`room-panel${isCurrentRoom ? ' active-room' : ''}`}
+              style={{ background: 'var(--bg)' }}
+            >
+              <div className={`header${isComposerExpanded ? ' hidden' : ''}`}>
+                <div className="header-side" aria-hidden="true" />
+                <div className="logo">
+                  <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={176} height={88} priority />
+                </div>
+                <div className="header-side">
+                  <button
+                    type="button"
+                    className={`profile-avatar-btn${!hasAvatarPhoto && !displayName.trim() ? ' empty' : ''}`}
+                    style={!hasAvatarPhoto && displayName.trim() ? { backgroundColor: getUserColor(displayName) } : undefined}
+                    aria-label="Open profile"
+                    onClick={handleProfileButtonClick}
+                  >
+                    {hasAvatarPhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={currentAvatarUrl} src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" />
+                    ) : displayName.trim() ? (
+                      getInitials(displayName)
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 20a6 6 0 0 0-12 0" />
+                        <circle cx="12" cy="10" r="4" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
-              <div className="ai-headline">{room.headline}</div>
-              {!cardCollapsed && <div className="card-support">Only college students are allowed here.... ya we block others. Have fun! 😉</div>}
-            </div>
-          </div>
 
-          <div
-            ref={activeRoomMessagesRef}
-            className="room-messages"
-            onScroll={(e) => updateRoomBottomState(room.id, e.currentTarget)}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
-          >
-            <div ref={activeMessagesRef} className="messages">
-              {messages.map((msg) => {
-                const isVisible = visibleMessageIds.has(msg.id)
-                if (!isVisible) return null
-
-                const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id))
-                const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
-                const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
-                const isOwnMessage = msg.senderUsername === getCurrentUsername()
-                const showOwnMessageAvatar = isOwnMessage && hasAvatarPhoto
-                const messageAvatarUrl = showOwnMessageAvatar ? currentAvatarUrl : (msg.avatarUrl?.trim() || '')
-                const isReadOnlyProfileAvatar = isFirstInGroup && !isOwnMessage
-
-                return (
-                  <div key={msg.id} className="msg-reveal"
-                    onMouseDown={() => startLongPress(msg)}
-                    onMouseUp={clearLongPress}
-                    onMouseLeave={clearLongPress}
-                    onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
-                  >
-                    {isFirstInGroup && visibleIndex !== 0 && <div className="group-divider" />}
-                    <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
-                      {isFirstInGroup ? (
-                        <>
-                          <div
-                            className={`avatar${isReadOnlyProfileAvatar ? ' clickable' : ''}`}
-                            style={messageAvatarUrl ? undefined : { backgroundColor: getUserColor(msg.username) }}
-                            onClick={isReadOnlyProfileAvatar ? (e) => {
-                              e.stopPropagation()
-                              openReadOnlyProfile({
-                                displayName: msg.username,
-                                handle: msg.senderUsername || '',
-                                college: msg.university,
-                                avatarUrl: messageAvatarUrl || null,
-                                joinedAt: msg.created_at || null,
-                                reportMessage: msg,
-                              })
-                            } : undefined}
-                          >
-                            {messageAvatarUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={messageAvatarUrl}
-                                alt={`${msg.username} profile`}
-                                className="profile-avatar-image"
-                                style={{ borderRadius: '50%' }}
-                                draggable={false}
-                              />
-                            ) : (
-                              msg.initials
-                            )}
-                          </div>
-                          <div className="msg-content">
-                            <div className="msg-header">
-                              <div className="msg-author">
-                                <span className="msg-username">{msg.username}</span>
-                                {msg.university && <span className="msg-university">{msg.university}</span>}
-                              </div>
-                              <span className="msg-timestamp">{msg.timestamp}</span>
-                            </div>
-                            {renderMessageBody(msg)}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="msg-content continuation">
-                          {renderMessageBody(msg)}
-                        </div>
-                      )}
+              <div className={`ai-card-wrap${isComposerExpanded ? ' hidden' : ''}`}>
+                <div className={`ai-card${cardCollapsed ? ' compact' : ''}`}>
+                  <div className="card-row">
+                    <div className="card-label">
+                      <span className="card-status-dot" aria-hidden="true" />
+                      LIVE DISCUSSION
                     </div>
                   </div>
-                )
-              })}
-              <div ref={(el) => { messageEndRefs.current[currentRoomIndex] = el }} />
-            </div>
-          </div>
+                  <div className="ai-headline">{room.headline}</div>
+                  {!cardCollapsed && <div className="card-support">Only college students are allowed here.... ya we block others. Have fun! 😉</div>}
+                </div>
+              </div>
 
-          <div ref={composerLayerRef} className="composer-layer">
-            <div ref={composerAreaRef} className="input-area global-composer">
               <div
-                ref={composerBarRef}
-                className="input-wrap"
+                ref={isCurrentRoom ? activeRoomMessagesRef : undefined}
+                className="room-messages"
+                onTouchStart={isCurrentRoom ? handleTouchStart : undefined}
+                onTouchEnd={isCurrentRoom ? handleTouchEnd : undefined}
+                onScroll={(e) => updateRoomBottomState(room.id, e.currentTarget)}
+                onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
               >
-                <div
-                  contentEditable={true}
-                  role="textbox"
-                  aria-multiline="false"
-                  aria-label="What's on your mind?"
-                  data-placeholder="What's on your mind?"
-                  className="chat-input-editable"
-                  onInput={(e) => {
-                    const text = e.currentTarget.textContent || ''
-                    setInputTexts(prev => ({ ...prev, [room.id]: text }))
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleSend(room.id)
-                      e.currentTarget.textContent = ''
-                    }
-                  }}
-                  onFocus={() => {
-                    setIsKeyboardOpen(true)
-                    setActiveGifPickerRoomId(null)
-                  }}
-                  onBlur={() => {
-                    setIsKeyboardOpen(false)
-                  }}
-                  suppressContentEditableWarning={true}
-                />
-                <button
-                  type="button"
-                  className={`gif-btn${isGifPickerOpen ? ' active' : ''}`}
-                  aria-label={gifTriggerLabel}
-                  title={gifTriggerLabel}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const btn = e.currentTarget as HTMLButtonElement
-                    btn.blur()
-                  }}
-                >
-                  <span className="gif-btn-icon" aria-hidden="true">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="8.25" />
-                      <path d="M9.15 10.35h.01" />
-                      <path d="M14.85 10.35h.01" />
-                      <path d="M8.9 14.3c.82 1 1.86 1.5 3.1 1.5 1.23 0 2.26-.5 3.1-1.5" />
-                      <path d="M17.55 6.45l1.8-1.2" />
-                    </svg>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="send-btn"
-                  aria-label="Send"
-                  onClick={(e) => {
-                    const btn = e.currentTarget as HTMLButtonElement
-                    btn.blur()
-                    handleSend(room.id)
-                  }}
-                >
-                  <svg
-                    width="19"
-                    height="19"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.9"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
+                <div ref={isCurrentRoom ? activeMessagesRef : undefined} className="messages">
+                  {messages.map((msg) => {
+                    const isVisible = visibleMessageIds.has(msg.id)
+                    if (!isVisible) return null
+
+                    const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id))
+                    const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
+                    const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
+                    const isOwnMessage = msg.senderUsername === getCurrentUsername()
+                    const showOwnMessageAvatar = isOwnMessage && hasAvatarPhoto
+                    const messageAvatarUrl = showOwnMessageAvatar ? currentAvatarUrl : (msg.avatarUrl?.trim() || '')
+                    const isReadOnlyProfileAvatar = isFirstInGroup && !isOwnMessage
+
+                    return (
+                      <div key={msg.id} className="msg-reveal"
+                        onMouseDown={() => startLongPress(msg)}
+                        onMouseUp={clearLongPress}
+                        onMouseLeave={clearLongPress}
+                        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
+                      >
+                        {isFirstInGroup && visibleIndex !== 0 && <div className="group-divider" />}
+                        <div className={`msg ${isFirstInGroup ? 'group-start' : 'group-continuation'}`}>
+                          {isFirstInGroup ? (
+                            <>
+                              <div
+                                className={`avatar${isReadOnlyProfileAvatar ? ' clickable' : ''}`}
+                                style={messageAvatarUrl ? undefined : { backgroundColor: getUserColor(msg.username) }}
+                                onClick={isReadOnlyProfileAvatar ? (e) => {
+                                  e.stopPropagation()
+                                  openReadOnlyProfile({
+                                    displayName: msg.username,
+                                    handle: msg.senderUsername || '',
+                                    college: msg.university,
+                                    avatarUrl: messageAvatarUrl || null,
+                                    joinedAt: msg.created_at || null,
+                                    reportMessage: msg,
+                                  })
+                                } : undefined}
+                              >
+                                {messageAvatarUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={messageAvatarUrl}
+                                    alt={`${msg.username} profile`}
+                                    className="profile-avatar-image"
+                                    style={{ borderRadius: '50%' }}
+                                    draggable={false}
+                                  />
+                                ) : (
+                                  msg.initials
+                                )}
+                              </div>
+                              <div className="msg-content">
+                                <div className="msg-header">
+                                  <div className="msg-author">
+                                    <span className="msg-username">{msg.username}</span>
+                                    {msg.university && <span className="msg-university">{msg.university}</span>}
+                                  </div>
+                                  <span className="msg-timestamp">{msg.timestamp}</span>
+                                </div>
+                                {renderMessageBody(msg)}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="msg-content continuation">
+                              {renderMessageBody(msg)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  <div ref={(el) => { messageEndRefs.current[index] = el }} />
+                </div>
+              </div>
+
+              <div ref={isCurrentRoom ? composerLayerRef : undefined} className="composer-layer">
+                <div ref={isCurrentRoom ? composerAreaRef : undefined} className="input-area global-composer">
+                  <div
+                    ref={isCurrentRoom ? composerBarRef : undefined}
+                    className="input-wrap"
                   >
-                    <path d="M21 3L10.4 13.6" />
-                    <path d="M21 3L14.8 20.4L10.4 13.6L3.6 9.2L21 3Z" />
-                  </svg>
-                </button>
+                    <div
+                      contentEditable={true}
+                      role="textbox"
+                      aria-multiline="false"
+                      aria-label="What's on your mind?"
+                      data-placeholder="What's on your mind?"
+                      className="chat-input-editable"
+                      onInput={(e) => {
+                        const text = e.currentTarget.textContent || ''
+                        setInputTexts(prev => ({ ...prev, [room.id]: text }))
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault()
+                          handleSend(room.id)
+                          e.currentTarget.textContent = ''
+                        }
+                      }}
+                      onFocus={() => {
+                        setIsKeyboardOpen(true)
+                        setActiveGifPickerRoomId(null)
+                      }}
+                      onBlur={() => {
+                        setIsKeyboardOpen(false)
+                      }}
+                      suppressContentEditableWarning={true}
+                    />
+                    <button
+                      type="button"
+                      className={`gif-btn${isGifPickerOpen ? ' active' : ''}`}
+                      aria-label={gifTriggerLabel}
+                      title={gifTriggerLabel}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const btn = e.currentTarget as HTMLButtonElement
+                        btn.blur()
+                      }}
+                    >
+                      <span className="gif-btn-icon" aria-hidden="true">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="8.25" />
+                          <path d="M9.15 10.35h.01" />
+                          <path d="M14.85 10.35h.01" />
+                          <path d="M8.9 14.3c.82 1 1.86 1.5 3.1 1.5 1.23 0 2.26-.5 3.1-1.5" />
+                          <path d="M17.55 6.45l1.8-1.2" />
+                        </svg>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="send-btn"
+                      aria-label="Send"
+                      onClick={(e) => {
+                        const btn = e.currentTarget as HTMLButtonElement
+                        btn.blur()
+                        handleSend(room.id)
+                      }}
+                    >
+                      <svg
+                        width="19"
+                        height="19"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.9"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M21 3L10.4 13.6" />
+                        <path d="M21 3L14.8 20.4L10.4 13.6L3.6 9.2L21 3Z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          )
+        })}
       </div>
 
       {readOnlyProfile && (

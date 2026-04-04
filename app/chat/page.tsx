@@ -2533,6 +2533,7 @@ export default function GlobalChat() {
           const isGifPickerRendered = activeGifPickerRoomId === room.id || gifPickerClosingRoomId === room.id
           const isGifPickerClosing = gifPickerClosingRoomId === room.id
           const isGifPickerOpen = activeGifPickerRoomId === room.id && !isGifPickerClosing
+          const gifTriggerLabel = isGifPickerOpen ? 'Close emoji and GIF picker' : 'Open emoji and GIF picker'
 
           return (
             <div
@@ -2801,7 +2802,8 @@ export default function GlobalChat() {
                     <button
                       type="button"
                       className={`gif-btn${isGifPickerOpen ? ' active' : ''}`}
-                      aria-label={isGifPickerOpen ? 'Close GIF picker' : 'Open GIF picker'}
+                      aria-label={gifTriggerLabel}
+                      title={gifTriggerLabel}
                       onClick={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
@@ -2811,12 +2813,12 @@ export default function GlobalChat() {
                       }}
                     >
                       <span className="gif-btn-icon" aria-hidden="true">
-                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M7.35 4.9h8.15A3.5 3.5 0 0 1 19 8.4v5.72A4.88 4.88 0 0 1 14.12 19H9.7a3.95 3.95 0 0 1-3.95-3.95V6.5A1.6 1.6 0 0 1 7.35 4.9Z" />
-                          <path d="M14.85 19v-1.58a3.02 3.02 0 0 1 3.02-3.02H19" />
-                          <circle cx="10.05" cy="10.6" r="0.52" fill="currentColor" stroke="none" />
-                          <circle cx="14.2" cy="10.6" r="0.52" fill="currentColor" stroke="none" />
-                          <path d="M9.72 14c.63.5 1.47.75 2.53.75 1.05 0 1.89-.25 2.52-.75" />
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="8.25" />
+                          <path d="M9.15 10.35h.01" />
+                          <path d="M14.85 10.35h.01" />
+                          <path d="M8.9 14.3c.82 1 1.86 1.5 3.1 1.5 1.23 0 2.26-.5 3.1-1.5" />
+                          <path d="M17.55 6.45l1.8-1.2" />
                         </svg>
                       </span>
                     </button>

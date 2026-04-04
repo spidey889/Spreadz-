@@ -2511,14 +2511,18 @@ export default function GlobalChat() {
     const touchDeltaY = touch.clientY - swipeState.lastY
     swipeState.lastY = touch.clientY
 
-    const messageScrollEl = e.currentTarget
+    const messageScrollEl = activeRoomMessagesRef.current
     const isSwipingUp = touchDeltaY < 0
     const isSwipingDown = touchDeltaY > 0
 
     if (!isSwipingUp && !isSwipingDown) return
 
-    const shouldSwitchToNextRoom = isSwipingUp && isMessageListAtBottom(messageScrollEl)
-    const shouldSwitchToPreviousRoom = isSwipingDown && isMessageListAtTop(messageScrollEl)
+    const isScrollable = messageScrollEl
+      ? messageScrollEl.scrollHeight > messageScrollEl.clientHeight + 2
+      : false
+
+    const shouldSwitchToNextRoom = isSwipingUp && (!isScrollable || isMessageListAtBottom(messageScrollEl))
+    const shouldSwitchToPreviousRoom = isSwipingDown && (!isScrollable || isMessageListAtTop(messageScrollEl))
 
     if (!shouldSwitchToNextRoom && !shouldSwitchToPreviousRoom) {
       return

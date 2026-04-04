@@ -2801,6 +2801,7 @@ export default function GlobalChat() {
                                   alt={gif.title || 'GIF'}
                                   className="gif-tile-image"
                                   loading={gifIndex < 6 ? 'eager' : 'lazy'}
+                                  fetchPriority={gifIndex < 6 ? 'high' : 'auto'}
                                   decoding="async"
                                   draggable={false}
                                 />

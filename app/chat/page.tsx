@@ -2969,18 +2969,19 @@ export default function GlobalChat() {
             {profileHandle && <div className="profile-username">@{profileHandle}</div>}
             <div className="profile-title">Your Profile</div>
             {hasSavedProfileName ? (
-              <>
-                <div className="profile-field">
-                  <label className="profile-label">Display name</label>
-                  <div className="profile-locked-value">{displayName}</div>
-                  <div className="profile-locked-note">Your name is set in stone. No take-backs. 🪨</div>
+              <div className="profile-display-stack">
+                <div className="profile-display-section">
+                  <div className="profile-display-label">Display name</div>
+                  <div className="profile-display-value">{displayName}</div>
+                  <div className="profile-display-note">Your name is set in stone. No take-backs. 🪨</div>
                 </div>
-                <div className="profile-field">
-                  <label className="profile-label">College</label>
-                  <div className="profile-locked-value">{university || 'Not added yet'}</div>
-                  <div className="profile-locked-note">College locked too. Own it.</div>
+                <div className="profile-section-divider" aria-hidden="true" />
+                <div className="profile-display-section">
+                  <div className="profile-display-label">College</div>
+                  <div className="profile-display-value">{university || 'Not added yet'}</div>
+                  <div className="profile-display-note">College locked too. Own it.</div>
                 </div>
-              </>
+              </div>
             ) : (
               <>
                 <div className="profile-field">

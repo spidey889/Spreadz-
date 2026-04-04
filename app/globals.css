@@ -68,8 +68,7 @@ body {
 /* Snap scroll container for rooms */
 .rooms-container {
   height: 100dvh;
-  overflow-y: auto;
-  scroll-snap-type: y mandatory;
+  overflow-y: hidden;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
@@ -82,8 +81,6 @@ body {
 /* Each room panel */
 .room-panel {
   height: 100dvh;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -135,13 +132,13 @@ body {
         html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
         body { background: radial-gradient(circle at top, rgba(113,185,255,0.15), transparent 34%), var(--bg); color: var(--text-primary); }
 
-        .rooms-container { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; }
+        .rooms-container { height: 100dvh; overflow-y: hidden; }
         .room-panel {
           height: 100dvh;
           display: flex;
           flex-direction: column;
           min-height: 0;
-          scroll-snap-align: start;
+        
           overflow: hidden;
           position: relative;
           isolation: isolate;
@@ -200,7 +197,7 @@ body {
           border-radius: 999px;
           border: 1px solid rgba(255,255,255,0.12);
           padding: 0;
-          display: flex;
+display: flex;
           align-items: center;
           justify-content: center;
           background: linear-gradient(180deg, rgba(104,109,119,0.96), rgba(82,86,94,0.96));
@@ -220,8 +217,7 @@ body {
           height: 100%;
           object-fit: cover;
           display: block;
-          border-radius: inherit;
-        }
+          border-radius: inherit;        }
 
         .ai-card-wrap {
           margin: 4px 8px 0;
@@ -330,6 +326,7 @@ body {
           user-select: none;
           -webkit-user-select: none;
           -webkit-touch-callout: none;
+          overflow-y: auto;
           -webkit-overflow-scrolling: touch;
           touch-action: pan-y;
         }

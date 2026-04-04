@@ -103,7 +103,7 @@ body {
           --composer-reserved-space: 72px;
           --keyboard-offset: 0px;
           --composer-viewport-gap: 0px;
-          --bg: #121417;
+          --bg: #171b20;
           --surface: #1a1d22;
           --surface-elevated: #20242b;
           --surface-soft: #15181c;
@@ -151,7 +151,7 @@ body {
           align-items: center;
           gap: 8px;
           padding: calc(env(safe-area-inset-top, 0px) + 4px) 18px 3px;
-          background: linear-gradient(180deg, rgba(17,18,20,0.98), rgba(17,18,20,0.92) 72%, rgba(17,18,20,0));
+          background: linear-gradient(180deg, rgba(23,27,32,0.98), rgba(23,27,32,0.92) 72%, rgba(23,27,32,0));
           z-index: 10;
           flex-shrink: 0;
         }

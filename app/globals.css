@@ -220,8 +220,8 @@ body {
           flex-shrink: 0;
         }
         .ai-card {
-          --context-accent-green: #7ec4ff;
-          --context-accent-rail: #57a8f5;
+          --context-accent-green: #67d996;
+          --context-accent-rail: #56c383;
           background: var(--headline-bg);
           position: relative;
           overflow: hidden;

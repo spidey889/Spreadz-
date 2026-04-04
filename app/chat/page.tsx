@@ -69,8 +69,11 @@ interface GifResult {
 
 interface ReadOnlyProfile {
   displayName: string
+  handle: string
   college: string
   avatarUrl: string | null
+  joinedAt: string | null
+  reportMessage: Message | null
 }
 
 interface RoomSwipeState {
@@ -100,6 +103,18 @@ const formatTime = (isoString?: string) => {
     minute: '2-digit',
     timeZone: 'Asia/Kolkata',
   })
+}
+
+const formatProfileJoinedLabel = (isoString?: string | null) => {
+  if (!isoString) return ''
+
+  const targetDate = new Date(isoString)
+  if (Number.isNaN(targetDate.getTime())) return ''
+
+  return `Joined ${targetDate.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  })}`
 }
 
 const INTEREST_OPTIONS = ['Tech & AI', 'Sports', 'Politics', 'Entertainment', 'Business', 'Science', 'Gaming', 'Campus Life']
@@ -2492,6 +2507,14 @@ export default function GlobalChat() {
     setReadOnlyProfile(null)
   }
 
+  const handleReadOnlyProfileReport = () => {
+    if (!readOnlyProfile?.reportMessage) return
+    setReadOnlyProfile(null)
+    setSheetClosing(false)
+    setReportStatus('idle')
+    setReportSheetMessage(readOnlyProfile.reportMessage)
+  }
+
   const renderMessageBody = (msg: Message) => {
     const gifUrl = getGifUrlFromMessage(msg.text)
     if (gifUrl) {
@@ -2632,8 +2655,11 @@ export default function GlobalChat() {
                                   e.stopPropagation()
                                   openReadOnlyProfile({
                                     displayName: msg.username,
+                                    handle: msg.senderUsername || '',
                                     college: msg.university,
                                     avatarUrl: messageAvatarUrl || null,
+                                    joinedAt: msg.created_at || null,
+                                    reportMessage: msg,
                                   })
                                 } : undefined}
                               >
@@ -2893,8 +2919,32 @@ export default function GlobalChat() {
             </div>
             <div className="sheet-handle" />
             <div className="profile-sheet-view-content">
-              <div className="profile-sheet-view-name">{readOnlyProfile.displayName}</div>
-              {readOnlyProfile.college && <div className="profile-sheet-view-college">{readOnlyProfile.college}</div>}
+              <div className="profile-sheet-view-identity">
+                <div className="profile-sheet-view-name">{readOnlyProfile.displayName}</div>
+                {readOnlyProfile.handle && (
+                  <div className="profile-sheet-view-handle">
+                    @{readOnlyProfile.handle.replace(/^@/, '')}
+                  </div>
+                )}
+              </div>
+              <div className="profile-sheet-view-details">
+                <div className="profile-sheet-view-row">
+                  <span className="profile-sheet-view-icon" aria-hidden="true">🎓</span>
+                  <span>{readOnlyProfile.college || 'College not listed'}</span>
+                </div>
+                <div className="profile-sheet-view-divider" aria-hidden="true" />
+                <div className="profile-sheet-view-row">
+                  <span className="profile-sheet-view-icon" aria-hidden="true">📅</span>
+                  <span>{formatProfileJoinedLabel(readOnlyProfile.joinedAt)}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="profile-sheet-view-report"
+                onClick={handleReadOnlyProfileReport}
+              >
+                Report user
+              </button>
             </div>
           </div>
         </div>

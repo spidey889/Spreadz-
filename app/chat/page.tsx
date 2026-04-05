@@ -385,6 +385,7 @@ export default function GlobalChat() {
   const dragVelocityYRef = useRef(0)
   const roomDragFrameRef = useRef<number | null>(null)
   const roomTransitionTimeoutRef = useRef<number | null>(null)
+  const loggedGifRenderKeysRef = useRef<Set<string>>(new Set())
   const profileSheetTouchStartYRef = useRef<number | null>(null)
   const profileSheetOffsetYRef = useRef(0)
   const profileSheetFrameRef = useRef<number | null>(null)
@@ -2738,6 +2739,18 @@ export default function GlobalChat() {
   const renderMessageBody = (msg: Message) => {
     const gifUrl = getGifUrlFromMessage(msg.text)
     if (gifUrl) {
+      const renderLogKey = `${msg.id}:${gifUrl}`
+      if (!loggedGifRenderKeysRef.current.has(renderLogKey)) {
+        loggedGifRenderKeysRef.current.add(renderLogKey)
+        console.info('[GIF] render attempt', {
+          messageId: msg.id,
+          roomId: msg.room_id,
+          rawContent: msg.text,
+          parsedGifUrl: gifUrl,
+          finalRenderUrl: gifUrl,
+        })
+      }
+
       return (
         <div className="msg-media">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2745,7 +2758,27 @@ export default function GlobalChat() {
             src={gifUrl}
             alt={`${msg.username} sent a GIF`}
             className="msg-gif"
-            onLoad={() => handleMediaLoad(msg.room_id)}
+            onLoad={(e) => {
+              console.info('[GIF] load success', {
+                messageId: msg.id,
+                roomId: msg.room_id,
+                rawContent: msg.text,
+                parsedGifUrl: gifUrl,
+                finalRenderUrl: (e.currentTarget as HTMLImageElement).currentSrc || gifUrl,
+              })
+              handleMediaLoad(msg.room_id)
+            }}
+            onError={(e) => {
+              console.error('[GIF] load error', {
+                messageId: msg.id,
+                roomId: msg.room_id,
+                rawContent: msg.text,
+                parsedGifUrl: gifUrl,
+                finalRenderUrl: (e.currentTarget as HTMLImageElement).currentSrc || gifUrl,
+              })
+            }}
+            loading="eager"
+            decoding="async"
             draggable={false}
           />
         </div>
@@ -2862,7 +2895,7 @@ export default function GlobalChat() {
                     const isReadOnlyProfileAvatar = isFirstInGroup && !isOwnMessage
 
                     return (
-                      <div key={msg.id} className="msg-reveal"
+                      <div key={msg.id} className={`msg-reveal${isGifMessage(msg.text) ? ' has-media' : ''}`}
                         onMouseDown={() => startLongPress(msg)}
                         onMouseUp={clearLongPress}
                         onMouseLeave={clearLongPress}

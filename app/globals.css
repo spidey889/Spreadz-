@@ -114,11 +114,9 @@ body {
           opacity: 1;
           pointer-events: none;
           z-index: 1;
-          will-change: transform;
-          backface-visibility: hidden;
         }
         .room-panel.active-room {
-          transform: translate3d(0, 0, 0);
+          transform: none;
           pointer-events: auto;
           z-index: 2;
         }
@@ -302,6 +300,9 @@ display: flex;
           -webkit-touch-callout: none;
           touch-action: pan-y;
         }
+        .msg-reveal.has-media {
+          animation: fade-in 0.25s ease-out forwards;
+        }
 
         .room-messages {
           flex: 1 1 auto;
@@ -358,6 +359,7 @@ display: flex;
 
         .msg-text { font-size: 15px; color: var(--text-msg); line-height: 1.6; margin-top: 0; padding-right: 8px; word-wrap: break-word; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         .msg-media {
+          display: block;
           width: min(60%, 180px);
           margin-top: 6px;
           border-radius: 18px;
@@ -371,8 +373,10 @@ display: flex;
           width: 100%;
           height: auto;
           max-height: 160px;
-          object-fit: cover;
+          object-fit: contain;
           background: #15181c;
+          backface-visibility: visible;
+          transform: none;
         }
 
         .input-area {

@@ -127,7 +127,7 @@ const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
-const CLIENT_REFRESH_VERSION = '2026-04-05-tenor-gif-picker'
+const CLIENT_REFRESH_VERSION = '2026-04-05-giphy-gif-picker'
 const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
@@ -136,10 +136,9 @@ const AVATAR_MAX_BYTES = 200 * 1024
 const AVATAR_MAX_DIMENSION = 400
 const AVATAR_QUALITY_STEPS = [0.7, 0.6, 0.5, 0.4, 0.3]
 const GENERATED_USERNAME_REGEX = /^[a-z0-9_]{1,20}_[0-9]{4}$/
-const TENOR_API_KEY = 'AIzaSyAyimkuYQYF_y28emlmLi6TS79TRRtJFNg'
-const TENOR_LIMIT = 20
 const GIF_MESSAGE_PREFIX = '[gif]:'
-const GIF_PICKER_CLOSE_DURATION_MS = 200
+const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
+const GIPHY_LIMIT = 20
 const HACKER_NEWS_ROOM_ID = 'b87b934f-7b1a-41b6-9d89-3319a3442c0c'
 const HACKER_NEWS_REVEAL_DEFAULT_MIN_MS = 4000
 const HACKER_NEWS_REVEAL_DEFAULT_MAX_MS = 12000
@@ -355,7 +354,6 @@ export default function GlobalChat() {
   const pendingOutgoingMessageIdsRef = useRef<Map<string, string>>(new Map())
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
   const notificationCooldownUntilRef = useRef(0)
-  const gifPickerResetTimeoutRef = useRef<number | null>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const profileSheetRef = useRef<HTMLFormElement>(null)
   const currentRoomIndexRef = useRef(0)
@@ -694,30 +692,30 @@ export default function GlobalChat() {
   const fetchGifResults = useCallback(async (query: string, signal?: AbortSignal) => {
     const trimmedQuery = query.trim()
     const endpoint = trimmedQuery
-      ? `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(trimmedQuery)}&key=${TENOR_API_KEY}&limit=${TENOR_LIMIT}&media_filter=gif`
-      : `https://tenor.googleapis.com/v2/featured?key=${TENOR_API_KEY}&limit=${TENOR_LIMIT}&media_filter=gif`
+      ? `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(trimmedQuery)}&limit=${GIPHY_LIMIT}&rating=g`
+      : `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=${GIPHY_LIMIT}&rating=g`
 
     const response = await fetch(endpoint, { signal })
     if (!response.ok) {
-      throw new Error(`Tenor request failed with ${response.status}`)
+      throw new Error(`Giphy request failed with ${response.status}`)
     }
 
     const payload = await response.json()
-    const results = Array.isArray(payload?.results) ? payload.results : []
+    const results = Array.isArray(payload?.data) ? payload.data : []
 
     return results
       .map((item: any) => {
-        const gif = item?.media_formats?.gif
-        const tinyGif = item?.media_formats?.tinygif
-        const dims = Array.isArray(tinyGif?.dims) ? tinyGif.dims : []
+        const original = item?.images?.original
+        const fixedHeight = item?.images?.fixed_height
+        const fixedHeightStill = item?.images?.fixed_height_still
 
         return {
           id: typeof item?.id === 'string' ? item.id : '',
-          url: typeof gif?.url === 'string' ? gif.url : '',
-          previewUrl: typeof tinyGif?.url === 'string' ? tinyGif.url : '',
-          title: typeof item?.content_description === 'string' ? item.content_description : 'GIF',
-          width: Number(dims[0]) || 200,
-          height: Number(dims[1]) || 200,
+          url: typeof original?.url === 'string' ? original.url : '',
+          previewUrl: typeof fixedHeightStill?.url === 'string' ? fixedHeightStill.url : '',
+          title: typeof item?.title === 'string' ? item.title : 'GIF',
+          width: Number(fixedHeight?.width) || 200,
+          height: Number(fixedHeight?.height) || 200,
         }
       })
       .filter((item: GifResult) => item.id && item.url && item.previewUrl)
@@ -1717,14 +1715,6 @@ export default function GlobalChat() {
     setGifError('')
   }, [currentRoomIndex])
 
-  useEffect(() => {
-    return () => {
-      if (gifPickerResetTimeoutRef.current !== null) {
-        window.clearTimeout(gifPickerResetTimeoutRef.current)
-      }
-    }
-  }, [])
-
   const triggerRevealsForMessages = useCallback((roomId: string, msgs: Message[]) => {
     if (roomId === HACKER_NEWS_ROOM_ID) {
       if (msgs.length === 0) return
@@ -2170,26 +2160,13 @@ export default function GlobalChat() {
 
   const closeGifPicker = useCallback(() => {
     setActiveGifPickerRoomId(null)
+    setGifSearchInput('')
+    setGifResults([])
     setGifLoading(false)
-
-    if (gifPickerResetTimeoutRef.current !== null) {
-      window.clearTimeout(gifPickerResetTimeoutRef.current)
-    }
-
-    gifPickerResetTimeoutRef.current = window.setTimeout(() => {
-      gifPickerResetTimeoutRef.current = null
-      setGifSearchInput('')
-      setGifResults([])
-      setGifError('')
-    }, GIF_PICKER_CLOSE_DURATION_MS)
+    setGifError('')
   }, [])
 
   const openGifPicker = useCallback((roomId: string) => {
-    if (gifPickerResetTimeoutRef.current !== null) {
-      window.clearTimeout(gifPickerResetTimeoutRef.current)
-      gifPickerResetTimeoutRef.current = null
-    }
-
     setActiveGifPickerRoomId(roomId)
     setGifSearchInput('')
     setGifResults([])
@@ -2743,6 +2720,8 @@ export default function GlobalChat() {
                               src={gif.previewUrl}
                               alt={gif.title || 'GIF'}
                               className="gif-tile-image"
+                              referrerPolicy="no-referrer"
+                              crossOrigin="anonymous"
                               loading="lazy"
                               decoding="async"
                               draggable={false}

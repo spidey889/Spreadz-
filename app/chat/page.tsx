@@ -75,56 +75,6 @@ interface ReadOnlyProfile {
   reportMessage: Message | null
 }
 
-type ChatGifMessageProps = {
-  gifUrl: string
-  msg: Message
-  onMediaLoad: (roomId?: string | null) => void
-}
-
-function ChatGifMessage({ gifUrl, msg, onMediaLoad }: ChatGifMessageProps) {
-  const [isLoaded, setIsLoaded] = useState(false)
-
-  useEffect(() => {
-    setIsLoaded(false)
-  }, [gifUrl])
-
-  return (
-    <div className={`msg-media${isLoaded ? ' is-loaded' : ' is-loading'}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={gifUrl}
-        alt={`${msg.username} sent a GIF`}
-        className={`msg-gif${isLoaded ? ' is-loaded' : ' is-loading'}`}
-        referrerPolicy="no-referrer"
-        crossOrigin="anonymous"
-        onLoad={(e) => {
-          setIsLoaded(true)
-          console.info('[GIF] load success', {
-            messageId: msg.id,
-            roomId: msg.room_id,
-            rawContent: msg.text,
-            parsedGifUrl: gifUrl,
-            finalRenderUrl: (e.currentTarget as HTMLImageElement).currentSrc || gifUrl,
-          })
-          onMediaLoad(msg.room_id)
-        }}
-        onError={(e) => {
-          console.error('[GIF] load error', {
-            messageId: msg.id,
-            roomId: msg.room_id,
-            rawContent: msg.text,
-            parsedGifUrl: gifUrl,
-            finalRenderUrl: (e.currentTarget as HTMLImageElement).currentSrc || gifUrl,
-          })
-        }}
-        loading="eager"
-        decoding="async"
-        draggable={false}
-      />
-    </div>
-  )
-}
-
 const getUserColor = (username: string) => {
   const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
   let hash = 0
@@ -177,7 +127,7 @@ const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
-const CLIENT_REFRESH_VERSION = '2026-04-05-gif-send-gap-fix'
+const CLIENT_REFRESH_VERSION = '2026-04-05-inline-gif-render-reset'
 const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
@@ -2819,7 +2769,40 @@ export default function GlobalChat() {
         })
       }
 
-      return <ChatGifMessage gifUrl={gifUrl} msg={msg} onMediaLoad={handleMediaLoad} />
+      return (
+        <div className="msg-media">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={gifUrl}
+            alt={`${msg.username} sent a GIF`}
+            className="msg-gif"
+            referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
+            onLoad={(e) => {
+              console.info('[GIF] load success', {
+                messageId: msg.id,
+                roomId: msg.room_id,
+                rawContent: msg.text,
+                parsedGifUrl: gifUrl,
+                finalRenderUrl: (e.currentTarget as HTMLImageElement).currentSrc || gifUrl,
+              })
+              handleMediaLoad(msg.room_id)
+            }}
+            onError={(e) => {
+              console.error('[GIF] load error', {
+                messageId: msg.id,
+                roomId: msg.room_id,
+                rawContent: msg.text,
+                parsedGifUrl: gifUrl,
+                finalRenderUrl: (e.currentTarget as HTMLImageElement).currentSrc || gifUrl,
+              })
+            }}
+            loading="eager"
+            decoding="async"
+            draggable={false}
+          />
+        </div>
+      )
     }
 
     return <div className="msg-text">{msg.text}</div>

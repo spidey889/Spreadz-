@@ -177,7 +177,7 @@ const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
-const CLIENT_REFRESH_VERSION = '2026-04-05-gif-load-visibility-fix'
+const CLIENT_REFRESH_VERSION = '2026-04-05-gif-send-gap-fix'
 const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
@@ -2319,6 +2319,7 @@ export default function GlobalChat() {
     const text = (contentOverride ?? inputTexts[roomId] ?? '').trim()
     if (!text) return
     const outgoingGifUrl = isGifMessage(text) ? getGifUrlFromMessage(text) : ''
+    const shouldUseOptimisticMessage = !outgoingGifUrl
 
     const userId = getCurrentUserId()
     const activeDisplayName = overrideName || displayName || localStorage.getItem(DISPLAY_NAME_STORAGE_KEY)
@@ -2355,17 +2356,19 @@ export default function GlobalChat() {
       senderUsername: activeUsername,
     }
 
-    if (pendingMessageKey) {
+    if (shouldUseOptimisticMessage && pendingMessageKey) {
       pendingOutgoingMessageIdsRef.current.set(pendingMessageKey, tempId)
     }
 
-    // Reveal immediately for user's own message
-    scheduleReveal(roomId, tempId, 0)
+    if (shouldUseOptimisticMessage) {
+      // Reveal immediately for user's own message
+      scheduleReveal(roomId, tempId, 0)
 
-    setRoomMessages(prev => ({
-      ...prev,
-      [roomId]: [...(prev[roomId] || []), optimisticMsg]
-    }))
+      setRoomMessages(prev => ({
+        ...prev,
+        [roomId]: [...(prev[roomId] || []), optimisticMsg]
+      }))
+    }
     if (contentOverride === undefined) {
       setInputTexts(prev => ({ ...prev, [roomId]: '' }))
       const inputEl = composerBarRef.current?.querySelector('[contenteditable]') as HTMLElement | null
@@ -2391,10 +2394,12 @@ export default function GlobalChat() {
       if (pendingMessageKey) {
         pendingOutgoingMessageIdsRef.current.delete(pendingMessageKey)
       }
-      setRoomMessages(prev => ({
-        ...prev,
-        [roomId]: (prev[roomId] || []).filter(m => m.id !== tempId)
-      }))
+      if (shouldUseOptimisticMessage) {
+        setRoomMessages(prev => ({
+          ...prev,
+          [roomId]: (prev[roomId] || []).filter(m => m.id !== tempId)
+        }))
+      }
       return
     }
 

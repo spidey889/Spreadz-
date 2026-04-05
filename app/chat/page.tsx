@@ -118,7 +118,7 @@ const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
-const CLIENT_REFRESH_VERSION = '2026-04-05-remove-gif-feature'
+const CLIENT_REFRESH_VERSION = '2026-04-05-hide-legacy-gif-messages'
 const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
@@ -2349,7 +2349,11 @@ export default function GlobalChat() {
     setReportSheetMessage(readOnlyProfile.reportMessage)
   }
 
-  const renderMessageBody = (msg: Message) => <div className="msg-text">{msg.text}</div>
+  const renderMessageBody = (msg: Message) => {
+    if (msg.text.startsWith('[gif]:')) return null
+
+    return <div className="msg-text">{msg.text}</div>
+  }
 
   if (!isMounted || !authReady) return null
 
@@ -2442,8 +2446,9 @@ export default function GlobalChat() {
                   {messages.map((msg) => {
                     const isVisible = visibleMessageIds.has(msg.id)
                     if (!isVisible) return null
+                    if (msg.text.startsWith('[gif]:')) return null
 
-                    const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id))
+                    const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id) && !m.text.startsWith('[gif]:'))
                     const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
                     const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
                     const isOwnMessage = msg.senderUsername === getCurrentUsername()

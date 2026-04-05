@@ -351,14 +351,19 @@ export default function GlobalChat() {
   const composerAreaRef = useRef<HTMLDivElement | null>(null)
   const composerBarRef = useRef<HTMLDivElement | null>(null)
   const gifPickerSheetRef = useRef<HTMLDivElement | null>(null)
+  const gifPickerGridRef = useRef<HTMLDivElement | null>(null)
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string; contentOverride?: string } | null>(null)
   const pendingOutgoingMessageIdsRef = useRef<Map<string, string>>(new Map())
   const pendingGifLoadScrollRoomIdRef = useRef<string | null>(null)
   const gifPickerTouchStartYRef = useRef<number | null>(null)
   const gifPickerOffsetYRef = useRef(0)
+  const gifPickerPendingOffsetYRef = useRef(0)
   const gifPickerCloseTimeoutRef = useRef<number | null>(null)
+  const gifPickerFrameRef = useRef<number | null>(null)
   const gifPickerDraggedRef = useRef(false)
+  const gifPickerSheetDraggingRef = useRef(false)
+  const gifPickerTouchScrollRef = useRef<HTMLDivElement | null>(null)
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
   const notificationCooldownUntilRef = useRef(0)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -2201,11 +2206,25 @@ export default function GlobalChat() {
     advanceFriendRequest()
   }
 
+  const clearGifPickerFrame = useCallback(() => {
+    if (gifPickerFrameRef.current !== null) {
+      window.cancelAnimationFrame(gifPickerFrameRef.current)
+      gifPickerFrameRef.current = null
+    }
+  }, [])
+
   const applyGifPickerOffset = useCallback((offsetY: number) => {
     gifPickerOffsetYRef.current = offsetY
-    const sheet = gifPickerSheetRef.current
-    if (!sheet) return
-    sheet.style.transform = `translateY(${Math.round(offsetY)}px)`
+    gifPickerPendingOffsetYRef.current = offsetY
+
+    if (gifPickerFrameRef.current !== null) return
+
+    gifPickerFrameRef.current = window.requestAnimationFrame(() => {
+      gifPickerFrameRef.current = null
+      const sheet = gifPickerSheetRef.current
+      if (!sheet) return
+      sheet.style.transform = `translate3d(0, ${Math.round(gifPickerPendingOffsetYRef.current)}px, 0)`
+    })
   }, [])
 
   const clearGifPickerCloseTimeout = useCallback(() => {
@@ -2218,12 +2237,16 @@ export default function GlobalChat() {
   const resetGifPickerSheet = useCallback(() => {
     gifPickerTouchStartYRef.current = null
     gifPickerDraggedRef.current = false
+    gifPickerSheetDraggingRef.current = false
+    gifPickerTouchScrollRef.current = null
     gifPickerOffsetYRef.current = 0
+    gifPickerPendingOffsetYRef.current = 0
+    clearGifPickerFrame()
     const sheet = gifPickerSheetRef.current
     if (!sheet) return
-    sheet.style.transform = 'translateY(0px)'
+    sheet.style.transform = 'translate3d(0, 0, 0)'
     sheet.style.transition = ''
-  }, [])
+  }, [clearGifPickerFrame])
 
   const closeGifPicker = useCallback(() => {
     clearGifPickerCloseTimeout()
@@ -2278,7 +2301,7 @@ export default function GlobalChat() {
   const bindGifPickerSheetRef = useCallback((node: HTMLDivElement | null) => {
     gifPickerSheetRef.current = node
     if (!node) return
-    node.style.transform = 'translateY(0px)'
+    node.style.transform = 'translate3d(0, 0, 0)'
     node.style.transition = ''
   }, [])
 
@@ -2300,10 +2323,10 @@ export default function GlobalChat() {
   const handleGifPickerTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     clearGifPickerCloseTimeout()
     gifPickerDraggedRef.current = false
-    const sheet = gifPickerSheetRef.current
-    if (sheet) {
-      sheet.style.transition = 'none'
-    }
+    gifPickerSheetDraggingRef.current = false
+    gifPickerTouchScrollRef.current = e.target instanceof Element
+      ? (e.target.closest('.gif-picker-grid') as HTMLDivElement | null)
+      : null
     gifPickerTouchStartYRef.current = e.touches[0]?.clientY ?? null
   }, [clearGifPickerCloseTimeout])
 
@@ -2313,28 +2336,42 @@ export default function GlobalChat() {
 
     if (startY === null || currentY === undefined) return
 
-    const nextOffset = Math.max(0, currentY - startY)
+    const dragDistance = currentY - startY
+    const scrollEl = gifPickerTouchScrollRef.current
+    const canDragSheet = gifPickerSheetDraggingRef.current || (dragDistance > 0 && (!scrollEl || scrollEl.scrollTop <= 0))
+
+    if (!canDragSheet) return
+
+    const nextOffset = Math.max(0, dragDistance)
+    if (!gifPickerSheetDraggingRef.current) {
+      const sheet = gifPickerSheetRef.current
+      if (sheet) {
+        sheet.style.transition = 'none'
+      }
+      gifPickerSheetDraggingRef.current = true
+    }
     if (nextOffset > 3) {
       gifPickerDraggedRef.current = true
     }
     applyGifPickerOffset(nextOffset)
 
-    if (nextOffset > 0) {
-      e.preventDefault()
-    }
+    e.preventDefault()
   }, [applyGifPickerOffset])
 
   const handleGifPickerTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     const startY = gifPickerTouchStartYRef.current
     const endY = e.changedTouches[0]?.clientY
+    const wasDraggingSheet = gifPickerSheetDraggingRef.current
     gifPickerTouchStartYRef.current = null
+    gifPickerTouchScrollRef.current = null
+    gifPickerSheetDraggingRef.current = false
 
     const sheet = gifPickerSheetRef.current
-    if (sheet) {
+    if (sheet && wasDraggingSheet) {
       sheet.style.transition = ''
     }
 
-    if (startY === null || endY === undefined) return
+    if (!wasDraggingSheet || startY === null || endY === undefined) return
 
     const dragDistance = Math.max(0, endY - startY)
     const sheetHeight = gifPickerSheetRef.current?.offsetHeight ?? 0
@@ -2351,6 +2388,8 @@ export default function GlobalChat() {
   const handleGifPickerTouchCancel = useCallback(() => {
     gifPickerTouchStartYRef.current = null
     gifPickerDraggedRef.current = false
+    gifPickerSheetDraggingRef.current = false
+    gifPickerTouchScrollRef.current = null
     const sheet = gifPickerSheetRef.current
     if (sheet) {
       sheet.style.transition = ''
@@ -2365,8 +2404,9 @@ export default function GlobalChat() {
   useEffect(() => {
     return () => {
       clearGifPickerCloseTimeout()
+      clearGifPickerFrame()
     }
-  }, [clearGifPickerCloseTimeout])
+  }, [clearGifPickerCloseTimeout, clearGifPickerFrame])
 
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string, contentOverride?: string) => {
     const text = (contentOverride ?? inputTexts[roomId] ?? '').trim()
@@ -2868,14 +2908,15 @@ export default function GlobalChat() {
 
               <div ref={isCurrentRoom ? composerLayerRef : undefined} className="composer-layer">
                 {isGifPickerOpen && (
-                  <div ref={bindGifPickerSheetRef} className="gif-picker">
-                    <div
-                      className="gif-picker-topline"
-                      onTouchStart={handleGifPickerTouchStart}
-                      onTouchMove={handleGifPickerTouchMove}
-                      onTouchEnd={handleGifPickerTouchEnd}
-                      onTouchCancel={handleGifPickerTouchCancel}
-                    >
+                  <div
+                    ref={bindGifPickerSheetRef}
+                    className="gif-picker"
+                    onTouchStart={handleGifPickerTouchStart}
+                    onTouchMove={handleGifPickerTouchMove}
+                    onTouchEnd={handleGifPickerTouchEnd}
+                    onTouchCancel={handleGifPickerTouchCancel}
+                  >
+                    <div className="gif-picker-topline">
                       <div
                         className="gif-picker-handle-zone"
                         role="button"
@@ -2918,7 +2959,7 @@ export default function GlobalChat() {
                         onBlur={() => setIsKeyboardOpen(false)}
                       />
                     </div>
-                    <div className="gif-picker-grid">
+                    <div ref={gifPickerGridRef} className="gif-picker-grid">
                       {gifLoading && <div className="gif-picker-status">Loading GIFs...</div>}
                       {!gifLoading && gifError && <div className="gif-picker-status">{gifError}</div>}
                       {!gifLoading && !gifError && gifResults.length === 0 && (

@@ -423,9 +423,10 @@ display: flex;
           background: linear-gradient(180deg, rgba(30, 33, 40, 0.985), rgba(19, 22, 28, 0.995));
           border: 1px solid rgba(255,255,255,0.08);
           box-shadow: 0 18px 38px rgba(0, 0, 0, 0.38);
-          transform: translateY(0);
-          transition: transform 0.22s ease;
+          transform: translate3d(0, 0, 0);
+          transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
           will-change: transform;
+          backface-visibility: hidden;
         }
         .gif-picker-topline {
           display: flex;
@@ -534,6 +535,7 @@ display: flex;
         .gif-picker-grid {
           max-height: min(34vh, 280px);
           overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 8px;

@@ -2375,7 +2375,7 @@ export default function GlobalChat() {
 
     const dragDistance = Math.max(0, endY - startY)
     const sheetHeight = gifPickerSheetRef.current?.offsetHeight ?? 0
-    const closeThreshold = sheetHeight > 0 ? sheetHeight * 0.1 : 32
+    const closeThreshold = sheetHeight > 0 ? sheetHeight * 0.2 : 64
 
     if (dragDistance >= closeThreshold) {
       dismissGifPicker()

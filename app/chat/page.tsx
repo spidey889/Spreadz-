@@ -112,11 +112,13 @@ const formatProfileJoinedLabel = (isoString?: string | null) => {
 const INTEREST_OPTIONS = ['Tech & AI', 'Sports', 'Politics', 'Entertainment', 'Business', 'Science', 'Gaming', 'Campus Life']
 const ROOM_SCROLL_EDGE_THRESHOLD_PX = 10
 const ROOM_DRAG_SETTLE_DURATION_MS = 260
-const ROOM_DRAG_ACTIVATION_DELTA_PX = 12
-const ROOM_DRAG_EDGE_THRESHOLD_PX = 2
-const ROOM_DRAG_COMMIT_RATIO = 0.24
-const ROOM_DRAG_COMMIT_MIN_PX = 96
-const ROOM_DRAG_COMMIT_MAX_PX = 180
+const ROOM_DRAG_ACTIVATION_DELTA_PX = 8
+const ROOM_DRAG_EDGE_THRESHOLD_PX = 12
+const ROOM_DRAG_COMMIT_RATIO = 0.16
+const ROOM_DRAG_COMMIT_MIN_PX = 72
+const ROOM_DRAG_COMMIT_MAX_PX = 132
+const ROOM_DRAG_VELOCITY_DISTANCE_MIN_PX = 36
+const ROOM_DRAG_COMPLETE_VELOCITY_PX_PER_MS = 0.45
 const USER_UUID_STORAGE_KEY = 'spreadz_user_uuid'
 const DISPLAY_NAME_STORAGE_KEY = 'spreadz_display_name'
 const USERNAME_STORAGE_KEY = 'spreadz_username'
@@ -375,6 +377,12 @@ export default function GlobalChat() {
   const transitionTargetIndexRef = useRef<number | null>(null)
   const isDraggingRoomRef = useRef(false)
   const isAnimatingRoomRef = useRef(false)
+  const dragActivePanelRef = useRef<HTMLDivElement | null>(null)
+  const dragTargetPanelRef = useRef<HTMLDivElement | null>(null)
+  const dragViewportHeightRef = useRef(0)
+  const dragLastSampleYRef = useRef<number | null>(null)
+  const dragLastSampleTimeRef = useRef<number | null>(null)
+  const dragVelocityYRef = useRef(0)
   const roomDragFrameRef = useRef<number | null>(null)
   const roomTransitionTimeoutRef = useRef<number | null>(null)
   const profileSheetTouchStartYRef = useRef<number | null>(null)
@@ -446,6 +454,12 @@ export default function GlobalChat() {
     dragOffsetYRef.current = 0
     dragDirectionRef.current = null
     transitionTargetIndexRef.current = null
+    dragActivePanelRef.current = null
+    dragTargetPanelRef.current = null
+    dragViewportHeightRef.current = 0
+    dragLastSampleYRef.current = null
+    dragLastSampleTimeRef.current = null
+    dragVelocityYRef.current = 0
     isDraggingRoomRef.current = false
   }, [])
 
@@ -455,15 +469,13 @@ export default function GlobalChat() {
     roomDragFrameRef.current = window.requestAnimationFrame(() => {
       roomDragFrameRef.current = null
 
-      const fromIndex = currentRoomIndexRef.current
-      const targetIndex = transitionTargetIndexRef.current
       const direction = dragDirectionRef.current
-      const activePanel = roomPanelRefs.current[fromIndex]
-      const targetPanel = targetIndex === null ? null : roomPanelRefs.current[targetIndex]
+      const activePanel = dragActivePanelRef.current
+      const targetPanel = dragTargetPanelRef.current
 
       if (!activePanel || !targetPanel || !direction) return
 
-      const viewportHeight = activePanel.getBoundingClientRect().height || window.innerHeight
+      const viewportHeight = dragViewportHeightRef.current || activePanel.offsetHeight || window.innerHeight
       const offset = dragOffsetYRef.current
 
       activePanel.style.transition = 'none'
@@ -486,8 +498,8 @@ export default function GlobalChat() {
     const targetIndex = transitionTargetIndexRef.current
     const direction = dragDirectionRef.current
     const cleanupIndexes = [fromIndex, ...(targetIndex === null ? [] : [targetIndex])]
-    const activePanel = roomPanelRefs.current[fromIndex]
-    const targetPanel = targetIndex === null ? null : roomPanelRefs.current[targetIndex]
+    const activePanel = dragActivePanelRef.current ?? roomPanelRefs.current[fromIndex]
+    const targetPanel = dragTargetPanelRef.current ?? (targetIndex === null ? null : roomPanelRefs.current[targetIndex])
 
     clearRoomDragFrame()
 
@@ -498,7 +510,7 @@ export default function GlobalChat() {
       return
     }
 
-    const viewportHeight = activePanel.getBoundingClientRect().height || window.innerHeight
+    const viewportHeight = dragViewportHeightRef.current || activePanel.offsetHeight || window.innerHeight
     const offscreenTargetY = direction === 'next' ? viewportHeight : -viewportHeight
     const completedActiveY = direction === 'next' ? -viewportHeight : viewportHeight
 
@@ -575,25 +587,46 @@ export default function GlobalChat() {
       const hasPrevRoom = roomIndex > 0
       const hasNextRoom = roomIndex < rooms.length - 1
 
+      let dragDirection: 'next' | 'prev' | null = null
+      let targetIndex: number | null = null
+
       if (deltaY > 0 && atTop && hasPrevRoom) {
-        isDraggingRoomRef.current = true
-        dragDirectionRef.current = 'prev'
-        transitionTargetIndexRef.current = roomIndex - 1
+        dragDirection = 'prev'
+        targetIndex = roomIndex - 1
       } else if (deltaY < 0 && atBottom && hasNextRoom) {
-        isDraggingRoomRef.current = true
-        dragDirectionRef.current = 'next'
-        transitionTargetIndexRef.current = roomIndex + 1
+        dragDirection = 'next'
+        targetIndex = roomIndex + 1
       } else {
         return
       }
+
+      const activePanel = roomPanelRefs.current[roomIndex]
+      const targetPanel = targetIndex === null ? null : roomPanelRefs.current[targetIndex]
+      if (!activePanel || !targetPanel || !dragDirection || targetIndex === null) return
+
+      isDraggingRoomRef.current = true
+      dragDirectionRef.current = dragDirection
+      transitionTargetIndexRef.current = targetIndex
+      dragActivePanelRef.current = activePanel
+      dragTargetPanelRef.current = targetPanel
+      dragViewportHeightRef.current = activePanel.offsetHeight || window.innerHeight
+      dragLastSampleYRef.current = currentY
+      dragLastSampleTimeRef.current = performance.now()
+      dragVelocityYRef.current = 0
     }
 
-    const activePanel = roomPanelRefs.current[currentRoomIndexRef.current]
-    if (!activePanel) return
-
-    const viewportHeight = activePanel.getBoundingClientRect().height || window.innerHeight
+    const viewportHeight = dragViewportHeightRef.current || window.innerHeight
     const direction = dragDirectionRef.current
     if (!direction) return
+
+    const now = performance.now()
+    const previousSampleY = dragLastSampleYRef.current
+    const previousSampleTime = dragLastSampleTimeRef.current
+    if (previousSampleY !== null && previousSampleTime !== null && now > previousSampleTime) {
+      dragVelocityYRef.current = (currentY - previousSampleY) / (now - previousSampleTime)
+    }
+    dragLastSampleYRef.current = currentY
+    dragLastSampleTimeRef.current = now
 
     if (e.cancelable) {
       e.preventDefault()
@@ -626,8 +659,14 @@ export default function GlobalChat() {
     const dragDistance = startY === null || releaseY === null
       ? dragOffsetYRef.current
       : releaseY - startY
+    const direction = dragDirectionRef.current
+    const directionalVelocity = direction === 'next'
+      ? -dragVelocityYRef.current
+      : dragVelocityYRef.current
+    const velocityCompletes = Math.abs(dragDistance) >= ROOM_DRAG_VELOCITY_DISTANCE_MIN_PX
+      && directionalVelocity >= ROOM_DRAG_COMPLETE_VELOCITY_PX_PER_MS
 
-    settleRoomPanels(Math.abs(dragDistance) >= completionThreshold)
+    settleRoomPanels(Math.abs(dragDistance) >= completionThreshold || velocityCompletes)
   }, [resetRoomGestureState, settleRoomPanels])
 
   const handleTouchCancel = useCallback(() => {
@@ -2752,6 +2791,7 @@ export default function GlobalChat() {
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
               >
                 <div ref={isCurrentRoom ? activeMessagesRef : undefined} className="messages">
+                  <div className="messages-spacer" aria-hidden="true" />
                   {messages.map((msg) => {
                     const isVisible = visibleMessageIds.has(msg.id)
                     if (!isVisible) return null

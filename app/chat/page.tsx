@@ -127,7 +127,7 @@ const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
-const CLIENT_REFRESH_VERSION = '2026-04-05-gif-button-icon'
+const CLIENT_REFRESH_VERSION = '2026-04-05-gif-sheet-slide'
 const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
@@ -139,6 +139,7 @@ const GENERATED_USERNAME_REGEX = /^[a-z0-9_]{1,20}_[0-9]{4}$/
 const GIF_MESSAGE_PREFIX = '[gif]:'
 const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
 const GIPHY_LIMIT = 20
+const GIF_PICKER_CLOSE_DURATION_MS = 200
 const HACKER_NEWS_ROOM_ID = 'b87b934f-7b1a-41b6-9d89-3319a3442c0c'
 const HACKER_NEWS_REVEAL_DEFAULT_MIN_MS = 4000
 const HACKER_NEWS_REVEAL_DEFAULT_MAX_MS = 12000
@@ -349,10 +350,15 @@ export default function GlobalChat() {
   const composerLayerRef = useRef<HTMLDivElement | null>(null)
   const composerAreaRef = useRef<HTMLDivElement | null>(null)
   const composerBarRef = useRef<HTMLDivElement | null>(null)
+  const gifPickerSheetRef = useRef<HTMLDivElement | null>(null)
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string; contentOverride?: string } | null>(null)
   const pendingOutgoingMessageIdsRef = useRef<Map<string, string>>(new Map())
   const pendingGifLoadScrollRoomIdRef = useRef<string | null>(null)
+  const gifPickerTouchStartYRef = useRef<number | null>(null)
+  const gifPickerOffsetYRef = useRef(0)
+  const gifPickerCloseTimeoutRef = useRef<number | null>(null)
+  const gifPickerDraggedRef = useRef(false)
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
   const notificationCooldownUntilRef = useRef(0)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -1748,14 +1754,6 @@ export default function GlobalChat() {
     }
   }, [activeGifPickerRoomId, fetchGifResults, gifSearchInput])
 
-  useEffect(() => {
-    setActiveGifPickerRoomId(null)
-    setGifSearchInput('')
-    setGifResults([])
-    setGifLoading(false)
-    setGifError('')
-  }, [currentRoomIndex])
-
   const triggerRevealsForMessages = useCallback((roomId: string, msgs: Message[]) => {
     if (roomId === HACKER_NEWS_ROOM_ID) {
       if (msgs.length === 0) return
@@ -2203,31 +2201,172 @@ export default function GlobalChat() {
     advanceFriendRequest()
   }
 
+  const applyGifPickerOffset = useCallback((offsetY: number) => {
+    gifPickerOffsetYRef.current = offsetY
+    const sheet = gifPickerSheetRef.current
+    if (!sheet) return
+    sheet.style.transform = `translateY(${Math.round(offsetY)}px)`
+  }, [])
+
+  const clearGifPickerCloseTimeout = useCallback(() => {
+    if (gifPickerCloseTimeoutRef.current !== null) {
+      window.clearTimeout(gifPickerCloseTimeoutRef.current)
+      gifPickerCloseTimeoutRef.current = null
+    }
+  }, [])
+
+  const resetGifPickerSheet = useCallback(() => {
+    gifPickerTouchStartYRef.current = null
+    gifPickerDraggedRef.current = false
+    gifPickerOffsetYRef.current = 0
+    const sheet = gifPickerSheetRef.current
+    if (!sheet) return
+    sheet.style.transform = 'translateY(0px)'
+    sheet.style.transition = ''
+  }, [])
+
   const closeGifPicker = useCallback(() => {
+    clearGifPickerCloseTimeout()
+    resetGifPickerSheet()
     setActiveGifPickerRoomId(null)
     setGifSearchInput('')
     setGifResults([])
     setGifLoading(false)
     setGifError('')
-  }, [])
+  }, [clearGifPickerCloseTimeout, resetGifPickerSheet])
+
+  const dismissGifPicker = useCallback(() => {
+    clearGifPickerCloseTimeout()
+
+    const sheet = gifPickerSheetRef.current
+    if (!sheet) {
+      closeGifPicker()
+      return
+    }
+
+    sheet.style.transition = ''
+    const sheetHeight = sheet.offsetHeight
+    const closeOffset = Math.max(sheetHeight + 48, gifPickerOffsetYRef.current + 72)
+    applyGifPickerOffset(closeOffset)
+
+    gifPickerCloseTimeoutRef.current = window.setTimeout(() => {
+      gifPickerCloseTimeoutRef.current = null
+      closeGifPicker()
+    }, GIF_PICKER_CLOSE_DURATION_MS)
+  }, [applyGifPickerOffset, clearGifPickerCloseTimeout, closeGifPicker])
 
   const openGifPicker = useCallback((roomId: string) => {
+    clearGifPickerCloseTimeout()
+    resetGifPickerSheet()
     setActiveGifPickerRoomId(roomId)
     setGifSearchInput('')
     setGifResults([])
     setGifError('')
     setGifLoading(false)
     setIsKeyboardOpen(false)
-  }, [])
+  }, [clearGifPickerCloseTimeout, resetGifPickerSheet])
 
   const toggleGifPicker = useCallback((roomId: string) => {
     if (activeGifPickerRoomId === roomId) {
-      closeGifPicker()
+      dismissGifPicker()
       return
     }
 
     openGifPicker(roomId)
-  }, [activeGifPickerRoomId, closeGifPicker, openGifPicker])
+  }, [activeGifPickerRoomId, dismissGifPicker, openGifPicker])
+
+  const bindGifPickerSheetRef = useCallback((node: HTMLDivElement | null) => {
+    gifPickerSheetRef.current = node
+    if (!node) return
+    node.style.transform = 'translateY(0px)'
+    node.style.transition = ''
+  }, [])
+
+  const handleGifPickerHandleClick = useCallback(() => {
+    if (gifPickerDraggedRef.current) {
+      gifPickerDraggedRef.current = false
+      return
+    }
+
+    dismissGifPicker()
+  }, [dismissGifPicker])
+
+  const handleGifPickerHandleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    dismissGifPicker()
+  }, [dismissGifPicker])
+
+  const handleGifPickerTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    clearGifPickerCloseTimeout()
+    gifPickerDraggedRef.current = false
+    const sheet = gifPickerSheetRef.current
+    if (sheet) {
+      sheet.style.transition = 'none'
+    }
+    gifPickerTouchStartYRef.current = e.touches[0]?.clientY ?? null
+  }, [clearGifPickerCloseTimeout])
+
+  const handleGifPickerTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    const startY = gifPickerTouchStartYRef.current
+    const currentY = e.touches[0]?.clientY
+
+    if (startY === null || currentY === undefined) return
+
+    const nextOffset = Math.max(0, currentY - startY)
+    if (nextOffset > 3) {
+      gifPickerDraggedRef.current = true
+    }
+    applyGifPickerOffset(nextOffset)
+
+    if (nextOffset > 0) {
+      e.preventDefault()
+    }
+  }, [applyGifPickerOffset])
+
+  const handleGifPickerTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    const startY = gifPickerTouchStartYRef.current
+    const endY = e.changedTouches[0]?.clientY
+    gifPickerTouchStartYRef.current = null
+
+    const sheet = gifPickerSheetRef.current
+    if (sheet) {
+      sheet.style.transition = ''
+    }
+
+    if (startY === null || endY === undefined) return
+
+    const dragDistance = Math.max(0, endY - startY)
+    const sheetHeight = gifPickerSheetRef.current?.offsetHeight ?? 0
+    const closeThreshold = sheetHeight > 0 ? sheetHeight * 0.1 : 32
+
+    if (dragDistance >= closeThreshold) {
+      dismissGifPicker()
+      return
+    }
+
+    applyGifPickerOffset(0)
+  }, [applyGifPickerOffset, dismissGifPicker])
+
+  const handleGifPickerTouchCancel = useCallback(() => {
+    gifPickerTouchStartYRef.current = null
+    gifPickerDraggedRef.current = false
+    const sheet = gifPickerSheetRef.current
+    if (sheet) {
+      sheet.style.transition = ''
+    }
+    applyGifPickerOffset(0)
+  }, [applyGifPickerOffset])
+
+  useEffect(() => {
+    closeGifPicker()
+  }, [closeGifPicker, currentRoomIndex])
+
+  useEffect(() => {
+    return () => {
+      clearGifPickerCloseTimeout()
+    }
+  }, [clearGifPickerCloseTimeout])
 
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string, contentOverride?: string) => {
     const text = (contentOverride ?? inputTexts[roomId] ?? '').trim()
@@ -2729,23 +2868,47 @@ export default function GlobalChat() {
 
               <div ref={isCurrentRoom ? composerLayerRef : undefined} className="composer-layer">
                 {isGifPickerOpen && (
-                  <div className="gif-picker">
-                    <div className="gif-picker-header">
-                      <div className="gif-picker-title">GIFs</div>
+                  <div ref={bindGifPickerSheetRef} className="gif-picker">
+                    <div className="gif-picker-topline">
+                      <div className="gif-picker-topline-copy" />
+                      <div
+                        className="gif-picker-handle-zone"
+                        role="button"
+                        tabIndex={0}
+                        aria-label="Close GIF picker"
+                        onClick={handleGifPickerHandleClick}
+                        onKeyDown={handleGifPickerHandleKeyDown}
+                        onTouchStart={handleGifPickerTouchStart}
+                        onTouchMove={handleGifPickerTouchMove}
+                        onTouchEnd={handleGifPickerTouchEnd}
+                        onTouchCancel={handleGifPickerTouchCancel}
+                      >
+                        <span className="gif-picker-handle" />
+                      </div>
                       <button
                         type="button"
                         className="gif-picker-close"
                         aria-label="Close GIF picker"
-                        onClick={closeGifPicker}
+                        onClick={dismissGifPicker}
                       >
                         Close
                       </button>
                     </div>
+                    <div className="gif-picker-header">
+                      <div className="gif-picker-title">GIFs</div>
+                      <div className="gif-picker-mode">{gifSearchInput.trim() ? 'SEARCH' : 'TRENDING'}</div>
+                    </div>
                     <div className="gif-search-shell">
+                      <span className="gif-search-icon" aria-hidden="true">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="7" cy="7" r="4.5" />
+                          <path d="M10.5 10.5 14 14" />
+                        </svg>
+                      </span>
                       <input
                         type="text"
                         className="gif-search-input"
-                        placeholder="Search GIFs"
+                        placeholder="Search reactions, memes, moods..."
                         value={gifSearchInput}
                         onChange={(e) => setGifSearchInput(e.target.value)}
                         onFocus={() => setIsKeyboardOpen(true)}

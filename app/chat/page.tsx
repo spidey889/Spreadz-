@@ -127,7 +127,7 @@ const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
-const CLIENT_REFRESH_VERSION = '2026-04-05-giphy-gif-picker'
+const CLIENT_REFRESH_VERSION = '2026-04-05-gif-load-scroll-fix'
 const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
@@ -352,6 +352,7 @@ export default function GlobalChat() {
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string; contentOverride?: string } | null>(null)
   const pendingOutgoingMessageIdsRef = useRef<Map<string, string>>(new Map())
+  const pendingGifLoadScrollRoomIdRef = useRef<string | null>(null)
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
   const notificationCooldownUntilRef = useRef(0)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -421,6 +422,30 @@ export default function GlobalChat() {
 
     roomIsAtBottomByIdRef.current[roomId] = isMessageListAtBottom(element)
   }, [isMessageListAtBottom])
+
+  const handleGifMediaLoad = useCallback((roomId?: string | null) => {
+    if (!roomId || roomId !== activeRoomId) return
+
+    if (typeof window === 'undefined') return
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const element = activeRoomMessagesRef.current
+        if (!element) return
+
+        const shouldScroll =
+          pendingGifLoadScrollRoomIdRef.current === roomId ||
+          (roomIsAtBottomByIdRef.current[roomId] ?? false)
+
+        if (!shouldScroll) return
+
+        pendingGifLoadScrollRoomIdRef.current = null
+        scrollCurrentRoomToBottom('auto')
+        element.scrollTop = element.scrollHeight
+        roomIsAtBottomByIdRef.current[roomId] = true
+      })
+    })
+  }, [activeRoomId, scrollCurrentRoomToBottom])
 
   const clearRoomDragFrame = useCallback(() => {
     if (roomDragFrameRef.current !== null && typeof window !== 'undefined') {
@@ -2202,6 +2227,7 @@ export default function GlobalChat() {
     const activeCollege = overrideCollege !== undefined ? overrideCollege : (university || localStorage.getItem(COLLEGE_STORAGE_KEY) || '')
     const activeUsername = await ensureAccountUsername(activeDisplayName, activeCollege)
     if (!activeUsername) return
+    pendingGifLoadScrollRoomIdRef.current = activeRoomId === roomId && isGifMessage(text) ? roomId : null
     const activeRoomName = rooms.find(room => room.id === roomId)?.headline || ''
     const tempId = `temp-${Date.now()}`
     const pendingMessageKey = getPendingMessageKey({
@@ -2494,10 +2520,16 @@ export default function GlobalChat() {
             loading="eager"
             decoding="async"
             draggable={false}
+            onLoad={() => {
+              handleGifMediaLoad(msg.room_id)
+            }}
             onError={(e) => {
               const wrapper = e.currentTarget.parentElement as HTMLDivElement | null
               if (wrapper) {
                 wrapper.style.display = 'none'
+              }
+              if (pendingGifLoadScrollRoomIdRef.current === msg.room_id) {
+                pendingGifLoadScrollRoomIdRef.current = null
               }
             }}
           />

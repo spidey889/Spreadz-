@@ -127,7 +127,7 @@ const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
-const CLIENT_REFRESH_VERSION = '2026-04-05-gif-load-scroll-fix'
+const CLIENT_REFRESH_VERSION = '2026-04-05-gif-button-icon'
 const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
@@ -2805,7 +2805,14 @@ export default function GlobalChat() {
                       title={isGifPickerOpen ? 'Close GIF picker' : 'Open GIF picker'}
                       onClick={() => toggleGifPicker(room.id)}
                     >
-                      GIF
+                      <span className="gif-btn-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="8" />
+                          <path d="M9.2 10.2h.01" />
+                          <path d="M14.8 10.2h.01" />
+                          <path d="M8.8 14.1c.84 1 1.92 1.5 3.2 1.5 1.28 0 2.34-.5 3.2-1.5" />
+                        </svg>
+                      </span>
                     </button>
                     <button
                       type="button"

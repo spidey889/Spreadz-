@@ -551,17 +551,37 @@ display: flex;
         }
         .gif-btn {
           border: none;
-          border-radius: 10px;
-          background: rgba(255,255,255,0.05);
-          color: #d8dde6;
-          min-width: 40px;
+          border-radius: 11px;
+          background: rgba(255,255,255,0.045);
+          color: #aeb6c4;
+          width: 34px;
           height: 32px;
-          padding: 0 10px;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.04em;
+          padding: 0;
           cursor: pointer;
           flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;
+        }
+        .gif-btn:hover {
+          background: rgba(255,255,255,0.075);
+          color: #e6ebf3;
+          transform: translateY(-1px);
+        }
+        .gif-btn:active {
+          transform: scale(0.96);
+        }
+        .gif-btn-icon {
+          width: 17px;
+          height: 17px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .gif-btn-icon svg {
+          width: 17px;
+          height: 17px;
         }
         .gif-btn.active {
           background: rgba(88, 101, 242, 0.24);

@@ -742,17 +742,30 @@ export default function GlobalChat() {
     const payload = await response.json()
     const normalizedResults = Array.isArray(payload?.data)
       ? payload.data
-        .map((item: any) => ({
-          id: typeof item?.id === 'string' ? item.id : '',
-          url: typeof item?.images?.fixed_height?.url === 'string' ? item.images.fixed_height.url : '',
-          previewUrl:
-            typeof item?.images?.fixed_height_still?.url === 'string'
-              ? item.images.fixed_height_still.url
-              : (typeof item?.images?.fixed_height?.url === 'string' ? item.images.fixed_height.url : ''),
-          title: typeof item?.title === 'string' ? item.title : 'GIF',
-          width: Number(item?.images?.fixed_height?.width) || 200,
-          height: Number(item?.images?.fixed_height?.height) || 200,
-        }))
+        .map((item: any) => {
+          const downsized = item?.images?.downsized
+          const fixedHeight = item?.images?.fixed_height
+          const fixedHeightStill = item?.images?.fixed_height_still
+
+          return {
+            id: typeof item?.id === 'string' ? item.id : '',
+            url:
+              typeof downsized?.url === 'string' && downsized.url
+                ? downsized.url
+                : (typeof fixedHeight?.url === 'string' ? fixedHeight.url : ''),
+            previewUrl:
+              typeof fixedHeightStill?.url === 'string' && fixedHeightStill.url
+                ? fixedHeightStill.url
+                : (
+                    typeof downsized?.url === 'string' && downsized.url
+                      ? downsized.url
+                      : (typeof fixedHeight?.url === 'string' ? fixedHeight.url : '')
+                  ),
+            title: typeof item?.title === 'string' ? item.title : 'GIF',
+            width: Number(downsized?.width) || Number(fixedHeight?.width) || 200,
+            height: Number(downsized?.height) || Number(fixedHeight?.height) || 200,
+          }
+        })
         .filter((item: GifResult) => item.id && item.url && item.previewUrl)
       : []
 
@@ -2758,6 +2771,8 @@ export default function GlobalChat() {
             src={gifUrl}
             alt={`${msg.username} sent a GIF`}
             className="msg-gif"
+            referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
             onLoad={(e) => {
               console.info('[GIF] load success', {
                 messageId: msg.id,
@@ -3046,6 +3061,8 @@ export default function GlobalChat() {
                                 src={gif.previewUrl}
                                 alt={gif.title || 'GIF'}
                                 className="gif-tile-image"
+                                referrerPolicy="no-referrer"
+                                crossOrigin="anonymous"
                                 loading={gifIndex < 6 ? 'eager' : 'lazy'}
                                 fetchPriority={gifIndex < 6 ? 'high' : 'auto'}
                                 decoding="async"

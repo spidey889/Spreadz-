@@ -361,6 +361,7 @@ display: flex;
         .msg-media {
           display: block;
           width: min(60%, 180px);
+          min-height: 120px;
           margin-top: 6px;
           border-radius: 18px;
           overflow: hidden;
@@ -372,8 +373,9 @@ display: flex;
           display: block;
           width: 100%;
           height: auto;
+          min-height: 120px;
           max-height: 160px;
-          object-fit: contain;
+          object-fit: cover;
           background: #15181c;
           backface-visibility: visible;
           transform: none;

@@ -410,10 +410,17 @@ export default function GlobalChat() {
   }, [])
 
   const scrollCurrentRoomToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const scrollElement = activeRoomMessagesRef.current
     const endEl = messageEndRefs.current[currentRoomIndex]
-    if (!endEl) return
+    if (!endEl && !scrollElement) return
 
-    endEl.scrollIntoView({ behavior, block: 'end' })
+    if (endEl) {
+      endEl.scrollIntoView({ behavior, block: 'end' })
+    }
+
+    if (scrollElement) {
+      scrollElement.scrollTop = scrollElement.scrollHeight
+    }
   }, [currentRoomIndex])
 
   const isMessageListAtBottom = useCallback((element: HTMLDivElement | null) => {
@@ -434,19 +441,22 @@ export default function GlobalChat() {
     if (typeof window === 'undefined') return
 
     window.requestAnimationFrame(() => {
-      const element = activeRoomMessagesRef.current
-      if (!element) return
+      window.requestAnimationFrame(() => {
+        const element = activeRoomMessagesRef.current
+        if (!element) return
 
-      const wasNearBottom = roomIsAtBottomByIdRef.current[roomId] ?? false
-      const isNearBottomNow = element.scrollTop + element.clientHeight >= element.scrollHeight - 80
+        const wasNearBottom = roomIsAtBottomByIdRef.current[roomId] ?? false
+        const isNearBottomNow = element.scrollTop + element.clientHeight >= element.scrollHeight - 80
 
-      if (!wasNearBottom && !isNearBottomNow && pendingGifLoadScrollRoomIdRef.current !== roomId) {
-        return
-      }
+        if (!wasNearBottom && !isNearBottomNow && pendingGifLoadScrollRoomIdRef.current !== roomId) {
+          return
+        }
 
-      pendingGifLoadScrollRoomIdRef.current = null
-      scrollCurrentRoomToBottom('auto')
-      roomIsAtBottomByIdRef.current[roomId] = true
+        pendingGifLoadScrollRoomIdRef.current = null
+        scrollCurrentRoomToBottom('auto')
+        element.scrollTop = element.scrollHeight
+        roomIsAtBottomByIdRef.current[roomId] = true
+      })
     })
   }, [activeRoomId, scrollCurrentRoomToBottom])
 
@@ -3025,8 +3035,8 @@ export default function GlobalChat() {
                       contentEditable={true}
                       role="textbox"
                       aria-multiline="false"
-                      aria-label="Say something...."
-                      data-placeholder="Say something...."
+                      aria-label="Say something..."
+                      data-placeholder="Say something..."
                       className="chat-input-editable"
                       onInput={(e) => {
                         const text = e.currentTarget.textContent || ''

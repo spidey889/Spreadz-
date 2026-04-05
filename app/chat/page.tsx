@@ -57,15 +57,6 @@ type NotificationPayload = {
   tag: string
 }
 
-interface GifResult {
-  id: string
-  url: string
-  previewUrl: string
-  title: string
-  width: number
-  height: number
-}
-
 interface ReadOnlyProfile {
   displayName: string
   handle: string
@@ -127,7 +118,7 @@ const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
-const CLIENT_REFRESH_VERSION = '2026-04-05-gif-blink-error-fix'
+const CLIENT_REFRESH_VERSION = '2026-04-05-remove-gif-feature'
 const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
@@ -136,10 +127,6 @@ const AVATAR_MAX_BYTES = 200 * 1024
 const AVATAR_MAX_DIMENSION = 400
 const AVATAR_QUALITY_STEPS = [0.7, 0.6, 0.5, 0.4, 0.3]
 const GENERATED_USERNAME_REGEX = /^[a-z0-9_]{1,20}_[0-9]{4}$/
-const GIF_MESSAGE_PREFIX = '[gif]:'
-const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
-const GIPHY_LIMIT = 20
-const GIF_PICKER_CLOSE_DURATION_MS = 36
 const HACKER_NEWS_ROOM_ID = 'b87b934f-7b1a-41b6-9d89-3319a3442c0c'
 const HACKER_NEWS_REVEAL_DEFAULT_MIN_MS = 4000
 const HACKER_NEWS_REVEAL_DEFAULT_MAX_MS = 12000
@@ -151,9 +138,6 @@ const HACKER_NEWS_REVEAL_CLUSTER_CHANCE = 0.35
 const MESSAGE_SELECT_COLUMNS = 'id, content, created_at, display_name, college, room_name, room_id, user_uuid'
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
-const isGifMessage = (value: string) => value.startsWith(GIF_MESSAGE_PREFIX)
-const getGifUrlFromMessage = (value: string) => isGifMessage(value) ? value.slice(GIF_MESSAGE_PREFIX.length).trim() : ''
-const buildGifMessageContent = (url: string) => `${GIF_MESSAGE_PREFIX}${url}`
 
 const getRandomRevealDelay = (min: number, max: number) =>
   Math.floor(Math.random() * (max - min + 1)) + min
@@ -300,13 +284,6 @@ export default function GlobalChat() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [roomMessages, setRoomMessages] = useState<Record<string, Message[]>>({})
   const [inputTexts, setInputTexts] = useState<Record<string, string>>({})
-  const [activeGifPickerRoomId, setActiveGifPickerRoomId] = useState<string | null>(null)
-  const [gifPickerClosingRoomId, setGifPickerClosingRoomId] = useState<string | null>(null)
-  const [gifPickerDragging, setGifPickerDragging] = useState(false)
-  const [gifSearchInput, setGifSearchInput] = useState('')
-  const [gifResults, setGifResults] = useState<GifResult[]>([])
-  const [gifLoading, setGifLoading] = useState(false)
-  const [gifError, setGifError] = useState('')
   const [currentRoomIndex, setCurrentRoomIndex] = useState(0)
   const [cardCollapsed, setCardCollapsed] = useState(false)
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
@@ -340,8 +317,6 @@ export default function GlobalChat() {
   const userIdRef = useRef<string>('')
   const displayNameToUsernameRef = useRef<Record<string, string>>({})
   const displayNameToAvatarUrlRef = useRef<Record<string, string>>({})
-  const gifTrendingCacheRef = useRef<GifResult[]>([])
-  const gifSearchCacheRef = useRef<Record<string, GifResult[]>>({})
   const roomIdsRef = useRef<Set<string>>(new Set())
   const sentRoomIdsRef = useRef<Set<string>>(new Set())
   const roomPanelRefs = useRef<Record<number, HTMLDivElement | null>>({})
@@ -357,18 +332,10 @@ export default function GlobalChat() {
   const fetchedRoomsRef = useRef<Set<string>>(new Set())
   const pendingSendRef = useRef<{ roomId: string; contentOverride?: string } | null>(null)
   const pendingOutgoingMessageIdsRef = useRef<Map<string, string>>(new Map())
-  const pendingGifLoadScrollRoomIdRef = useRef<string | null>(null)
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
   const notificationCooldownUntilRef = useRef(0)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const profileSheetRef = useRef<HTMLFormElement>(null)
-  const gifPickerTouchStartYRef = useRef<number | null>(null)
-  const gifPickerTouchStartedInGridRef = useRef(false)
-  const gifPickerTouchGridRef = useRef<HTMLDivElement | null>(null)
-  const gifPickerSheetRef = useRef<HTMLDivElement | null>(null)
-  const gifPickerOffsetYRef = useRef(0)
-  const gifPickerFrameRef = useRef<number | null>(null)
-  const gifPickerCloseTimeoutRef = useRef<number | null>(null)
   const currentRoomIndexRef = useRef(0)
   const dragStartYRef = useRef<number | null>(null)
   const dragCurrentYRef = useRef<number | null>(null)
@@ -385,7 +352,6 @@ export default function GlobalChat() {
   const dragVelocityYRef = useRef(0)
   const roomDragFrameRef = useRef<number | null>(null)
   const roomTransitionTimeoutRef = useRef<number | null>(null)
-  const loggedGifRenderKeysRef = useRef<Set<string>>(new Set())
   const profileSheetTouchStartYRef = useRef<number | null>(null)
   const profileSheetOffsetYRef = useRef(0)
   const profileSheetFrameRef = useRef<number | null>(null)
@@ -435,31 +401,6 @@ export default function GlobalChat() {
 
     roomIsAtBottomByIdRef.current[roomId] = isMessageListAtBottom(element)
   }, [isMessageListAtBottom])
-
-  const handleMediaLoad = useCallback((roomId?: string | null) => {
-    if (!roomId || roomId !== activeRoomId) return
-
-    if (typeof window === 'undefined') return
-
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        const element = activeRoomMessagesRef.current
-        if (!element) return
-
-        const wasNearBottom = roomIsAtBottomByIdRef.current[roomId] ?? false
-        const isNearBottomNow = element.scrollTop + element.clientHeight >= element.scrollHeight - 80
-
-        if (!wasNearBottom && !isNearBottomNow && pendingGifLoadScrollRoomIdRef.current !== roomId) {
-          return
-        }
-
-        pendingGifLoadScrollRoomIdRef.current = null
-        scrollCurrentRoomToBottom('auto')
-        element.scrollTop = element.scrollHeight
-        roomIsAtBottomByIdRef.current[roomId] = true
-      })
-    })
-  }, [activeRoomId, scrollCurrentRoomToBottom])
 
   const clearRoomDragFrame = useCallback(() => {
     if (roomDragFrameRef.current !== null && typeof window !== 'undefined') {
@@ -726,51 +667,6 @@ export default function GlobalChat() {
         profileSheetRef.current.style.setProperty('--profile-sheet-offset', `${profileSheetOffsetYRef.current}px`)
       }
     })
-  }, [])
-
-  const fetchGifResults = useCallback(async (query: string, signal?: AbortSignal) => {
-    const trimmedQuery = query.trim()
-    const mode = trimmedQuery ? 'search' : 'trending'
-    const endpoint = trimmedQuery
-      ? `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(trimmedQuery)}&limit=${GIPHY_LIMIT}&rating=g`
-      : `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=${GIPHY_LIMIT}&rating=g`
-
-    console.info('[GIF] fetchGifResults called', { mode, query: trimmedQuery })
-    const response = await fetch(endpoint, { signal })
-    if (!response.ok) throw new Error(`Giphy request failed with ${response.status}`)
-
-    const payload = await response.json()
-    const normalizedResults = Array.isArray(payload?.data)
-      ? payload.data
-        .map((item: any) => {
-          const downsized = item?.images?.downsized
-          const fixedHeight = item?.images?.fixed_height
-          const fixedHeightStill = item?.images?.fixed_height_still
-
-          return {
-            id: typeof item?.id === 'string' ? item.id : '',
-            url:
-              typeof downsized?.url === 'string' && downsized.url
-                ? downsized.url
-                : (typeof fixedHeight?.url === 'string' ? fixedHeight.url : ''),
-            previewUrl:
-              typeof fixedHeightStill?.url === 'string' && fixedHeightStill.url
-                ? fixedHeightStill.url
-                : (
-                    typeof downsized?.url === 'string' && downsized.url
-                      ? downsized.url
-                      : (typeof fixedHeight?.url === 'string' ? fixedHeight.url : '')
-                  ),
-            title: typeof item?.title === 'string' ? item.title : 'GIF',
-            width: Number(downsized?.width) || Number(fixedHeight?.width) || 200,
-            height: Number(downsized?.height) || Number(fixedHeight?.height) || 200,
-          }
-        })
-        .filter((item: GifResult) => item.id && item.url && item.previewUrl)
-      : []
-
-    console.info('[GIF] fetch success', { mode, query: trimmedQuery, results: normalizedResults.length })
-    return normalizedResults
   }, [])
 
   useEffect(() => {
@@ -1729,99 +1625,6 @@ export default function GlobalChat() {
     if (saved.length > 0) setSelectedInterests(saved)
   }, [])
 
-  useEffect(() => {
-    if (gifTrendingCacheRef.current.length > 0) return
-
-    const controller = new AbortController()
-
-    void (async () => {
-      try {
-        const trendingResults = await fetchGifResults('', controller.signal)
-        gifTrendingCacheRef.current = trendingResults
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          console.error('[GIF] trending prefetch failed:', error)
-        }
-      }
-    })()
-
-    return () => controller.abort()
-  }, [fetchGifResults])
-
-  useEffect(() => {
-    return () => {
-      if (gifPickerCloseTimeoutRef.current) {
-        window.clearTimeout(gifPickerCloseTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!activeGifPickerRoomId) {
-      setGifLoading(false)
-      setGifError('')
-      return
-    }
-
-    const controller = new AbortController()
-    const trimmedQuery = gifSearchInput.trim()
-    const cacheKey = trimmedQuery.toLowerCase()
-    const cachedResults = trimmedQuery
-      ? gifSearchCacheRef.current[cacheKey]
-      : gifTrendingCacheRef.current
-
-    if (cachedResults?.length) {
-      setGifResults(cachedResults)
-    } else {
-      setGifResults([])
-    }
-
-    const timeoutId = window.setTimeout(async () => {
-      if (!cachedResults?.length) {
-        setGifLoading(true)
-      }
-      setGifError('')
-      console.info('[GIF] fetch started', {
-        roomId: activeGifPickerRoomId,
-        mode: trimmedQuery ? 'search' : 'trending',
-        query: trimmedQuery,
-        cachedResults: cachedResults?.length ?? 0,
-      })
-
-      try {
-        const nextGifResults = await fetchGifResults(trimmedQuery, controller.signal)
-
-        if (trimmedQuery) {
-          gifSearchCacheRef.current[cacheKey] = nextGifResults
-        } else {
-          gifTrendingCacheRef.current = nextGifResults
-        }
-
-        setGifResults(nextGifResults)
-        console.info('[GIF] fetch succeeded with results', {
-          roomId: activeGifPickerRoomId,
-          mode: trimmedQuery ? 'search' : 'trending',
-          query: trimmedQuery,
-          results: nextGifResults.length,
-        })
-      } catch (error) {
-        if (controller.signal.aborted) return
-        console.error('[GIF] fetch failed:', error)
-        setGifResults([])
-        setGifError('Could not load GIFs right now.')
-      } finally {
-        if (!controller.signal.aborted) {
-          setGifLoading(false)
-        }
-      }
-    }, trimmedQuery ? 250 : 0)
-
-    return () => {
-      window.clearTimeout(timeoutId)
-      controller.abort()
-    }
-  }, [activeGifPickerRoomId, fetchGifResults, gifSearchInput])
-
   const triggerRevealsForMessages = useCallback((roomId: string, msgs: Message[]) => {
     if (roomId === HACKER_NEWS_ROOM_ID) {
       if (msgs.length === 0) return
@@ -2027,7 +1830,7 @@ export default function GlobalChat() {
     return () => {
       observer.disconnect()
     }
-  }, [activeRoomId, currentRoomIndex, isKeyboardOpen, activeGifPickerRoomId, gifPickerClosingRoomId, syncComposerMetrics])
+  }, [activeRoomId, currentRoomIndex, isKeyboardOpen, syncComposerMetrics])
 
   useEffect(() => {
     return () => {
@@ -2268,8 +2071,6 @@ export default function GlobalChat() {
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string, contentOverride?: string) => {
     const text = (contentOverride ?? inputTexts[roomId] ?? '').trim()
     if (!text) return
-    const outgoingGifUrl = isGifMessage(text) ? getGifUrlFromMessage(text) : ''
-    const shouldUseOptimisticMessage = !outgoingGifUrl
 
     const userId = getCurrentUserId()
     const activeDisplayName = overrideName || displayName || localStorage.getItem(DISPLAY_NAME_STORAGE_KEY)
@@ -2284,7 +2085,6 @@ export default function GlobalChat() {
     const activeCollege = overrideCollege !== undefined ? overrideCollege : (university || localStorage.getItem(COLLEGE_STORAGE_KEY) || '')
     const activeUsername = await ensureAccountUsername(activeDisplayName, activeCollege)
     if (!activeUsername) return
-    pendingGifLoadScrollRoomIdRef.current = activeRoomId === roomId && isGifMessage(text) ? roomId : null
     const activeRoomName = rooms.find(room => room.id === roomId)?.headline || ''
     const tempId = `temp-${Date.now()}`
     const pendingMessageKey = getPendingMessageKey({
@@ -2306,19 +2106,17 @@ export default function GlobalChat() {
       senderUsername: activeUsername,
     }
 
-    if (shouldUseOptimisticMessage && pendingMessageKey) {
+    if (pendingMessageKey) {
       pendingOutgoingMessageIdsRef.current.set(pendingMessageKey, tempId)
     }
 
-    if (shouldUseOptimisticMessage) {
-      // Reveal immediately for user's own message
-      scheduleReveal(roomId, tempId, 0)
+    // Reveal immediately for user's own message
+    scheduleReveal(roomId, tempId, 0)
 
-      setRoomMessages(prev => ({
-        ...prev,
-        [roomId]: [...(prev[roomId] || []), optimisticMsg]
-      }))
-    }
+    setRoomMessages(prev => ({
+      ...prev,
+      [roomId]: [...(prev[roomId] || []), optimisticMsg]
+    }))
     if (contentOverride === undefined) {
       setInputTexts(prev => ({ ...prev, [roomId]: '' }))
       const inputEl = composerBarRef.current?.querySelector('[contenteditable]') as HTMLElement | null
@@ -2338,18 +2136,13 @@ export default function GlobalChat() {
       .select(MESSAGE_SELECT_COLUMNS)
 
     if (error) {
-      if (outgoingGifUrl) {
-        console.error('[GIF] message send failed:', { roomId, gifUrl: outgoingGifUrl, error })
-      }
       if (pendingMessageKey) {
         pendingOutgoingMessageIdsRef.current.delete(pendingMessageKey)
       }
-      if (shouldUseOptimisticMessage) {
-        setRoomMessages(prev => ({
-          ...prev,
-          [roomId]: (prev[roomId] || []).filter(m => m.id !== tempId)
-        }))
-      }
+      setRoomMessages(prev => ({
+        ...prev,
+        [roomId]: (prev[roomId] || []).filter(m => m.id !== tempId)
+      }))
       return
     }
 
@@ -2387,208 +2180,10 @@ export default function GlobalChat() {
         roomId,
         messageId: serverMessage.id,
       })
-      if (outgoingGifUrl) {
-        console.info('[GIF] message sent', { roomId, gifUrl: outgoingGifUrl, messageId: serverMessage.id })
-      }
       trackMessageSent(roomId, activeRoomName)
       await incrementUserMessagesSent(activeUsername)
       await updateRoomMessageStats(roomId, activeUsername)
     }
-  }
-
-  const clearGifPickerTouchState = useCallback(() => {
-    gifPickerTouchStartYRef.current = null
-    gifPickerTouchStartedInGridRef.current = false
-    gifPickerTouchGridRef.current = null
-  }, [])
-
-  const applyGifPickerOffset = useCallback((offset: number) => {
-    gifPickerOffsetYRef.current = offset
-
-    if (typeof window === 'undefined') return
-    if (gifPickerFrameRef.current !== null) return
-
-    gifPickerFrameRef.current = window.requestAnimationFrame(() => {
-      gifPickerFrameRef.current = null
-      if (gifPickerSheetRef.current) {
-        gifPickerSheetRef.current.style.setProperty('--gif-picker-offset', `${gifPickerOffsetYRef.current}px`)
-      }
-    })
-  }, [])
-
-  const bindGifPickerSheetRef = useCallback((node: HTMLDivElement | null) => {
-    gifPickerSheetRef.current = node
-    if (node) {
-      node.style.setProperty('--gif-picker-offset', `${gifPickerOffsetYRef.current}px`)
-    }
-  }, [])
-
-  const getGifPickerDismissOffset = useCallback(() => {
-    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0
-    const sheetHeight = gifPickerSheetRef.current?.offsetHeight ?? 0
-
-    return Math.max(sheetHeight + 56, Math.round(viewportHeight * 0.78), 180)
-  }, [])
-
-  const getGifPickerCloseThreshold = useCallback(() => {
-    const sheetHeight = gifPickerSheetRef.current?.offsetHeight ?? 0
-
-    return sheetHeight > 0 ? Math.max(54, Math.round(sheetHeight * 0.16)) : 54
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      if (gifPickerFrameRef.current !== null) {
-        window.cancelAnimationFrame(gifPickerFrameRef.current)
-        gifPickerFrameRef.current = null
-      }
-    }
-  }, [])
-
-  const closeGifPicker = useCallback((roomId?: string, targetOffset?: number) => {
-    const resolvedRoomId = roomId ?? activeGifPickerRoomId ?? gifPickerClosingRoomId
-    if (!resolvedRoomId) return
-    const resolvedOffset = targetOffset ?? getGifPickerDismissOffset()
-
-    if (gifPickerCloseTimeoutRef.current) {
-      window.clearTimeout(gifPickerCloseTimeoutRef.current)
-      gifPickerCloseTimeoutRef.current = null
-    }
-
-    clearGifPickerTouchState()
-    setGifPickerDragging(false)
-    applyGifPickerOffset(resolvedOffset)
-    setGifPickerClosingRoomId(resolvedRoomId)
-
-    gifPickerCloseTimeoutRef.current = window.setTimeout(() => {
-      gifPickerCloseTimeoutRef.current = null
-      setActiveGifPickerRoomId(prev => prev === resolvedRoomId ? null : prev)
-      setGifPickerClosingRoomId(prev => prev === resolvedRoomId ? null : prev)
-      applyGifPickerOffset(0)
-      setGifSearchInput('')
-      setGifError('')
-    }, GIF_PICKER_CLOSE_DURATION_MS)
-  }, [activeGifPickerRoomId, gifPickerClosingRoomId, clearGifPickerTouchState, applyGifPickerOffset, getGifPickerDismissOffset])
-
-  const openGifPicker = (roomId: string) => {
-    if (gifPickerCloseTimeoutRef.current) {
-      window.clearTimeout(gifPickerCloseTimeoutRef.current)
-      gifPickerCloseTimeoutRef.current = null
-    }
-
-    clearGifPickerTouchState()
-    setGifPickerClosingRoomId(null)
-    setGifPickerDragging(false)
-    applyGifPickerOffset(0)
-    setIsKeyboardOpen(false)
-    setActiveGifPickerRoomId(roomId)
-    setGifSearchInput('')
-    setGifError('')
-    setGifResults(gifTrendingCacheRef.current)
-    console.info('[GIF] picker opened', { roomId, cachedTrendingResults: gifTrendingCacheRef.current.length })
-  }
-
-  const toggleGifPicker = (roomId: string) => {
-    if (activeGifPickerRoomId === roomId && !gifPickerClosingRoomId) {
-      closeGifPicker(roomId)
-      return
-    }
-
-    openGifPicker(roomId)
-  }
-
-  useEffect(() => {
-    setActiveGifPickerRoomId(null)
-    setGifPickerClosingRoomId(null)
-    setGifPickerDragging(false)
-    applyGifPickerOffset(0)
-    clearGifPickerTouchState()
-    setGifSearchInput('')
-    setGifError('')
-  }, [currentRoomIndex, clearGifPickerTouchState, applyGifPickerOffset])
-
-  const handleGifPickerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length !== 1) return
-
-    if (gifPickerCloseTimeoutRef.current) {
-      window.clearTimeout(gifPickerCloseTimeoutRef.current)
-      gifPickerCloseTimeoutRef.current = null
-    }
-
-    const target = e.target as HTMLElement
-    gifPickerTouchStartYRef.current = e.touches[0].clientY
-    gifPickerTouchGridRef.current = target.closest('.gif-picker-grid') as HTMLDivElement | null
-    gifPickerTouchStartedInGridRef.current = Boolean(gifPickerTouchGridRef.current)
-    setGifPickerClosingRoomId(null)
-    setGifPickerDragging(false)
-  }
-
-  const handleGifPickerTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    const startY = gifPickerTouchStartYRef.current
-    if (startY === null || e.touches.length !== 1) return
-
-    const target = e.target as HTMLElement
-    const gridEl = gifPickerTouchGridRef.current ?? (target.closest('.gif-picker-grid') as HTMLDivElement | null)
-    if (!gifPickerTouchGridRef.current && gridEl) {
-      gifPickerTouchGridRef.current = gridEl
-      gifPickerTouchStartedInGridRef.current = true
-    }
-    const deltaY = e.touches[0].clientY - startY
-    const currentScrollTop = gridEl?.scrollTop ?? 0
-
-    if (deltaY <= 0) {
-      if (gifPickerDragging) {
-        e.preventDefault()
-        setGifPickerDragging(false)
-        applyGifPickerOffset(0)
-      }
-      return
-    }
-
-    if (gifPickerTouchStartedInGridRef.current && gridEl && currentScrollTop > 0 && !gifPickerDragging) {
-      return
-    }
-
-    e.preventDefault()
-    if (!gifPickerDragging) {
-      setGifPickerDragging(true)
-    }
-    applyGifPickerOffset(Math.min(deltaY, getGifPickerDismissOffset()))
-  }
-
-  const handleGifPickerTouchEnd = (roomId: string) => {
-    const dragDistance = gifPickerOffsetYRef.current
-    const closeThreshold = getGifPickerCloseThreshold()
-    const dismissOffset = getGifPickerDismissOffset()
-    clearGifPickerTouchState()
-
-    if (dragDistance > closeThreshold) {
-      closeGifPicker(roomId, Math.max(dragDistance, dismissOffset))
-      return
-    }
-
-    setGifPickerDragging(false)
-    applyGifPickerOffset(0)
-  }
-
-  const handleGifSelect = async (roomId: string, gifUrl: string) => {
-    const trimmedGifUrl = gifUrl.trim()
-    if (!trimmedGifUrl) return
-
-    console.info('[GIF] selected', { roomId, gifUrl: trimmedGifUrl })
-    if (gifPickerCloseTimeoutRef.current) {
-      window.clearTimeout(gifPickerCloseTimeoutRef.current)
-      gifPickerCloseTimeoutRef.current = null
-    }
-    clearGifPickerTouchState()
-    setActiveGifPickerRoomId(null)
-    setGifPickerClosingRoomId(null)
-    setGifPickerDragging(false)
-    applyGifPickerOffset(0)
-    setGifSearchInput('')
-    setGifResults([])
-    setGifError('')
-    await handleSend(roomId, undefined, undefined, buildGifMessageContent(trimmedGifUrl))
   }
 
   const handleProfileSubmit = async (e?: React.FormEvent) => {
@@ -2754,63 +2349,7 @@ export default function GlobalChat() {
     setReportSheetMessage(readOnlyProfile.reportMessage)
   }
 
-  const renderMessageBody = (msg: Message) => {
-    const gifUrl = getGifUrlFromMessage(msg.text)
-    if (gifUrl) {
-      const renderLogKey = `${msg.id}:${gifUrl}`
-      if (!loggedGifRenderKeysRef.current.has(renderLogKey)) {
-        loggedGifRenderKeysRef.current.add(renderLogKey)
-        console.info('[GIF] render attempt', {
-          messageId: msg.id,
-          roomId: msg.room_id,
-          rawContent: msg.text,
-          parsedGifUrl: gifUrl,
-          finalRenderUrl: gifUrl,
-        })
-      }
-
-      return (
-        <div className="msg-media">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={gifUrl}
-            alt={`${msg.username} sent a GIF`}
-            className="msg-gif"
-            referrerPolicy="no-referrer"
-            crossOrigin="anonymous"
-            onLoad={(e) => {
-              console.info('[GIF] load success', {
-                messageId: msg.id,
-                roomId: msg.room_id,
-                rawContent: msg.text,
-                parsedGifUrl: gifUrl,
-                finalRenderUrl: (e.currentTarget as HTMLImageElement).currentSrc || gifUrl,
-              })
-              handleMediaLoad(msg.room_id)
-            }}
-            onError={(e) => {
-              const wrapper = e.currentTarget.parentElement as HTMLDivElement | null
-              if (wrapper) {
-                wrapper.style.display = 'none'
-              }
-              console.error('[GIF] load error', {
-                messageId: msg.id,
-                roomId: msg.room_id,
-                rawContent: msg.text,
-                parsedGifUrl: gifUrl,
-                finalRenderUrl: (e.currentTarget as HTMLImageElement).currentSrc || gifUrl,
-              })
-            }}
-            loading="eager"
-            decoding="async"
-            draggable={false}
-          />
-        </div>
-      )
-    }
-
-    return <div className="msg-text">{msg.text}</div>
-  }
+  const renderMessageBody = (msg: Message) => <div className="msg-text">{msg.text}</div>
 
   if (!isMounted || !authReady) return null
 
@@ -2821,8 +2360,7 @@ export default function GlobalChat() {
   const profilePreviewName = tempProfileName.trim() || displayName.trim() || 'User'
   const profilePreviewInitials = getInitials(profilePreviewName)
   const profilePreviewColor = getUserColor(profilePreviewName)
-  const isComposerExpanded = isKeyboardOpen || Boolean(activeGifPickerRoomId) || Boolean(gifPickerClosingRoomId)
-  const activeGifSearch = gifSearchInput.trim()
+  const isComposerExpanded = isKeyboardOpen
   const activeRoom = rooms[currentRoomIndex]
   const visibleRoomIndexes = [currentRoomIndex - 1, currentRoomIndex, currentRoomIndex + 1]
     .filter(index => index >= 0 && index < rooms.length)
@@ -2837,11 +2375,6 @@ export default function GlobalChat() {
           const messages = roomMessages[room.id] || []
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
           const isCurrentRoom = index === currentRoomIndex
-          const isGifPickerRendered = activeGifPickerRoomId === room.id || gifPickerClosingRoomId === room.id
-          const isGifPickerClosing = gifPickerClosingRoomId === room.id
-          const isGifPickerOpen = activeGifPickerRoomId === room.id && !isGifPickerClosing
-          const gifTriggerLabel = isGifPickerOpen ? 'Close emoji and GIF picker' : 'Open emoji and GIF picker'
-          const gifPickerMode = activeGifSearch ? 'Search' : 'Trending'
           const roomPanelClassName = `room-panel ${isCurrentRoom ? 'active-room' : (index < currentRoomIndex ? 'room-before' : 'room-after')}`
 
           return (
@@ -2919,7 +2452,7 @@ export default function GlobalChat() {
                     const isReadOnlyProfileAvatar = isFirstInGroup && !isOwnMessage
 
                     return (
-                      <div key={msg.id} className={`msg-reveal${isGifMessage(msg.text) ? ' has-media' : ''}`}
+                      <div key={msg.id} className="msg-reveal"
                         onMouseDown={() => startLongPress(msg)}
                         onMouseUp={clearLongPress}
                         onMouseLeave={clearLongPress}
@@ -2982,109 +2515,6 @@ export default function GlobalChat() {
               </div>
 
               <div ref={isCurrentRoom ? composerLayerRef : undefined} className="composer-layer">
-                {isGifPickerRendered && (
-                  <>
-                    <button
-                      type="button"
-                      className={`gif-picker-backdrop${isGifPickerClosing ? ' closing' : ''}`}
-                      aria-label="Close GIF picker"
-                      onClick={() => closeGifPicker(room.id)}
-                    />
-                    <div
-                      ref={bindGifPickerSheetRef}
-                      className={`gif-picker${isGifPickerClosing ? ' closing' : ''}${gifPickerDragging ? ' dragging' : ''}`}
-                      onClick={(e) => e.stopPropagation()}
-                      onTouchStart={handleGifPickerTouchStart}
-                      onTouchMove={handleGifPickerTouchMove}
-                      onTouchEnd={() => handleGifPickerTouchEnd(room.id)}
-                      onTouchCancel={() => {
-                        clearGifPickerTouchState()
-                        setGifPickerDragging(false)
-                        applyGifPickerOffset(0)
-                      }}
-                    >
-                      <div className="gif-picker-handle-zone">
-                        <div className="gif-picker-handle" aria-hidden="true" />
-                      </div>
-                      <div className="gif-picker-topline">
-                        <div className="gif-picker-topline-copy">
-                          <span className="gif-picker-label">GIFs</span>
-                          <span className="gif-picker-mode">{gifPickerMode}</span>
-                        </div>
-                        <button
-                          type="button"
-                          className="gif-picker-close"
-                          aria-label="Close GIF picker"
-                          onClick={() => closeGifPicker(room.id)}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M18 6L6 18" />
-                            <path d="M6 6L18 18" />
-                          </svg>
-                        </button>
-                      </div>
-                      <div className="gif-search-shell">
-                        <span className="gif-search-icon" aria-hidden="true">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="11" cy="11" r="7" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                          </svg>
-                        </span>
-                        <input
-                          type="text"
-                          className="gif-search-input"
-                          placeholder="Search reactions, memes, moods..."
-                          value={gifSearchInput}
-                          onChange={(e) => setGifSearchInput(e.target.value)}
-                          onFocus={() => setIsKeyboardOpen(true)}
-                          onBlur={() => setIsKeyboardOpen(false)}
-                        />
-                      </div>
-                      <div className="gif-picker-grid" onContextMenu={(e) => e.preventDefault()}>
-                        {gifLoading && Array.from({ length: 9 }).map((_, skeletonIndex) => (
-                          <div
-                            key={`gif-skeleton-${skeletonIndex}`}
-                            className="gif-skeleton"
-                          />
-                        ))}
-                        {!gifLoading && gifError && (
-                          <div className="gif-picker-status error">Couldn&apos;t load GIFs right now.</div>
-                        )}
-                        {!gifLoading && !gifError && gifResults.length === 0 && (
-                          <div className="gif-picker-status">No GIFs found.</div>
-                        )}
-                        {!gifLoading && !gifError && gifResults.map((gif, gifIndex) => (
-                          <button
-                            key={gif.id}
-                            type="button"
-                            className="gif-tile"
-                            onClick={() => handleGifSelect(room.id, gif.url)}
-                            aria-label={`Send GIF: ${gif.title}`}
-                          >
-                            <div
-                              className="gif-tile-media"
-                              style={{ aspectRatio: `${gif.width} / ${gif.height}` }}
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={gif.previewUrl}
-                                alt={gif.title || 'GIF'}
-                                className="gif-tile-image"
-                                referrerPolicy="no-referrer"
-                                crossOrigin="anonymous"
-                                loading={gifIndex < 6 ? 'eager' : 'lazy'}
-                                fetchPriority={gifIndex < 6 ? 'high' : 'auto'}
-                                decoding="async"
-                                draggable={false}
-                              />
-                            </div>
-                            <span className="gif-tile-badge">GIF</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
                 <div ref={isCurrentRoom ? composerAreaRef : undefined} className="input-area global-composer">
                   <div
                     ref={isCurrentRoom ? composerBarRef : undefined}
@@ -3110,39 +2540,12 @@ export default function GlobalChat() {
                       }}
                       onFocus={() => {
                         setIsKeyboardOpen(true)
-                        if (activeGifPickerRoomId === room.id || gifPickerClosingRoomId === room.id) {
-                          closeGifPicker(room.id, 18)
-                        }
                       }}
                       onBlur={() => {
                         setIsKeyboardOpen(false)
                       }}
                       suppressContentEditableWarning={true}
                     />
-                    <button
-                      type="button"
-                      className={`gif-btn${isGifPickerOpen ? ' active' : ''}`}
-                      aria-label={gifTriggerLabel}
-                      title={gifTriggerLabel}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        console.info('[GIF] button tapped', { roomId: room.id, isOpen: isGifPickerOpen })
-                        const btn = e.currentTarget as HTMLButtonElement
-                        btn.blur()
-                        toggleGifPicker(room.id)
-                      }}
-                    >
-                      <span className="gif-btn-icon" aria-hidden="true">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="8.25" />
-                          <path d="M9.15 10.35h.01" />
-                          <path d="M14.85 10.35h.01" />
-                          <path d="M8.9 14.3c.82 1 1.86 1.5 3.1 1.5 1.23 0 2.26-.5 3.1-1.5" />
-                          <path d="M17.55 6.45l1.8-1.2" />
-                        </svg>
-                      </span>
-                    </button>
                     <button
                       type="button"
                       className="send-btn"

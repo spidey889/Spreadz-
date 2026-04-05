@@ -697,15 +697,17 @@ export default function GlobalChat() {
 
   const fetchGifResults = useCallback(async (query: string, signal?: AbortSignal) => {
     const trimmedQuery = query.trim()
+    const mode = trimmedQuery ? 'search' : 'trending'
     const endpoint = trimmedQuery
       ? `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(trimmedQuery)}&limit=${GIPHY_LIMIT}&rating=g`
       : `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=${GIPHY_LIMIT}&rating=g`
 
+    console.info('[GIF] fetchGifResults called', { mode, query: trimmedQuery })
     const response = await fetch(endpoint, { signal })
     if (!response.ok) throw new Error(`Giphy request failed with ${response.status}`)
 
     const payload = await response.json()
-    return Array.isArray(payload?.data)
+    const normalizedResults = Array.isArray(payload?.data)
       ? payload.data
         .map((item: any) => ({
           id: typeof item?.id === 'string' ? item.id : '',
@@ -720,6 +722,9 @@ export default function GlobalChat() {
         }))
         .filter((item: GifResult) => item.id && item.url && item.previewUrl)
       : []
+
+    console.info('[GIF] fetch success', { mode, query: trimmedQuery, results: normalizedResults.length })
+    return normalizedResults
   }, [])
 
   useEffect(() => {
@@ -1730,6 +1735,12 @@ export default function GlobalChat() {
         setGifLoading(true)
       }
       setGifError('')
+      console.info('[GIF] fetch started', {
+        roomId: activeGifPickerRoomId,
+        mode: trimmedQuery ? 'search' : 'trending',
+        query: trimmedQuery,
+        cachedResults: cachedResults?.length ?? 0,
+      })
 
       try {
         const nextGifResults = await fetchGifResults(trimmedQuery, controller.signal)
@@ -1741,6 +1752,12 @@ export default function GlobalChat() {
         }
 
         setGifResults(nextGifResults)
+        console.info('[GIF] fetch succeeded with results', {
+          roomId: activeGifPickerRoomId,
+          mode: trimmedQuery ? 'search' : 'trending',
+          query: trimmedQuery,
+          results: nextGifResults.length,
+        })
       } catch (error) {
         if (controller.signal.aborted) return
         console.error('[GIF] fetch failed:', error)
@@ -2205,6 +2222,7 @@ export default function GlobalChat() {
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string, contentOverride?: string) => {
     const text = (contentOverride ?? inputTexts[roomId] ?? '').trim()
     if (!text) return
+    const outgoingGifUrl = isGifMessage(text) ? getGifUrlFromMessage(text) : ''
 
     const userId = getCurrentUserId()
     const activeDisplayName = overrideName || displayName || localStorage.getItem(DISPLAY_NAME_STORAGE_KEY)
@@ -2271,6 +2289,9 @@ export default function GlobalChat() {
       .select(MESSAGE_SELECT_COLUMNS)
 
     if (error) {
+      if (outgoingGifUrl) {
+        console.error('[GIF] message send failed:', { roomId, gifUrl: outgoingGifUrl, error })
+      }
       if (pendingMessageKey) {
         pendingOutgoingMessageIdsRef.current.delete(pendingMessageKey)
       }
@@ -2315,6 +2336,9 @@ export default function GlobalChat() {
         roomId,
         messageId: serverMessage.id,
       })
+      if (outgoingGifUrl) {
+        console.info('[GIF] message sent', { roomId, gifUrl: outgoingGifUrl, messageId: serverMessage.id })
+      }
       trackMessageSent(roomId, activeRoomName)
       await incrementUserMessagesSent(activeUsername)
       await updateRoomMessageStats(roomId, activeUsername)
@@ -2410,6 +2434,7 @@ export default function GlobalChat() {
     setGifSearchInput('')
     setGifError('')
     setGifResults(gifTrendingCacheRef.current)
+    console.info('[GIF] picker opened', { roomId, cachedTrendingResults: gifTrendingCacheRef.current.length })
   }
 
   const toggleGifPicker = (roomId: string) => {
@@ -2499,6 +2524,7 @@ export default function GlobalChat() {
     const trimmedGifUrl = gifUrl.trim()
     if (!trimmedGifUrl) return
 
+    console.info('[GIF] selected', { roomId, gifUrl: trimmedGifUrl })
     if (gifPickerCloseTimeoutRef.current) {
       window.clearTimeout(gifPickerCloseTimeoutRef.current)
       gifPickerCloseTimeoutRef.current = null
@@ -2711,14 +2737,13 @@ export default function GlobalChat() {
   const profilePreviewName = tempProfileName.trim() || displayName.trim() || 'User'
   const profilePreviewInitials = getInitials(profilePreviewName)
   const profilePreviewColor = getUserColor(profilePreviewName)
-  const isComposerExpanded = isKeyboardOpen
+  const isComposerExpanded = isKeyboardOpen || Boolean(activeGifPickerRoomId) || Boolean(gifPickerClosingRoomId)
+  const activeGifSearch = gifSearchInput.trim()
   const activeRoom = rooms[currentRoomIndex]
   const visibleRoomIndexes = [currentRoomIndex - 1, currentRoomIndex, currentRoomIndex + 1]
     .filter(index => index >= 0 && index < rooms.length)
 
   if (!activeRoom) return null
-  const gifTriggerLabel = 'Open emoji and GIF picker'
-  const isGifPickerOpen = false
 
   return (
     <>
@@ -2728,6 +2753,11 @@ export default function GlobalChat() {
           const messages = roomMessages[room.id] || []
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
           const isCurrentRoom = index === currentRoomIndex
+          const isGifPickerRendered = activeGifPickerRoomId === room.id || gifPickerClosingRoomId === room.id
+          const isGifPickerClosing = gifPickerClosingRoomId === room.id
+          const isGifPickerOpen = activeGifPickerRoomId === room.id && !isGifPickerClosing
+          const gifTriggerLabel = isGifPickerOpen ? 'Close emoji and GIF picker' : 'Open emoji and GIF picker'
+          const gifPickerMode = activeGifSearch ? 'Search' : 'Trending'
           const roomPanelClassName = `room-panel ${isCurrentRoom ? 'active-room' : (index < currentRoomIndex ? 'room-before' : 'room-after')}`
 
           return (
@@ -2868,6 +2898,107 @@ export default function GlobalChat() {
               </div>
 
               <div ref={isCurrentRoom ? composerLayerRef : undefined} className="composer-layer">
+                {isGifPickerRendered && (
+                  <>
+                    <button
+                      type="button"
+                      className={`gif-picker-backdrop${isGifPickerClosing ? ' closing' : ''}`}
+                      aria-label="Close GIF picker"
+                      onClick={() => closeGifPicker(room.id)}
+                    />
+                    <div
+                      ref={bindGifPickerSheetRef}
+                      className={`gif-picker${isGifPickerClosing ? ' closing' : ''}${gifPickerDragging ? ' dragging' : ''}`}
+                      onClick={(e) => e.stopPropagation()}
+                      onTouchStart={handleGifPickerTouchStart}
+                      onTouchMove={handleGifPickerTouchMove}
+                      onTouchEnd={() => handleGifPickerTouchEnd(room.id)}
+                      onTouchCancel={() => {
+                        clearGifPickerTouchState()
+                        setGifPickerDragging(false)
+                        applyGifPickerOffset(0)
+                      }}
+                    >
+                      <div className="gif-picker-handle-zone">
+                        <div className="gif-picker-handle" aria-hidden="true" />
+                      </div>
+                      <div className="gif-picker-topline">
+                        <div className="gif-picker-topline-copy">
+                          <span className="gif-picker-label">GIFs</span>
+                          <span className="gif-picker-mode">{gifPickerMode}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="gif-picker-close"
+                          aria-label="Close GIF picker"
+                          onClick={() => closeGifPicker(room.id)}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M18 6L6 18" />
+                            <path d="M6 6L18 18" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="gif-search-shell">
+                        <span className="gif-search-icon" aria-hidden="true">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="7" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                          </svg>
+                        </span>
+                        <input
+                          type="text"
+                          className="gif-search-input"
+                          placeholder="Search reactions, memes, moods..."
+                          value={gifSearchInput}
+                          onChange={(e) => setGifSearchInput(e.target.value)}
+                          onFocus={() => setIsKeyboardOpen(true)}
+                          onBlur={() => setIsKeyboardOpen(false)}
+                        />
+                      </div>
+                      <div className="gif-picker-grid" onContextMenu={(e) => e.preventDefault()}>
+                        {gifLoading && Array.from({ length: 9 }).map((_, skeletonIndex) => (
+                          <div
+                            key={`gif-skeleton-${skeletonIndex}`}
+                            className="gif-skeleton"
+                          />
+                        ))}
+                        {!gifLoading && gifError && (
+                          <div className="gif-picker-status error">Couldn&apos;t load GIFs right now.</div>
+                        )}
+                        {!gifLoading && !gifError && gifResults.length === 0 && (
+                          <div className="gif-picker-status">No GIFs found.</div>
+                        )}
+                        {!gifLoading && !gifError && gifResults.map((gif, gifIndex) => (
+                          <button
+                            key={gif.id}
+                            type="button"
+                            className="gif-tile"
+                            onClick={() => handleGifSelect(room.id, gif.url)}
+                            aria-label={`Send GIF: ${gif.title}`}
+                          >
+                            <div
+                              className="gif-tile-media"
+                              style={{ aspectRatio: `${gif.width} / ${gif.height}` }}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={gif.previewUrl}
+                                alt={gif.title || 'GIF'}
+                                className="gif-tile-image"
+                                loading={gifIndex < 6 ? 'eager' : 'lazy'}
+                                fetchPriority={gifIndex < 6 ? 'high' : 'auto'}
+                                decoding="async"
+                                draggable={false}
+                              />
+                            </div>
+                            <span className="gif-tile-badge">GIF</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
                 <div ref={isCurrentRoom ? composerAreaRef : undefined} className="input-area global-composer">
                   <div
                     ref={isCurrentRoom ? composerBarRef : undefined}
@@ -2893,7 +3024,9 @@ export default function GlobalChat() {
                       }}
                       onFocus={() => {
                         setIsKeyboardOpen(true)
-                        setActiveGifPickerRoomId(null)
+                        if (activeGifPickerRoomId === room.id || gifPickerClosingRoomId === room.id) {
+                          closeGifPicker(room.id, 18)
+                        }
                       }}
                       onBlur={() => {
                         setIsKeyboardOpen(false)
@@ -2908,8 +3041,10 @@ export default function GlobalChat() {
                       onClick={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
+                        console.info('[GIF] button tapped', { roomId: room.id, isOpen: isGifPickerOpen })
                         const btn = e.currentTarget as HTMLButtonElement
                         btn.blur()
+                        toggleGifPicker(room.id)
                       }}
                     >
                       <span className="gif-btn-icon" aria-hidden="true">

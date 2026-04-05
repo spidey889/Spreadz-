@@ -2090,12 +2090,12 @@ export default function GlobalChat() {
   }, [authReady, getCurrentUserId, pushFriendRequest])
 
 
-  const clearLongPress = () => {
+  const clearLongPress = useCallback(() => {
     if (longPressTimerRef.current) {
       window.clearTimeout(longPressTimerRef.current)
       longPressTimerRef.current = null
     }
-  }
+  }, [])
 
   const openReportSheet = useCallback((msg: Message) => {
     setSheetClosing(false)
@@ -2396,6 +2396,14 @@ export default function GlobalChat() {
     }
     applyGifPickerOffset(0)
   }, [applyGifPickerOffset])
+
+  const handleRoomMessagesClickCapture = useCallback((e: React.MouseEvent<HTMLDivElement>, roomId: string) => {
+    if (activeGifPickerRoomId !== roomId) return
+    e.preventDefault()
+    e.stopPropagation()
+    clearLongPress()
+    dismissGifPicker()
+  }, [activeGifPickerRoomId, clearLongPress, dismissGifPicker])
 
   useEffect(() => {
     closeGifPicker()
@@ -2818,6 +2826,7 @@ export default function GlobalChat() {
               <div
                 ref={isCurrentRoom ? activeRoomMessagesRef : undefined}
                 className="room-messages"
+                onClickCapture={isCurrentRoom ? (e) => handleRoomMessagesClickCapture(e, room.id) : undefined}
                 onTouchStart={isCurrentRoom ? handleTouchStart : undefined}
                 onTouchMove={isCurrentRoom ? handleTouchMove : undefined}
                 onTouchEnd={isCurrentRoom ? handleTouchEnd : undefined}

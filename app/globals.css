@@ -551,18 +551,18 @@ display: flex;
         }
         .gif-btn {
           border: none;
-          border-radius: 13px;
+          border-radius: 11px;
           background: rgba(255,255,255,0.045);
           color: #aeb6c4;
-          width: 36px;
-          height: 34px;
+          width: 34px;
+          height: 32px;
           padding: 0;
           cursor: pointer;
           flex-shrink: 0;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          transition: background 0.18s ease, color 0.18s ease, transform 0.14s ease;
+          transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;
         }
         .gif-btn:hover {
           background: rgba(255,255,255,0.075);
@@ -570,18 +570,18 @@ display: flex;
           transform: translateY(-1px);
         }
         .gif-btn:active {
-          transform: scale(0.95);
+          transform: scale(0.96);
         }
         .gif-btn-icon {
-          width: 18px;
-          height: 18px;
+          width: 17px;
+          height: 17px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
         }
         .gif-btn-icon svg {
-          width: 18px;
-          height: 18px;
+          width: 17px;
+          height: 17px;
         }
         .gif-btn.active {
           background: rgba(88, 101, 242, 0.24);

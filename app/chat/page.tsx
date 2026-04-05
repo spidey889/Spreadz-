@@ -127,7 +127,7 @@ const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
-const CLIENT_REFRESH_VERSION = '2026-04-05-inline-gif-render-reset'
+const CLIENT_REFRESH_VERSION = '2026-04-05-gif-blink-error-fix'
 const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
@@ -2789,6 +2789,10 @@ export default function GlobalChat() {
               handleMediaLoad(msg.room_id)
             }}
             onError={(e) => {
+              const wrapper = e.currentTarget.parentElement as HTMLDivElement | null
+              if (wrapper) {
+                wrapper.style.display = 'none'
+              }
               console.error('[GIF] load error', {
                 messageId: msg.id,
                 roomId: msg.room_id,

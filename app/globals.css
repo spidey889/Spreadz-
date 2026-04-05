@@ -361,6 +361,16 @@ display: flex;
         .msg-media {
           display: block;
           width: min(60%, 180px);
+        }
+        .msg-media.is-loading {
+          margin-top: 0;
+          position: relative;
+          border: 0;
+          background: transparent;
+          box-shadow: none;
+          overflow: visible;
+        }
+        .msg-media.is-loaded {
           margin-top: 6px;
           border-radius: 18px;
           overflow: hidden;
@@ -374,13 +384,18 @@ display: flex;
           height: auto;
           max-height: 160px;
           object-fit: cover;
-          background: #15181c;
           backface-visibility: visible;
           transform: none;
-          opacity: 0;
           transition: opacity 180ms ease;
         }
+        .msg-gif.is-loading {
+          position: absolute;
+          inset: 0;
+          opacity: 0;
+          pointer-events: none;
+        }
         .msg-gif.is-loaded {
+          position: static;
           opacity: 1;
         }
 

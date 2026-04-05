@@ -84,13 +84,17 @@ type ChatGifMessageProps = {
 function ChatGifMessage({ gifUrl, msg, onMediaLoad }: ChatGifMessageProps) {
   const [isLoaded, setIsLoaded] = useState(false)
 
+  useEffect(() => {
+    setIsLoaded(false)
+  }, [gifUrl])
+
   return (
-    <div className="msg-media">
+    <div className={`msg-media${isLoaded ? ' is-loaded' : ' is-loading'}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={gifUrl}
         alt={`${msg.username} sent a GIF`}
-        className={`msg-gif${isLoaded ? ' is-loaded' : ''}`}
+        className={`msg-gif${isLoaded ? ' is-loaded' : ' is-loading'}`}
         referrerPolicy="no-referrer"
         crossOrigin="anonymous"
         onLoad={(e) => {
@@ -105,7 +109,6 @@ function ChatGifMessage({ gifUrl, msg, onMediaLoad }: ChatGifMessageProps) {
           onMediaLoad(msg.room_id)
         }}
         onError={(e) => {
-          setIsLoaded(true)
           console.error('[GIF] load error', {
             messageId: msg.id,
             roomId: msg.room_id,
@@ -174,7 +177,7 @@ const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
-const CLIENT_REFRESH_VERSION = '2026-04-03-push-avatar-proxy-badge-refresh'
+const CLIENT_REFRESH_VERSION = '2026-04-05-gif-load-visibility-fix'
 const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
 const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
 const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'

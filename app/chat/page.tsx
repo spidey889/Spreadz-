@@ -2756,8 +2756,8 @@ export default function GlobalChat() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={gifUrl}
-            alt={`${msg.username} sent a GIF`}
-            className="msg-gif"
+            alt="GIF"
+            className="msg-media-img"
             onLoad={(e) => {
               console.info('[GIF] load success', {
                 messageId: msg.id,
@@ -2777,7 +2777,7 @@ export default function GlobalChat() {
                 finalRenderUrl: (e.currentTarget as HTMLImageElement).currentSrc || gifUrl,
               })
             }}
-            loading="eager"
+            loading="lazy"
             decoding="async"
             draggable={false}
           />

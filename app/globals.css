@@ -368,15 +368,10 @@ display: flex;
           background: rgba(255,255,255,0.03);
           box-shadow: 0 14px 26px rgba(0, 0, 0, 0.22);
         }
-        .msg-gif {
+        .msg-media-img {
           display: block;
           width: 100%;
           height: auto;
-          max-height: 160px;
-          object-fit: contain;
-          background: #15181c;
-          backface-visibility: visible;
-          transform: none;
         }
 
         .input-area {

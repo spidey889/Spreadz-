@@ -428,6 +428,28 @@ export default function GlobalChat() {
     roomIsAtBottomByIdRef.current[roomId] = isMessageListAtBottom(element)
   }, [isMessageListAtBottom])
 
+  const handleMediaLoad = useCallback((roomId?: string | null) => {
+    if (!roomId || roomId !== activeRoomId) return
+
+    if (typeof window === 'undefined') return
+
+    window.requestAnimationFrame(() => {
+      const element = activeRoomMessagesRef.current
+      if (!element) return
+
+      const wasNearBottom = roomIsAtBottomByIdRef.current[roomId] ?? false
+      const isNearBottomNow = element.scrollTop + element.clientHeight >= element.scrollHeight - 80
+
+      if (!wasNearBottom && !isNearBottomNow && pendingGifLoadScrollRoomIdRef.current !== roomId) {
+        return
+      }
+
+      pendingGifLoadScrollRoomIdRef.current = null
+      scrollCurrentRoomToBottom('auto')
+      roomIsAtBottomByIdRef.current[roomId] = true
+    })
+  }, [activeRoomId, scrollCurrentRoomToBottom])
+
   const clearRoomDragFrame = useCallback(() => {
     if (roomDragFrameRef.current !== null && typeof window !== 'undefined') {
       window.cancelAnimationFrame(roomDragFrameRef.current)
@@ -2713,12 +2735,7 @@ export default function GlobalChat() {
             src={gifUrl}
             alt={`${msg.username} sent a GIF`}
             className="msg-gif"
-            onLoad={() => {
-              if (pendingGifLoadScrollRoomIdRef.current === msg.room_id && msg.room_id === activeRoomId) {
-                pendingGifLoadScrollRoomIdRef.current = null
-                scrollCurrentRoomToBottom('smooth')
-              }
-            }}
+            onLoad={() => handleMediaLoad(msg.room_id)}
             draggable={false}
           />
         </div>

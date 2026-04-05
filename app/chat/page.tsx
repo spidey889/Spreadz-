@@ -2869,8 +2869,13 @@ export default function GlobalChat() {
               <div ref={isCurrentRoom ? composerLayerRef : undefined} className="composer-layer">
                 {isGifPickerOpen && (
                   <div ref={bindGifPickerSheetRef} className="gif-picker">
-                    <div className="gif-picker-topline">
-                      <div className="gif-picker-topline-copy" />
+                    <div
+                      className="gif-picker-topline"
+                      onTouchStart={handleGifPickerTouchStart}
+                      onTouchMove={handleGifPickerTouchMove}
+                      onTouchEnd={handleGifPickerTouchEnd}
+                      onTouchCancel={handleGifPickerTouchCancel}
+                    >
                       <div
                         className="gif-picker-handle-zone"
                         role="button"
@@ -2878,12 +2883,14 @@ export default function GlobalChat() {
                         aria-label="Close GIF picker"
                         onClick={handleGifPickerHandleClick}
                         onKeyDown={handleGifPickerHandleKeyDown}
-                        onTouchStart={handleGifPickerTouchStart}
-                        onTouchMove={handleGifPickerTouchMove}
-                        onTouchEnd={handleGifPickerTouchEnd}
-                        onTouchCancel={handleGifPickerTouchCancel}
                       >
                         <span className="gif-picker-handle" />
+                      </div>
+                    </div>
+                    <div className="gif-picker-header">
+                      <div className="gif-picker-header-copy">
+                        <div className="gif-picker-title">GIFs</div>
+                        <div className="gif-picker-mode">{gifSearchInput.trim() ? 'SEARCH' : 'TRENDING'}</div>
                       </div>
                       <button
                         type="button"
@@ -2893,10 +2900,6 @@ export default function GlobalChat() {
                       >
                         Close
                       </button>
-                    </div>
-                    <div className="gif-picker-header">
-                      <div className="gif-picker-title">GIFs</div>
-                      <div className="gif-picker-mode">{gifSearchInput.trim() ? 'SEARCH' : 'TRENDING'}</div>
                     </div>
                     <div className="gif-search-shell">
                       <span className="gif-search-icon" aria-hidden="true">
@@ -2944,6 +2947,7 @@ export default function GlobalChat() {
                               decoding="async"
                               draggable={false}
                             />
+                            <span className="gif-tile-badge" aria-hidden="true">GIF</span>
                           </div>
                         </button>
                       ))}

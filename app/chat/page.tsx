@@ -588,6 +588,11 @@ export default function GlobalChat() {
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     if (isAnimatingRoomRef.current || e.touches.length !== 1) return
 
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+
     const startY = dragStartYRef.current
     if (startY === null) return
 
@@ -2660,6 +2665,10 @@ export default function GlobalChat() {
                         onMouseDown={() => startLongPress(msg)}
                         onMouseUp={clearLongPress}
                         onMouseLeave={clearLongPress}
+                        onTouchStart={() => startLongPress(msg)}
+                        onTouchEnd={clearLongPress}
+                        onTouchCancel={clearLongPress}
+                        onTouchMove={clearLongPress}
                         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
                       >
                         {isFirstInGroup && visibleIndex !== 0 && <div className="group-divider" />}

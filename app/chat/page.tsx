@@ -3008,8 +3008,8 @@ export default function GlobalChat() {
                       contentEditable={true}
                       role="textbox"
                       aria-multiline="false"
-                      aria-label="What's on your mind?"
-                      data-placeholder="What's on your mind?"
+                      aria-label="Say something…"
+                      data-placeholder="Say something…"
                       className="chat-input-editable"
                       onInput={(e) => {
                         const text = e.currentTarget.textContent || ''

@@ -1080,6 +1080,30 @@ display: flex;
         .profile-sheet .profile-warning {
           color: #667085;
         }
+        .profile-legal-copy {
+          margin-top: 2px;
+          font-size: 12px;
+          line-height: 1.55;
+          color: var(--text-muted);
+          text-align: center;
+        }
+        .profile-sheet .profile-legal-copy {
+          color: #667085;
+        }
+        .profile-legal-link {
+          color: inherit;
+          font-weight: 700;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .profile-legal-link:hover,
+        .profile-legal-link:focus-visible {
+          color: #ffffff;
+        }
+        .profile-sheet .profile-legal-link:hover,
+        .profile-sheet .profile-legal-link:focus-visible {
+          color: #344054;
+        }
         .profile-submit {
           margin-top: 6px;
           background: linear-gradient(180deg, #f5f7fb, #dfe3eb);
@@ -1097,16 +1121,6 @@ display: flex;
           background: linear-gradient(180deg, #6772f8, #5865f2);
           color: #ffffff;
           box-shadow: 0 14px 24px rgba(88, 101, 242, 0.24);
-        }
-        .profile-feedback-note {
-          margin-top: 8px;
-          font-size: 12px;
-          line-height: 1.4;
-          color: var(--text-muted);
-          text-align: center;
-        }
-        .profile-sheet .profile-feedback-note {
-          color: #667085;
         }
         .avatar.clickable {
           cursor: pointer;

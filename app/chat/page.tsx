@@ -3248,10 +3248,19 @@ export default function GlobalChat() {
                     className="profile-input"
                   />
                 </div>
+                <div className="profile-legal-copy">
+                  By saving, you agree to our{' '}
+                  <Link href="/terms" className="profile-legal-link">
+                    Terms of Service
+                  </Link>{' '}
+                  and{' '}
+                  <Link href="/privacy" className="profile-legal-link">
+                    Privacy Policy
+                  </Link>
+                </div>
                 <button type="submit" className="profile-submit">Save</button>
               </>
             )}
-            <div className="profile-feedback-note">Feedback? Email us at spreadzapp@gmail.com</div>
           </form>
         </div>
       )}

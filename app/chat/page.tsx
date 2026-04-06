@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { AI_GHOST_DISPLAY_NAME, isAiGhostGreetingPrompt } from '@/lib/ai-ghost'
 import {
   trackRoomEnter,
   trackMessageSent,
@@ -1109,88 +1109,6 @@ export default function GlobalChat() {
       console.error('[Push] Failed to trigger server push', error)
     }
   }, [])
-
-  const triggerAiGhostReply = useCallback(async (params: {
-    roomId: string
-    roomName: string
-    messageId: string
-  }) => {
-    try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError) {
-        console.error('[AI Ghost] Failed to read auth session', sessionError)
-        return
-      }
-
-      const accessToken = sessionData.session?.access_token?.trim() || ''
-      if (!accessToken) {
-        console.error('[AI Ghost] Cannot trigger ghost reply without an access token.')
-        return
-      }
-
-      const response = await fetch('/api/ai-ghost', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          room_id: params.roomId,
-          message_id: params.messageId,
-        }),
-      })
-
-      const payload = await response.json().catch(() => null)
-
-      if (!response.ok) {
-        console.error('[AI Ghost] Failed to trigger ghost reply', {
-          status: response.status,
-          errorPayload: payload,
-        })
-        return
-      }
-
-      if (!payload?.triggered || payload?.persisted || typeof payload?.reply !== 'string') {
-        return
-      }
-
-      setRoomMessages((prev) => {
-        const roomMessages = prev[params.roomId] || []
-        const fallbackMessageId = `ghost-local-${params.messageId}`
-        const fallbackDisplayName = typeof payload.display_name === 'string' && payload.display_name.trim()
-          ? payload.display_name.trim()
-          : AI_GHOST_DISPLAY_NAME
-
-        if (roomMessages.some((message) => message.id === fallbackMessageId)) {
-          return prev
-        }
-
-        return {
-          ...prev,
-          [params.roomId]: [
-            ...roomMessages,
-            {
-              id: fallbackMessageId,
-              username: fallbackDisplayName,
-              initials: getInitials(fallbackDisplayName),
-              university: '',
-              text: payload.reply.trim(),
-              timestamp: formatTime(),
-              room_name: params.roomName,
-              room_id: params.roomId,
-              user_uuid: null,
-              senderUsername: null,
-            },
-          ],
-        }
-      })
-
-      scheduleReveal(params.roomId, `ghost-local-${params.messageId}`, 0)
-    } catch (error) {
-      console.error('[AI Ghost] Failed to trigger ghost reply', error)
-    }
-  }, [scheduleReveal])
 
   const showServiceWorkerNotification = useCallback(async (payload: NotificationPayload) => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -2616,13 +2534,6 @@ export default function GlobalChat() {
         roomId,
         messageId: serverMessage.id,
       })
-      if (isAiGhostGreetingPrompt(serverMessage.text)) {
-        void triggerAiGhostReply({
-          roomId,
-          roomName: activeRoomName,
-          messageId: serverMessage.id,
-        })
-      }
       trackMessageSent(roomId, activeRoomName)
       await incrementUserMessagesSent(activeUsername)
       await updateRoomMessageStats(roomId, activeUsername)
@@ -3171,6 +3082,11 @@ export default function GlobalChat() {
                     </button>
                   </div>
                 </div>
+                <footer className="chat-footer">
+                  <Link href="/terms" className="chat-footer-link">
+                    Terms of Service
+                  </Link>
+                </footer>
               </div>
             </div>
           )

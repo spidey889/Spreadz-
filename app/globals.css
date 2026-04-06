@@ -139,7 +139,8 @@ body {
         .header,
         .ai-card-wrap,
         .room-messages,
-        .input-area {
+        .input-area,
+        .chat-footer {
           position: relative;
           z-index: 1;
         }
@@ -374,8 +375,29 @@ display: flex;
 
         .input-area {
           background: var(--bg);
-          padding: 4px 14px calc(8px + env(safe-area-inset-bottom, 0px));
+          padding: 4px 14px 8px;
           flex-shrink: 0;
+        }
+        .chat-footer {
+          background: var(--bg);
+          padding: 0 14px calc(10px + env(safe-area-inset-bottom, 0px));
+          flex-shrink: 0;
+          text-align: center;
+        }
+        .chat-footer-link {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: rgba(255, 255, 255, 0.58);
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          text-decoration: none;
+          transition: color 0.15s ease, opacity 0.15s ease;
+        }
+        .chat-footer-link:hover,
+        .chat-footer-link:focus-visible {
+          color: rgba(255, 255, 255, 0.86);
         }
         .composer-layer {
           display: flex;

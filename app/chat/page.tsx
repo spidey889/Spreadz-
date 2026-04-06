@@ -3082,11 +3082,6 @@ export default function GlobalChat() {
                     </button>
                   </div>
                 </div>
-                <footer className="chat-footer">
-                  <Link href="/terms" className="chat-footer-link">
-                    Terms of Service
-                  </Link>
-                </footer>
               </div>
             </div>
           )

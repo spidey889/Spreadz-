@@ -42,15 +42,20 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
     if (shouldPushState) {
       // Preserve framework-owned state (Next.js stores router data here) and only
       // add our marker to a same-URL history entry.
+      const {
+        __spreadzBackFeedbackIntercept,
+        __spreadzBackFeedbackId,
+        ...cleanState
+      } = currentState
       const backFeedbackId = Date.now()
       const newState = {
-        ...currentState,
+        ...cleanState,
         [BACK_FEEDBACK_MARKER]: true,
         __spreadzBackFeedbackId: backFeedbackId,
       }
 
       window.history.pushState(newState, '', window.location.href)
-      console.log('[back-intercept] pushed new unique state with id:', backFeedbackId)
+      console.log('[back-intercept] pushed CLEAN unique state with id:', backFeedbackId)
     }
 
     console.log('[back-intercept] history.state after pushState:', window.history.state)

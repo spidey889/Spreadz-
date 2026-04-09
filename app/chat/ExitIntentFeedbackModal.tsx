@@ -1,109 +1,88 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-const FEEDBACK_REASONS = [
-  "Didn't find it useful",
-  'Too much clutter',
-  'Just browsing',
-  'App felt slow or buggy',
-  'Other',
-] as const
-
-const EXIT_FEEDBACK_DISMISSED_STORAGE_KEY = 'spreadz_exit_feedback_dismissed'
-const EXIT_FEEDBACK_SUBMITTED_STORAGE_KEY = 'spreadz_exit_feedback_submitted'
-const EXIT_FEEDBACK_CLOSE_DELAY_MS = 2000
+const EXIT_FEEDBACK_SESSION_KEY = 'spreadz_exit_feedback_seen'
 const EXIT_FEEDBACK_HISTORY_BASE_KEY = '__spreadzExitFeedbackBase'
 const EXIT_FEEDBACK_HISTORY_TRAP_KEY = '__spreadzExitFeedbackTrap'
+const EXIT_FEEDBACK_CLOSE_DELAY_MS = 2000
 
-type FeedbackReason = typeof FEEDBACK_REASONS[number]
-type PendingNavigation = { href: string } | null
+const LOW_RATING_REASONS = [
+  "Didn't find it useful",
+  'Too much clutter',
+  'App felt slow or buggy',
+  'It was confusing',
+  'Something else',
+]
+
+const MID_RATING_REASONS = [
+  'Cleaner layout',
+  'Better onboarding',
+  'More active conversations',
+  'Faster performance',
+  'Something else',
+]
+
+const HIGH_RATING_REASONS = [
+  'Loved the vibe',
+  'Easy to jump in',
+  'Interesting people',
+  'Fresh conversations',
+  'Something else',
+]
+
+type FeedbackStep = 'rating' | 'reason' | 'extra' | 'thanks'
+
+const getReasonOptions = (rating: number | null) => {
+  if (!rating) return LOW_RATING_REASONS
+  if (rating <= 4) return LOW_RATING_REASONS
+  if (rating <= 7) return MID_RATING_REASONS
+  return HIGH_RATING_REASONS
+}
+
+const getReasonPrompt = (rating: number | null) => {
+  if (!rating) {
+    return 'What best describes your visit?'
+  }
+
+  if (rating <= 4) {
+    return 'What went wrong?'
+  }
+
+  if (rating <= 7) {
+    return 'What could be better?'
+  }
+
+  return 'What did you love?'
+}
 
 export default function ExitIntentFeedbackModal({ userId }: { userId?: string | null }) {
   const [isOpen, setIsOpen] = useState(false)
-  const [reason, setReason] = useState<FeedbackReason | ''>('')
-  const [otherText, setOtherText] = useState('')
+  const [step, setStep] = useState<FeedbackStep>('rating')
   const [rating, setRating] = useState<number | null>(null)
+  const [reason, setReason] = useState('')
+  const [otherText, setOtherText] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitState, setSubmitState] = useState<'idle' | 'done'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
-  const isOpenRef = useRef(false)
-  const dismissedRef = useRef(false)
-  const submittedRef = useRef(false)
-  const pendingNavigationRef = useRef<PendingNavigation>(null)
-  const allowNavigationRef = useRef(false)
-  const shouldShowAfterVisibilityReturnRef = useRef(false)
-
-  useEffect(() => {
-    isOpenRef.current = isOpen
-  }, [isOpen])
-
-  const openModal = useCallback((pendingNavigation?: PendingNavigation) => {
-    if (dismissedRef.current || submittedRef.current || isOpenRef.current) {
-      return false
-    }
-
-    pendingNavigationRef.current = pendingNavigation ?? null
-    setErrorMessage('')
-    setIsOpen(true)
-    return true
-  }, [])
-
-  const dismissModal = useCallback(() => {
-    dismissedRef.current = true
-    pendingNavigationRef.current = null
-    setIsOpen(false)
-    setErrorMessage('')
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(EXIT_FEEDBACK_DISMISSED_STORAGE_KEY, '1')
-    }
-  }, [])
-
-  const continuePendingNavigation = useCallback(() => {
-    const pendingNavigation = pendingNavigationRef.current
-    pendingNavigationRef.current = null
-
-    if (!pendingNavigation || typeof window === 'undefined') {
-      return
-    }
-
-    allowNavigationRef.current = true
-    window.location.assign(pendingNavigation.href)
-  }, [])
-
-  useEffect(() => {
-    if (submitState !== 'done' || typeof window === 'undefined') {
-      return
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setIsOpen(false)
-      continuePendingNavigation()
-    }, EXIT_FEEDBACK_CLOSE_DELAY_MS)
-
-    return () => {
-      window.clearTimeout(timeoutId)
-    }
-  }, [continuePendingNavigation, submitState])
+  const hasInterceptedSessionRef = useRef(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') {
       return
     }
 
-    dismissedRef.current = sessionStorage.getItem(EXIT_FEEDBACK_DISMISSED_STORAGE_KEY) === '1'
-    submittedRef.current = sessionStorage.getItem(EXIT_FEEDBACK_SUBMITTED_STORAGE_KEY) === '1'
+    hasInterceptedSessionRef.current = sessionStorage.getItem(EXIT_FEEDBACK_SESSION_KEY) === '1'
 
     const currentHistoryState =
       window.history.state && typeof window.history.state === 'object' ? window.history.state : {}
 
-    const hasExistingFeedbackHistoryState = Boolean(
+    const alreadyManaged = Boolean(
       currentHistoryState?.[EXIT_FEEDBACK_HISTORY_BASE_KEY] ||
       currentHistoryState?.[EXIT_FEEDBACK_HISTORY_TRAP_KEY]
     )
 
-    if (!dismissedRef.current && !submittedRef.current && !hasExistingFeedbackHistoryState) {
+    if (!hasInterceptedSessionRef.current && !alreadyManaged) {
       const baseState = {
         ...currentHistoryState,
         [EXIT_FEEDBACK_HISTORY_BASE_KEY]: true,
@@ -120,144 +99,84 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
       )
     }
 
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (allowNavigationRef.current || dismissedRef.current || submittedRef.current || isOpenRef.current) {
-        return
-      }
-
-      openModal()
-      event.preventDefault()
-      event.returnValue = ''
-    }
-
-    const handleVisibilityChange = () => {
-      if (dismissedRef.current || submittedRef.current) {
-        shouldShowAfterVisibilityReturnRef.current = false
-        return
-      }
-
-      if (document.visibilityState === 'hidden') {
-        shouldShowAfterVisibilityReturnRef.current = true
-        return
-      }
-
-      if (shouldShowAfterVisibilityReturnRef.current) {
-        shouldShowAfterVisibilityReturnRef.current = false
-        openModal()
-      }
-    }
-
-    const handleDocumentClick = (event: MouseEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.button !== 0 ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey ||
-        event.altKey ||
-        allowNavigationRef.current ||
-        dismissedRef.current ||
-        submittedRef.current ||
-        isOpenRef.current
-      ) {
-        return
-      }
-
-      const target = event.target
-      if (!(target instanceof Element)) {
-        return
-      }
-
-      const anchor = target.closest('a[href]')
-      if (!(anchor instanceof HTMLAnchorElement)) {
-        return
-      }
-
-      if (anchor.target && anchor.target.toLowerCase() !== '_self') {
-        return
-      }
-
-      if (anchor.hasAttribute('download')) {
-        return
-      }
-
-      const nextUrl = new URL(anchor.href, window.location.href)
-      const currentUrl = new URL(window.location.href)
-
-      if (nextUrl.href === currentUrl.href) {
-        return
-      }
-
-      event.preventDefault()
-      event.stopPropagation()
-      openModal({ href: nextUrl.toString() })
-    }
-
     const handlePopState = (event: PopStateEvent) => {
       const nextHistoryState =
         event.state && typeof event.state === 'object' ? event.state : {}
-      const isFeedbackBaseEntry =
+      const isFeedbackBaseState =
         Boolean(nextHistoryState?.[EXIT_FEEDBACK_HISTORY_BASE_KEY]) &&
         !Boolean(nextHistoryState?.[EXIT_FEEDBACK_HISTORY_TRAP_KEY])
 
-      if (
-        !isFeedbackBaseEntry ||
-        dismissedRef.current ||
-        submittedRef.current ||
-        allowNavigationRef.current
-      ) {
+      if (!isFeedbackBaseState || hasInterceptedSessionRef.current) {
         return
       }
 
-      openModal()
+      hasInterceptedSessionRef.current = true
+      sessionStorage.setItem(EXIT_FEEDBACK_SESSION_KEY, '1')
+      setIsOpen(true)
+      setStep('rating')
+      setRating(null)
+      setReason('')
+      setOtherText('')
+      setErrorMessage('')
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isOpenRef.current) {
-        dismissModal()
+      if (event.key === 'Escape' && isOpen) {
+        setIsOpen(false)
       }
     }
 
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    document.addEventListener('click', handleDocumentClick, true)
     window.addEventListener('popstate', handlePopState)
     window.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      document.removeEventListener('click', handleDocumentClick, true)
       window.removeEventListener('popstate', handlePopState)
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [dismissModal, openModal])
+  }, [isOpen])
 
-  const handleReasonSelect = useCallback((nextReason: FeedbackReason) => {
-    setReason(nextReason)
-    if (nextReason !== 'Other') {
-      setOtherText('')
+  useEffect(() => {
+    if (step !== 'thanks' || typeof window === 'undefined') {
+      return
     }
-  }, [])
 
-  const handleSubmit = useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
+    const timeoutId = window.setTimeout(() => {
+      setIsOpen(false)
+    }, EXIT_FEEDBACK_CLOSE_DELAY_MS)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [step])
+
+  const handleDismiss = () => {
+    setIsOpen(false)
+  }
+
+  const handleRatingSelect = (value: number) => {
+    setRating(value)
+    setReason('')
+    setOtherText('')
+    setErrorMessage('')
+    setStep('reason')
+  }
+
+  const handleReasonSelect = (value: string) => {
+    setReason(value)
+    setErrorMessage('')
+    setStep('extra')
+  }
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    const normalizedReason = reason
-    const normalizedOtherText = otherText.trim()
-
-    if (!normalizedReason) {
-      setErrorMessage('Pick the reason that fits best.')
-      return
-    }
-
-    if (normalizedReason === 'Other' && !normalizedOtherText) {
-      setErrorMessage('Add a quick note so we know what to improve.')
-      return
-    }
-
     if (!rating) {
-      setErrorMessage('Choose a rating from 1 to 10.')
+      setErrorMessage('Pick a rating before sending feedback.')
+      return
+    }
+
+    if (!reason.trim()) {
+      setErrorMessage('Choose the closest reason so we know what to improve.')
       return
     }
 
@@ -265,11 +184,11 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
     setErrorMessage('')
 
     const { error } = await supabase.from('feedback').insert({
-      reason: normalizedReason,
-      other_text: normalizedReason === 'Other' ? normalizedOtherText : null,
       rating,
-      created_at: new Date().toISOString(),
+      reason,
+      other_text: otherText.trim() || null,
       user_id: userId?.trim() || null,
+      created_at: new Date().toISOString(),
     })
 
     setIsSubmitting(false)
@@ -280,19 +199,15 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
       return
     }
 
-    submittedRef.current = true
-    setSubmitState('done')
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(EXIT_FEEDBACK_SUBMITTED_STORAGE_KEY, '1')
-    }
-  }, [otherText, rating, reason, userId])
+    setStep('thanks')
+  }
 
   if (!isOpen) {
     return null
   }
 
-  const isOtherSelected = reason === 'Other'
-  const isSubmitDisabled = isSubmitting || !reason || !rating || (isOtherSelected && !otherText.trim())
+  const reasonOptions = getReasonOptions(rating)
+  const reasonPrompt = getReasonPrompt(rating)
 
   return (
     <div className="exit-feedback-overlay" role="presentation">
@@ -306,7 +221,7 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
           type="button"
           className="exit-feedback-close"
           aria-label="Dismiss feedback modal"
-          onClick={dismissModal}
+          onClick={handleDismiss}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <line x1="6" y1="6" x2="18" y2="18" />
@@ -314,78 +229,108 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
           </svg>
         </button>
 
-        {submitState === 'done' ? (
+        {step === 'thanks' ? (
           <div className="exit-feedback-confirmation">
             <div className="exit-feedback-confirmation-badge">Feedback saved</div>
-            <h2 id="exit-feedback-title" className="exit-feedback-title">Thanks! 🙌</h2>
-            <p className="exit-feedback-subtitle">Your note is on its way to the Spreadz team.</p>
+            <h2 id="exit-feedback-title" className="exit-feedback-title">Thanks for helping Spreadz.</h2>
+            <p className="exit-feedback-subtitle">We will use this to improve the next visit.</p>
           </div>
         ) : (
-          <form className="exit-feedback-form" onSubmit={handleSubmit}>
+          <>
             <div className="exit-feedback-copy">
-              <h2 id="exit-feedback-title" className="exit-feedback-title">Before you go 👋</h2>
-              <p className="exit-feedback-subtitle">Help us improve Spreadz — takes 20 seconds</p>
+              <div className="exit-feedback-kicker">Before you go</div>
+              <h2 id="exit-feedback-title" className="exit-feedback-title">A quick 20-second check-in.</h2>
+              <p className="exit-feedback-subtitle">One answer from you is worth more than a hundred guesses from us.</p>
             </div>
 
-            <div className="exit-feedback-section">
-              <div className="exit-feedback-label">What&apos;s your experience?</div>
-              <div className="exit-feedback-chip-grid">
-                {FEEDBACK_REASONS.map((option) => {
-                  const isSelected = reason === option
-
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      className={`exit-feedback-chip${isSelected ? ' selected' : ''}`}
-                      aria-pressed={isSelected}
-                      onClick={() => handleReasonSelect(option)}
-                    >
-                      {option}
-                    </button>
-                  )
-                })}
+            {step === 'rating' && (
+              <div className="exit-feedback-form">
+                <div className="exit-feedback-section">
+                  <div className="exit-feedback-label">How was your experience?</div>
+                  <div className="exit-feedback-rating-grid" role="list" aria-label="Rate your experience from 1 to 10">
+                    {Array.from({ length: 10 }, (_, index) => {
+                      const value = index + 1
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`exit-feedback-rating${rating === value ? ' selected' : ''}`}
+                          onClick={() => handleRatingSelect(value)}
+                        >
+                          <span className="exit-feedback-rating-star" aria-hidden="true">★</span>
+                          <span>{value}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
               </div>
-              {isOtherSelected && (
-                <input
-                  type="text"
-                  className="exit-feedback-input"
-                  placeholder="Tell us what we missed"
-                  value={otherText}
-                  onChange={(event) => setOtherText(event.target.value)}
-                  maxLength={180}
-                />
-              )}
-            </div>
+            )}
 
-            <div className="exit-feedback-section">
-              <div className="exit-feedback-label">Rate your experience</div>
-              <div className="exit-feedback-rating-grid">
-                {Array.from({ length: 10 }, (_, index) => {
-                  const value = index + 1
-                  const isSelected = rating === value
-
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      className={`exit-feedback-rating${isSelected ? ' selected' : ''}`}
-                      aria-pressed={isSelected}
-                      onClick={() => setRating(value)}
-                    >
-                      {value}
-                    </button>
-                  )
-                })}
+            {step === 'reason' && (
+              <div className="exit-feedback-form">
+                <div className="exit-feedback-section">
+                  <div className="exit-feedback-label">{reasonPrompt}</div>
+                  <div className="exit-feedback-chip-grid">
+                    {reasonOptions.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`exit-feedback-chip${reason === option ? ' selected' : ''}`}
+                        onClick={() => handleReasonSelect(option)}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="exit-feedback-secondary"
+                  onClick={() => {
+                    setStep('rating')
+                    setErrorMessage('')
+                  }}
+                >
+                  Back
+                </button>
               </div>
-            </div>
+            )}
 
-            {errorMessage && <div className="exit-feedback-error">{errorMessage}</div>}
+            {step === 'extra' && (
+              <form className="exit-feedback-form" onSubmit={handleSubmit}>
+                <div className="exit-feedback-section">
+                  <div className="exit-feedback-label">Anything else you want us to know?</div>
+                  <textarea
+                    className="exit-feedback-textarea"
+                    placeholder="Optional. Tell us what stood out."
+                    value={otherText}
+                    onChange={(event) => setOtherText(event.target.value)}
+                    rows={4}
+                    maxLength={280}
+                  />
+                </div>
 
-            <button type="submit" className="exit-feedback-submit" disabled={isSubmitDisabled}>
-              {isSubmitting ? 'Sending...' : 'Send feedback'}
-            </button>
-          </form>
+                {errorMessage && <div className="exit-feedback-error">{errorMessage}</div>}
+
+                <div className="exit-feedback-actions">
+                  <button
+                    type="button"
+                    className="exit-feedback-secondary"
+                    onClick={() => {
+                      setStep('reason')
+                      setErrorMessage('')
+                    }}
+                  >
+                    Back
+                  </button>
+                  <button type="submit" className="exit-feedback-submit" disabled={isSubmitting}>
+                    {isSubmitting ? 'Sending...' : 'Send feedback'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -14,6 +14,8 @@ const FEEDBACK_REASONS = [
 const EXIT_FEEDBACK_DISMISSED_STORAGE_KEY = 'spreadz_exit_feedback_dismissed'
 const EXIT_FEEDBACK_SUBMITTED_STORAGE_KEY = 'spreadz_exit_feedback_submitted'
 const EXIT_FEEDBACK_CLOSE_DELAY_MS = 2000
+const EXIT_FEEDBACK_HISTORY_BASE_KEY = '__spreadzExitFeedbackBase'
+const EXIT_FEEDBACK_HISTORY_TRAP_KEY = '__spreadzExitFeedbackTrap'
 
 type FeedbackReason = typeof FEEDBACK_REASONS[number]
 type PendingNavigation = { href: string } | null
@@ -93,6 +95,31 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
     dismissedRef.current = sessionStorage.getItem(EXIT_FEEDBACK_DISMISSED_STORAGE_KEY) === '1'
     submittedRef.current = sessionStorage.getItem(EXIT_FEEDBACK_SUBMITTED_STORAGE_KEY) === '1'
 
+    const currentHistoryState =
+      window.history.state && typeof window.history.state === 'object' ? window.history.state : {}
+
+    const hasExistingFeedbackHistoryState = Boolean(
+      currentHistoryState?.[EXIT_FEEDBACK_HISTORY_BASE_KEY] ||
+      currentHistoryState?.[EXIT_FEEDBACK_HISTORY_TRAP_KEY]
+    )
+
+    if (!dismissedRef.current && !submittedRef.current && !hasExistingFeedbackHistoryState) {
+      const baseState = {
+        ...currentHistoryState,
+        [EXIT_FEEDBACK_HISTORY_BASE_KEY]: true,
+      }
+
+      window.history.replaceState(baseState, '', window.location.href)
+      window.history.pushState(
+        {
+          ...baseState,
+          [EXIT_FEEDBACK_HISTORY_TRAP_KEY]: true,
+        },
+        '',
+        window.location.href
+      )
+    }
+
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (allowNavigationRef.current || dismissedRef.current || submittedRef.current || isOpenRef.current) {
         return
@@ -166,6 +193,25 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
       openModal({ href: nextUrl.toString() })
     }
 
+    const handlePopState = (event: PopStateEvent) => {
+      const nextHistoryState =
+        event.state && typeof event.state === 'object' ? event.state : {}
+      const isFeedbackBaseEntry =
+        Boolean(nextHistoryState?.[EXIT_FEEDBACK_HISTORY_BASE_KEY]) &&
+        !Boolean(nextHistoryState?.[EXIT_FEEDBACK_HISTORY_TRAP_KEY])
+
+      if (
+        !isFeedbackBaseEntry ||
+        dismissedRef.current ||
+        submittedRef.current ||
+        allowNavigationRef.current
+      ) {
+        return
+      }
+
+      openModal()
+    }
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isOpenRef.current) {
         dismissModal()
@@ -175,12 +221,14 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
     window.addEventListener('beforeunload', handleBeforeUnload)
     document.addEventListener('visibilitychange', handleVisibilityChange)
     document.addEventListener('click', handleDocumentClick, true)
+    window.addEventListener('popstate', handlePopState)
     window.addEventListener('keydown', handleKeyDown)
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       document.removeEventListener('click', handleDocumentClick, true)
+      window.removeEventListener('popstate', handlePopState)
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [dismissModal, openModal])

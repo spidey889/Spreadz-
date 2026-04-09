@@ -11,6 +11,7 @@ import {
   saveInterests,
   getInterests,
 } from '@/lib/friday'
+import ExitIntentFeedbackModal from './ExitIntentFeedbackModal'
 
 interface Room {
   id: string
@@ -3377,6 +3378,8 @@ export default function GlobalChat() {
           </div>
         </div>
       )}
+
+      <ExitIntentFeedbackModal userId={getCurrentUserId() || null} />
       
     </>
   )

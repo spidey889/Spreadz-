@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 const EXIT_FEEDBACK_CLOSE_DELAY_MS = 2000
+const EXIT_FEEDBACK_FORWARD_FALLBACK_MS = 180
 const USER_UUID_STORAGE_KEY = 'spreadz_user_uuid'
 
 const LOW_RATING_REASONS = [
@@ -107,22 +109,41 @@ export default function BeforeYouGoPage() {
     }
   }, [])
 
+  const resumeSpreadz = useCallback(() => {
+    if (typeof window === 'undefined') {
+      router.replace(returnTo)
+      return
+    }
+
+    const fallbackId = window.setTimeout(() => {
+      if (window.location.pathname === '/before-you-go') {
+        router.replace(returnTo)
+      }
+    }, EXIT_FEEDBACK_FORWARD_FALLBACK_MS)
+
+    window.history.forward()
+
+    window.setTimeout(() => {
+      window.clearTimeout(fallbackId)
+    }, EXIT_FEEDBACK_FORWARD_FALLBACK_MS + 40)
+  }, [returnTo, router])
+
   useEffect(() => {
     if (step !== 'thanks') {
       return
     }
 
     const timeoutId = window.setTimeout(() => {
-      router.replace(returnTo)
+      resumeSpreadz()
     }, EXIT_FEEDBACK_CLOSE_DELAY_MS)
 
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [returnTo, router, step])
+  }, [resumeSpreadz, step])
 
   const handleDismiss = () => {
-    router.replace(returnTo)
+    resumeSpreadz()
   }
 
   const handleRatingSelect = (value: number) => {
@@ -179,6 +200,14 @@ export default function BeforeYouGoPage() {
 
   return (
     <div className="exit-feedback-page">
+      <button
+        type="button"
+        className="exit-feedback-brand"
+        aria-label="Return to Spreadz"
+        onClick={handleDismiss}
+      >
+        <Image src="/spreadz-logo.png" alt="SpreadZ" className="exit-feedback-brand-image" width={176} height={88} priority />
+      </button>
       <div
         className="exit-feedback-modal animate-fade-in"
         role="dialog"

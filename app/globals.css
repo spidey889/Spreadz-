@@ -1256,6 +1256,28 @@ display: flex;
             radial-gradient(circle at top, rgba(113,185,255,0.15), transparent 30%),
             linear-gradient(180deg, #111214, #0d0f12);
         }
+        .exit-feedback-brand {
+          position: fixed;
+          top: max(12px, env(safe-area-inset-top, 0px));
+          left: 18px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: flex-start;
+          width: 176px;
+          height: 56px;
+          padding: 0;
+          background: none;
+          border: none;
+          cursor: pointer;
+          z-index: 1;
+        }
+        .exit-feedback-brand-image {
+          width: 100%;
+          height: auto;
+          object-fit: contain;
+          object-position: left center;
+          filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.24));
+        }
         .exit-feedback-modal {
           position: relative;
           width: min(100%, 480px);
@@ -1652,6 +1674,10 @@ display: flex;
           .exit-feedback-modal {
             padding: 22px 18px 18px;
             border-radius: 22px;
+          }
+          .exit-feedback-brand {
+            left: 12px;
+            width: 156px;
           }
           .exit-feedback-title {
             font-size: 24px;

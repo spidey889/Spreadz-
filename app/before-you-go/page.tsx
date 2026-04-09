@@ -1,12 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-const EXIT_FEEDBACK_SESSION_KEY = 'spreadz_exit_feedback_seen'
-const EXIT_FEEDBACK_HISTORY_BASE_KEY = '__spreadzExitFeedbackBase'
-const EXIT_FEEDBACK_HISTORY_TRAP_KEY = '__spreadzExitFeedbackTrap'
 const EXIT_FEEDBACK_CLOSE_DELAY_MS = 2000
+const USER_UUID_STORAGE_KEY = 'spreadz_user_uuid'
 
 const LOW_RATING_REASONS = [
   "Didn't find it useful",
@@ -42,115 +41,88 @@ const getReasonOptions = (rating: number | null) => {
 }
 
 const getReasonPrompt = (rating: number | null) => {
-  if (!rating) {
-    return 'What best describes your visit?'
-  }
-
-  if (rating <= 4) {
-    return 'What went wrong?'
-  }
-
-  if (rating <= 7) {
-    return 'What could be better?'
-  }
-
+  if (!rating) return 'What best describes your visit?'
+  if (rating <= 4) return 'What went wrong?'
+  if (rating <= 7) return 'What could be better?'
   return 'What did you love?'
 }
 
-export default function ExitIntentFeedbackModal({ userId }: { userId?: string | null }) {
-  const [isOpen, setIsOpen] = useState(false)
+const getSafeReturnTo = (candidate: string | null) => {
+  if (!candidate || !candidate.startsWith('/') || candidate.startsWith('//')) {
+    return '/'
+  }
+
+  if (candidate.startsWith('/before-you-go')) {
+    return '/'
+  }
+
+  return candidate
+}
+
+export default function BeforeYouGoPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [userId, setUserId] = useState<string | null>(null)
   const [step, setStep] = useState<FeedbackStep>('rating')
   const [rating, setRating] = useState<number | null>(null)
   const [reason, setReason] = useState('')
   const [otherText, setOtherText] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const hasInterceptedSessionRef = useRef(false)
+
+  const returnTo = useMemo(
+    () => getSafeReturnTo(searchParams.get('returnTo')),
+    [searchParams]
+  )
 
   useEffect(() => {
     if (typeof window === 'undefined') {
       return
     }
 
-    hasInterceptedSessionRef.current = sessionStorage.getItem(EXIT_FEEDBACK_SESSION_KEY) === '1'
-
-    const currentHistoryState =
-      window.history.state && typeof window.history.state === 'object' ? window.history.state : {}
-
-    const alreadyManaged = Boolean(
-      currentHistoryState?.[EXIT_FEEDBACK_HISTORY_BASE_KEY] ||
-      currentHistoryState?.[EXIT_FEEDBACK_HISTORY_TRAP_KEY]
-    )
-
-    if (!hasInterceptedSessionRef.current && !alreadyManaged) {
-      const baseState = {
-        ...currentHistoryState,
-        [EXIT_FEEDBACK_HISTORY_BASE_KEY]: true,
-      }
-
-      window.history.replaceState(baseState, '', window.location.href)
-      window.history.pushState(
-        {
-          ...baseState,
-          [EXIT_FEEDBACK_HISTORY_TRAP_KEY]: true,
-        },
-        '',
-        window.location.href
-      )
+    const storedUserId = localStorage.getItem(USER_UUID_STORAGE_KEY)?.trim() || ''
+    if (storedUserId) {
+      setUserId(storedUserId)
     }
 
-    const handlePopState = (event: PopStateEvent) => {
-      const nextHistoryState =
-        event.state && typeof event.state === 'object' ? event.state : {}
-      const isFeedbackBaseState =
-        Boolean(nextHistoryState?.[EXIT_FEEDBACK_HISTORY_BASE_KEY]) &&
-        !Boolean(nextHistoryState?.[EXIT_FEEDBACK_HISTORY_TRAP_KEY])
+    let cancelled = false
 
-      if (!isFeedbackBaseState || hasInterceptedSessionRef.current) {
+    const loadSessionUser = async () => {
+      const { data, error } = await supabase.auth.getSession()
+      if (cancelled || error) {
         return
       }
 
-      hasInterceptedSessionRef.current = true
-      sessionStorage.setItem(EXIT_FEEDBACK_SESSION_KEY, '1')
-      setIsOpen(true)
-      setStep('rating')
-      setRating(null)
-      setReason('')
-      setOtherText('')
-      setErrorMessage('')
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isOpen) {
-        setIsOpen(false)
+      const sessionUserId = data.session?.user?.id?.trim() || ''
+      if (sessionUserId) {
+        localStorage.setItem(USER_UUID_STORAGE_KEY, sessionUserId)
+        setUserId(sessionUserId)
       }
     }
 
-    window.addEventListener('popstate', handlePopState)
-    window.addEventListener('keydown', handleKeyDown)
+    void loadSessionUser()
 
     return () => {
-      window.removeEventListener('popstate', handlePopState)
-      window.removeEventListener('keydown', handleKeyDown)
+      cancelled = true
     }
-  }, [isOpen])
+  }, [])
 
   useEffect(() => {
-    if (step !== 'thanks' || typeof window === 'undefined') {
+    if (step !== 'thanks') {
       return
     }
 
     const timeoutId = window.setTimeout(() => {
-      setIsOpen(false)
+      router.replace(returnTo)
     }, EXIT_FEEDBACK_CLOSE_DELAY_MS)
 
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [step])
+  }, [returnTo, router, step])
 
   const handleDismiss = () => {
-    setIsOpen(false)
+    router.replace(returnTo)
   }
 
   const handleRatingSelect = (value: number) => {
@@ -202,15 +174,11 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
     setStep('thanks')
   }
 
-  if (!isOpen) {
-    return null
-  }
-
   const reasonOptions = getReasonOptions(rating)
   const reasonPrompt = getReasonPrompt(rating)
 
   return (
-    <div className="exit-feedback-overlay" role="presentation">
+    <div className="exit-feedback-page">
       <div
         className="exit-feedback-modal animate-fade-in"
         role="dialog"
@@ -220,7 +188,7 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
         <button
           type="button"
           className="exit-feedback-close"
-          aria-label="Dismiss feedback modal"
+          aria-label="Continue to Spreadz"
           onClick={handleDismiss}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -232,15 +200,15 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
         {step === 'thanks' ? (
           <div className="exit-feedback-confirmation">
             <div className="exit-feedback-confirmation-badge">Feedback saved</div>
-            <h2 id="exit-feedback-title" className="exit-feedback-title">Thanks for helping Spreadz.</h2>
-            <p className="exit-feedback-subtitle">We will use this to improve the next visit.</p>
+            <h1 id="exit-feedback-title" className="exit-feedback-title">Thanks for helping Spreadz.</h1>
+            <p className="exit-feedback-subtitle">Taking you back in a moment.</p>
           </div>
         ) : (
           <>
             <div className="exit-feedback-copy">
-              <div className="exit-feedback-kicker">Before you go</div>
-              <h2 id="exit-feedback-title" className="exit-feedback-title">A quick 20-second check-in.</h2>
-              <p className="exit-feedback-subtitle">One answer from you is worth more than a hundred guesses from us.</p>
+              <div className="exit-feedback-kicker">Before you leave</div>
+              <h1 id="exit-feedback-title" className="exit-feedback-title">A quick 20-second check-in.</h1>
+              <p className="exit-feedback-subtitle">Help us understand why this visit did or did not click for you.</p>
             </div>
 
             {step === 'rating' && (
@@ -257,13 +225,16 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
                           className={`exit-feedback-rating${rating === value ? ' selected' : ''}`}
                           onClick={() => handleRatingSelect(value)}
                         >
-                          <span className="exit-feedback-rating-star" aria-hidden="true">★</span>
+                          <span className="exit-feedback-rating-star" aria-hidden="true">*</span>
                           <span>{value}</span>
                         </button>
                       )
                     })}
                   </div>
                 </div>
+                <button type="button" className="exit-feedback-secondary" onClick={handleDismiss}>
+                  Continue to Spreadz
+                </button>
               </div>
             )}
 
@@ -284,16 +255,21 @@ export default function ExitIntentFeedbackModal({ userId }: { userId?: string | 
                     ))}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="exit-feedback-secondary"
-                  onClick={() => {
-                    setStep('rating')
-                    setErrorMessage('')
-                  }}
-                >
-                  Back
-                </button>
+                <div className="exit-feedback-actions">
+                  <button
+                    type="button"
+                    className="exit-feedback-secondary"
+                    onClick={() => {
+                      setStep('rating')
+                      setErrorMessage('')
+                    }}
+                  >
+                    Back
+                  </button>
+                  <button type="button" className="exit-feedback-secondary" onClick={handleDismiss}>
+                    Continue to Spreadz
+                  </button>
+                </div>
               </div>
             )}
 

@@ -2,8 +2,6 @@
 
 import { useEffect, useRef } from 'react'
 
-const BACK_FEEDBACK_MARKER = '__spreadzBackFeedbackIntercept'
-
 type HistoryStateRecord = Record<string, unknown>
 
 const getHistoryStateRecord = (state: unknown): HistoryStateRecord => {
@@ -30,7 +28,7 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
 
     const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
     const currentState = getHistoryStateRecord(window.history.state)
-    const shouldPushState = currentState[BACK_FEEDBACK_MARKER] !== true
+    const shouldPushState = !window.location.hash.startsWith('#back-')
 
     console.log('[back-intercept] hook mounted')
     console.log('[back-intercept] current URL on mount:', currentUrl)
@@ -38,24 +36,13 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
     console.log('[back-intercept] history.state before pushState:', window.history.state)
 
     // React Strict Mode remounts client components in development, so we only push
-    // a synthetic entry when the current history entry is not already our marker.
+    // a synthetic entry when the current URL does not already carry our back hash.
     if (shouldPushState) {
-      // Preserve framework-owned state (Next.js stores router data here) and only
-      // add our marker to a same-URL history entry.
-      const {
-        __spreadzBackFeedbackIntercept,
-        __spreadzBackFeedbackId,
-        ...cleanState
-      } = currentState
-      const backFeedbackId = Date.now()
-      const newState = {
-        ...cleanState,
-        [BACK_FEEDBACK_MARKER]: true,
-        __spreadzBackFeedbackId: backFeedbackId,
-      }
+      const url = new URL(window.location.href)
+      url.hash = `back-${Date.now()}`
 
-      window.history.pushState(newState, '', window.location.href)
-      console.log('[back-intercept] pushed CLEAN unique state with id:', backFeedbackId)
+      window.history.pushState({}, '', url.toString())
+      console.log('[back-intercept] pushed hash entry')
     }
 
     console.log('[back-intercept] history.state after pushState:', window.history.state)

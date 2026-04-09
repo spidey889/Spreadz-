@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { Analytics } from '@vercel/analytics/react'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import './globals.css'
 import HackerNewsStartupSync from './HackerNewsStartupSync'
@@ -38,7 +37,6 @@ export default function RootLayout({
         <HackerNewsStartupSync />
         <Providers>{children}</Providers>
         <GoogleAnalytics gaId="G-CZRY2915RE" />
-        <Analytics />
       </body>
     </html>
   )

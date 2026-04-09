@@ -2784,7 +2784,7 @@ export default function GlobalChat() {
               style={{ background: 'var(--bg)' }}
             >
               <div className={`header${isComposerExpanded ? ' hidden' : ''}`}>
-                <div className="header-side header-side-spacer" aria-hidden="true" />
+                <div className="header-side" aria-hidden="true" />
                 <div className="logo">
                   <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={176} height={88} priority />
                 </div>

@@ -1246,16 +1246,6 @@ display: flex;
           backdrop-filter: blur(14px);
           z-index: 1200;
         }
-        .exit-feedback-page {
-          min-height: 100dvh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-          background:
-            radial-gradient(circle at top, rgba(113,185,255,0.15), transparent 30%),
-            linear-gradient(180deg, #111214, #0d0f12);
-        }
         .exit-feedback-modal {
           position: relative;
           width: min(100%, 480px);

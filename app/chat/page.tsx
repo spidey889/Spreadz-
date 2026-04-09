@@ -397,14 +397,17 @@ export default function GlobalChat() {
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
 
   const openBackFeedbackModal = useCallback(() => {
+    console.log('[back-intercept] page callback opening modal')
     setBackFeedbackModalOpen(true)
   }, [])
 
   const closeBackFeedbackModal = useCallback(() => {
+    console.log('[back-intercept] modal close callback fired')
     setBackFeedbackModalOpen(false)
   }, [])
 
   const handleBackFeedbackSubmit = useCallback(async (_feedback: string) => {
+    console.log('[back-intercept] submit clicked')
     // Replace this with analytics or an API call later if you want to persist responses.
     setBackFeedbackModalOpen(false)
   }, [])
@@ -412,6 +415,10 @@ export default function GlobalChat() {
   // Add one same-URL history entry so the first browser Back opens feedback instead
   // of leaving immediately. The hook disables itself after that single interception.
   useBackFeedbackIntercept(openBackFeedbackModal)
+
+  useEffect(() => {
+    console.log('[back-intercept] modal open state changed:', backFeedbackModalOpen)
+  }, [backFeedbackModalOpen])
 
   useEffect(() => {
     currentRoomIndexRef.current = currentRoomIndex

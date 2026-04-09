@@ -1,11 +1,5 @@
-'use client'
-
-import GlobalChat from './chat/page'
+import { redirect } from 'next/navigation'
 
 export default function Home() {
-  return <GlobalChat />
+  redirect('/feedback-entry')
 }
-
-
-
-

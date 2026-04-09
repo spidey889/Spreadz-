@@ -3,8 +3,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { BackFeedbackModal } from '@/app/chat/components/BackFeedbackModal'
-import { useBackFeedbackIntercept } from '@/app/chat/hooks/useBackFeedbackIntercept'
 import { supabase } from '@/lib/supabase'
 import {
   trackRoomEnter,
@@ -337,7 +335,6 @@ export default function GlobalChat() {
   const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
   const [friendRequestQueue, setFriendRequestQueue] = useState<FriendRequest[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
-  const [backFeedbackModalOpen, setBackFeedbackModalOpen] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
   const userIdRef = useRef<string>('')
   const displayNameToUsernameRef = useRef<Record<string, string>>({})
@@ -395,30 +392,6 @@ export default function GlobalChat() {
   const pendingProfileReportMessageRef = useRef<Message | null>(null)
   const roomIsAtBottomByIdRef = useRef<Record<string, boolean>>({})
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
-
-  const openBackFeedbackModal = useCallback(() => {
-    console.log('[back-intercept] page callback opening modal')
-    setBackFeedbackModalOpen(true)
-  }, [])
-
-  const closeBackFeedbackModal = useCallback(() => {
-    console.log('[back-intercept] modal close callback fired')
-    setBackFeedbackModalOpen(false)
-  }, [])
-
-  const handleBackFeedbackSubmit = useCallback(async (_feedback: string) => {
-    console.log('[back-intercept] submit clicked')
-    // Replace this with analytics or an API call later if you want to persist responses.
-    setBackFeedbackModalOpen(false)
-  }, [])
-
-  // Add one same-URL history entry so the first browser Back opens feedback instead
-  // of leaving immediately. The hook disables itself after that single interception.
-  useBackFeedbackIntercept(openBackFeedbackModal)
-
-  useEffect(() => {
-    console.log('[back-intercept] modal open state changed:', backFeedbackModalOpen)
-  }, [backFeedbackModalOpen])
 
   useEffect(() => {
     currentRoomIndexRef.current = currentRoomIndex
@@ -3286,15 +3259,6 @@ export default function GlobalChat() {
           </form>
         </div>
       )}
-
-      <BackFeedbackModal
-        open={backFeedbackModalOpen}
-        onClose={closeBackFeedbackModal}
-        onSubmit={handleBackFeedbackSubmit}
-        title="Quick feedback"
-        description="What made you want to leave this page?"
-      />
-
 
       {menuOpen && (
         <div className="menu-overlay" onClick={() => setMenuOpen(false)}>

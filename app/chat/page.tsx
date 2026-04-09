@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { BackFeedbackModal } from '@/app/chat/components/BackFeedbackModal'
+import { useBackFeedbackIntercept } from '@/app/chat/hooks/useBackFeedbackIntercept'
 import { supabase } from '@/lib/supabase'
 import {
   trackRoomEnter,
@@ -335,6 +337,7 @@ export default function GlobalChat() {
   const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
   const [friendRequestQueue, setFriendRequestQueue] = useState<FriendRequest[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
+  const [backFeedbackModalOpen, setBackFeedbackModalOpen] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
   const userIdRef = useRef<string>('')
   const displayNameToUsernameRef = useRef<Record<string, string>>({})
@@ -392,6 +395,23 @@ export default function GlobalChat() {
   const pendingProfileReportMessageRef = useRef<Message | null>(null)
   const roomIsAtBottomByIdRef = useRef<Record<string, boolean>>({})
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
+
+  const openBackFeedbackModal = useCallback(() => {
+    setBackFeedbackModalOpen(true)
+  }, [])
+
+  const closeBackFeedbackModal = useCallback(() => {
+    setBackFeedbackModalOpen(false)
+  }, [])
+
+  const handleBackFeedbackSubmit = useCallback(async (_feedback: string) => {
+    // Replace this with analytics or an API call later if you want to persist responses.
+    setBackFeedbackModalOpen(false)
+  }, [])
+
+  // Add one same-URL history entry so the first browser Back opens feedback instead
+  // of leaving immediately. The hook disables itself after that single interception.
+  useBackFeedbackIntercept(openBackFeedbackModal)
 
   useEffect(() => {
     currentRoomIndexRef.current = currentRoomIndex
@@ -3260,6 +3280,13 @@ export default function GlobalChat() {
         </div>
       )}
 
+      <BackFeedbackModal
+        open={backFeedbackModalOpen}
+        onClose={closeBackFeedbackModal}
+        onSubmit={handleBackFeedbackSubmit}
+        title="Quick feedback"
+        description="What made you want to leave this page?"
+      />
 
 
       {menuOpen && (

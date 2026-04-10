@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { BackFeedbackModal } from '@/app/chat/components/BackFeedbackModal'
+import { BackFeedbackModal, type BackFeedbackSubmission } from '@/app/chat/components/BackFeedbackModal'
 import { useBackFeedbackIntercept } from '@/app/chat/hooks/useBackFeedbackIntercept'
 import { supabase } from '@/lib/supabase'
 import {
@@ -404,8 +404,21 @@ export default function GlobalChat() {
     setBackFeedbackModalOpen(false)
   }, [])
 
-  const handleBackFeedbackSubmit = useCallback(async (_feedback: string) => {
-    setBackFeedbackModalOpen(false)
+  const handleBackFeedbackSubmit = useCallback(async ({ rating, reason, otherText }: BackFeedbackSubmission) => {
+    const { error } = await supabase
+      .from('feedback' as any)
+      .insert({
+        rating,
+        reason,
+        other_text: otherText,
+        user_id: userIdRef.current || null,
+        created_at: new Date().toISOString(),
+      })
+
+    if (error) {
+      console.error('[BackFeedback] submit failed:', error)
+      throw error
+    }
   }, [])
 
   useBackFeedbackIntercept(openBackFeedbackModal)

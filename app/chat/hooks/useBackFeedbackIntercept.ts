@@ -32,7 +32,15 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
     console.log('[back-intercept] mounted immediately')
 
     const backInterceptWindow = getBackInterceptWindow()
-    if (!backInterceptWindow.__spreadzBackInterceptHash) {
+    let hasInitializedHistory = false
+
+    function initializeHistoryEntry() {
+      if (hasInitializedHistory || backInterceptWindow.__spreadzBackInterceptHash) {
+        syntheticHashRef.current = backInterceptWindow.__spreadzBackInterceptHash ?? syntheticHashRef.current
+        return
+      }
+
+      hasInitializedHistory = true
       const currentState = window.history.state ?? {}
       const actualCurrentUrl = new URL(window.location.href)
       actualCurrentUrl.hash = ''
@@ -53,6 +61,23 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
       console.log('[back-intercept] history.length after push', window.history.length)
       console.log('[back-intercept] hash after push', window.location.hash)
       console.log('[back-intercept] pushed hash entry')
+    }
+
+    function removeInteractionListeners() {
+      window.removeEventListener('touchstart', handleFirstInteraction)
+      window.removeEventListener('mousedown', handleFirstInteraction)
+      window.removeEventListener('scroll', handleFirstInteraction)
+    }
+
+    function handleFirstInteraction() {
+      removeInteractionListeners()
+      initializeHistoryEntry()
+    }
+
+    if (!backInterceptWindow.__spreadzBackInterceptHash) {
+      window.addEventListener('touchstart', handleFirstInteraction, { passive: true })
+      window.addEventListener('mousedown', handleFirstInteraction, { passive: true })
+      window.addEventListener('scroll', handleFirstInteraction, { passive: true })
     } else {
       syntheticHashRef.current = backInterceptWindow.__spreadzBackInterceptHash
     }
@@ -87,6 +112,7 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
     window.addEventListener('popstate', handlePopState)
 
     return () => {
+      removeInteractionListeners()
       window.removeEventListener('popstate', handlePopState)
       resetBackInterceptTimer = window.setTimeout(() => {
         delete getBackInterceptWindow().__spreadzBackInterceptHash

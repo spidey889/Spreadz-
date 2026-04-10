@@ -3,9 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { BackFeedbackModal, type BackFeedbackSubmission } from '@/app/chat/components/BackFeedbackModal'
+import { BackFeedbackModal } from '@/app/chat/components/BackFeedbackModal'
 import { useBackFeedbackIntercept } from '@/app/chat/hooks/useBackFeedbackIntercept'
-import type { Database } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 import {
   trackRoomEnter,
@@ -403,35 +402,6 @@ export default function GlobalChat() {
 
   const closeBackFeedbackModal = useCallback(() => {
     setBackFeedbackModalOpen(false)
-  }, [])
-
-  const handleBackFeedbackSubmit = useCallback(async ({ rating, reason, otherText }: BackFeedbackSubmission) => {
-    const feedbackPayload: Database['public']['Tables']['feedback']['Insert'] = {
-      rating,
-      reason,
-      other_text: otherText,
-      user_id: userIdRef.current || null,
-      created_at: new Date().toISOString(),
-    }
-
-    const { data, error } = await supabase
-      .from('feedback')
-      .insert(feedbackPayload)
-      .select()
-      .single()
-
-    if (error) {
-      console.log('[BackFeedback] submit failed:', {
-        payload: feedbackPayload,
-        error,
-      })
-      throw error
-    }
-
-    console.log('[BackFeedback] submit succeeded:', {
-      payload: feedbackPayload,
-      data,
-    })
   }, [])
 
   useBackFeedbackIntercept(openBackFeedbackModal)
@@ -3306,7 +3276,6 @@ export default function GlobalChat() {
       <BackFeedbackModal
         open={backFeedbackModalOpen}
         onClose={closeBackFeedbackModal}
-        onSubmit={handleBackFeedbackSubmit}
       />
 
       {menuOpen && (

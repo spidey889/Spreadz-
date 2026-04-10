@@ -2,6 +2,8 @@
 
 import type { CSSProperties, MutableRefObject } from 'react'
 import { useEffect, useRef, useState } from 'react'
+import type { Database } from '@/lib/database.types'
+import { supabase } from '@/lib/supabase'
 
 export type BackFeedbackSubmission = {
   rating: number
@@ -12,7 +14,6 @@ export type BackFeedbackSubmission = {
 type BackFeedbackModalProps = {
   open: boolean
   onClose: () => void
-  onSubmit: (submission: BackFeedbackSubmission) => void | Promise<void>
 }
 
 type FlowScreen = 'rating' | 'reason' | 'details' | 'thanks'
@@ -51,7 +52,7 @@ const HIGH_RATING_REASONS = [
   'Other',
 ]
 
-export function BackFeedbackModal({ open, onClose, onSubmit }: BackFeedbackModalProps) {
+export function BackFeedbackModal({ open, onClose }: BackFeedbackModalProps) {
   const [screen, setScreen] = useState<FlowScreen>('rating')
   const [rating, setRating] = useState<number | null>(null)
   const [reason, setReason] = useState('')
@@ -128,11 +129,31 @@ export function BackFeedbackModal({ open, onClose, onSubmit }: BackFeedbackModal
     setSubmitError('')
 
     try {
-      await onSubmit({
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+      if (sessionError) {
+        console.log('[BackFeedbackModal] getSession failed:', sessionError)
+      }
+
+      const feedbackPayload: Database['public']['Tables']['feedback']['Insert'] = {
         rating,
         reason,
-        otherText: includeText ? otherText.trim() || null : null,
-      })
+        other_text: includeText ? otherText.trim() || null : null,
+        user_id: sessionData?.session?.user?.id ?? null,
+        created_at: new Date().toISOString(),
+      }
+
+      const { error: insertError } = await supabase
+        .from('feedback')
+        .insert(feedbackPayload)
+
+      if (insertError) {
+        console.log('[BackFeedbackModal] feedback insert failed:', {
+          payload: feedbackPayload,
+          error: insertError,
+        })
+        throw insertError
+      }
 
       setScreen('thanks')
       clearTimer(closeTimerRef)

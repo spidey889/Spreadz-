@@ -33,18 +33,22 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
 
     const backInterceptWindow = getBackInterceptWindow()
     if (!backInterceptWindow.__spreadzBackInterceptHash) {
-      const currentUrl = new URL(window.location.href)
+      const currentState = window.history.state ?? {}
+      const actualCurrentUrl = new URL(window.location.href)
+      actualCurrentUrl.hash = ''
       const syntheticHash = `back-${Date.now()}`
-      const syntheticUrl = new URL(currentUrl.toString())
+      const syntheticUrl = new URL(actualCurrentUrl.toString())
 
       syntheticUrl.hash = syntheticHash
       syntheticHashRef.current = syntheticHash
       backInterceptWindow.__spreadzBackInterceptHash = syntheticHash
 
+      console.log('[back-intercept] clean chat url', actualCurrentUrl.toString())
+      console.log('[back-intercept] synthetic url', syntheticUrl.toString())
       console.log('[back-intercept] href before push', window.location.href)
       console.log('[back-intercept] history.length before push', window.history.length)
-      window.history.replaceState({}, '', syntheticUrl.toString())
-      window.history.pushState({}, '', currentUrl.toString())
+      window.history.replaceState(currentState, '', syntheticUrl.toString())
+      window.history.pushState(currentState, '', actualCurrentUrl.toString())
       console.log('[back-intercept] href after push', window.location.href)
       console.log('[back-intercept] history.length after push', window.history.length)
       console.log('[back-intercept] hash after push', window.location.hash)

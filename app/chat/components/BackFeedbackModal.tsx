@@ -1,6 +1,6 @@
 'use client'
 
-import type { CSSProperties } from 'react'
+import type { CSSProperties, MutableRefObject } from 'react'
 import { useEffect, useRef, useState } from 'react'
 
 export type BackFeedbackSubmission = {
@@ -21,7 +21,6 @@ const LOW_RATING_REASONS = [
   "Didn't find it useful",
   'Too confusing',
   'App felt buggy',
-  'Not what I expected',
   'Other',
 ]
 
@@ -47,13 +46,12 @@ export function BackFeedbackModal({ open, onClose, onSubmit }: BackFeedbackModal
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const closeTimerRef = useRef<number | null>(null)
+  const screenTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!open) {
-      if (closeTimerRef.current !== null) {
-        window.clearTimeout(closeTimerRef.current)
-        closeTimerRef.current = null
-      }
+      clearTimer(closeTimerRef)
+      clearTimer(screenTimerRef)
       setScreen('rating')
       setRating(null)
       setReason('')
@@ -65,7 +63,8 @@ export function BackFeedbackModal({ open, onClose, onSubmit }: BackFeedbackModal
 
   useEffect(() => {
     return () => {
-      clearCloseTimer()
+      clearTimer(closeTimerRef)
+      clearTimer(screenTimerRef)
     }
   }, [])
 
@@ -73,36 +72,42 @@ export function BackFeedbackModal({ open, onClose, onSubmit }: BackFeedbackModal
     return null
   }
 
-  function clearCloseTimer() {
-    if (closeTimerRef.current !== null) {
-      window.clearTimeout(closeTimerRef.current)
-      closeTimerRef.current = null
+  function clearTimer(timerRef: MutableRefObject<number | null>) {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current)
+      timerRef.current = null
     }
   }
 
-  function handleRequestClose() {
+  function handleRatingSelect(nextRating: number) {
     if (isSubmitting) {
       return
     }
 
-    onClose()
-  }
-
-  function handleRatingSelect(nextRating: number) {
+    clearTimer(screenTimerRef)
     setRating(nextRating)
     setReason('')
     setOtherText('')
     setSubmitError('')
-    setScreen('reason')
+
+    // Brief pause so the selected star can visibly glow before the next screen.
+    screenTimerRef.current = window.setTimeout(() => {
+      setScreen('reason')
+      screenTimerRef.current = null
+    }, 120)
   }
 
   function handleReasonSelect(nextReason: string) {
+    if (isSubmitting) {
+      return
+    }
+
     setReason(nextReason)
     setSubmitError('')
     setScreen('details')
   }
 
-  async function handleSubmit() {
+  async function handleSave(includeText: boolean) {
     if (!rating || !reason || isSubmitting) {
       return
     }
@@ -114,103 +119,55 @@ export function BackFeedbackModal({ open, onClose, onSubmit }: BackFeedbackModal
       await onSubmit({
         rating,
         reason,
-        otherText: otherText.trim() || null,
+        otherText: includeText ? otherText.trim() || null : null,
       })
 
       setScreen('thanks')
-      clearCloseTimer()
-
-      // Give the thank-you state a moment to land before we close the modal.
+      clearTimer(closeTimerRef)
       closeTimerRef.current = window.setTimeout(() => {
         onClose()
-      }, 2000)
+      }, 1200)
     } catch (error) {
       console.error('[BackFeedbackModal] submit failed:', error)
-      setSubmitError('Could not send feedback right now. Please try again.')
+      setSubmitError('Could not send feedback right now.')
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const reasonOptions = getReasonOptions(rating)
-  const currentStep = screen === 'rating' ? 1 : screen === 'reason' ? 2 : 3
 
   return (
-    <div style={overlayStyle} onClick={handleRequestClose}>
-      <div
-        style={modalStyle}
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="back-feedback-title"
-      >
-        <div style={headerRowStyle}>
-          <div>
-            <div style={eyebrowStyle}>Spreadz feedback</div>
-            {screen !== 'thanks' && <div style={stepLabelStyle}>Step {currentStep} of 3</div>}
-          </div>
-          {screen !== 'thanks' && (
-            <button
-              type="button"
-              style={iconButtonStyle}
-              onClick={handleRequestClose}
-              aria-label="Close feedback modal"
-              disabled={isSubmitting}
-            >
-              <span aria-hidden="true">×</span>
-            </button>
-          )}
-        </div>
-
-        <div style={progressTrackStyle} aria-hidden="true">
-          {[1, 2, 3].map((step) => {
-            const isActive = step === currentStep
-            const isComplete = step < currentStep || screen === 'thanks'
-
-            return (
-              <div
-                key={step}
-                style={{
-                  ...progressSegmentStyle,
-                  ...(isActive ? progressSegmentActiveStyle : null),
-                  ...(isComplete ? progressSegmentCompleteStyle : null),
-                }}
-              />
-            )
-          })}
-        </div>
-
+    <div style={overlayStyle}>
+      <div style={modalShellStyle} role="dialog" aria-modal="true" aria-label="Feedback">
         {screen === 'rating' && (
-          <>
-            <h2 id="back-feedback-title" style={titleStyle}>How was your experience?</h2>
-            <p style={bodyTextStyle}>A quick rating helps us understand what this chat felt like for you.</p>
-            <div style={ratingGridStyle}>
-              {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  style={{
-                    ...ratingButtonStyle,
-                    ...(value <= 4 ? ratingButtonLowStyle : value <= 7 ? ratingButtonMidStyle : ratingButtonHighStyle),
-                  }}
-                  onClick={() => handleRatingSelect(value)}
-                >
-                  {value}
-                </button>
-              ))}
+          <div style={centerWrapStyle}>
+            <div style={starRowStyle}>
+              {Array.from({ length: 10 }, (_, index) => index + 1).map((value) => {
+                const isActive = rating !== null && value <= rating
+
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    style={{
+                      ...starButtonStyle,
+                      ...(isActive ? starButtonActiveStyle : null),
+                    }}
+                    onClick={() => handleRatingSelect(value)}
+                    aria-label={`Rate ${value} out of 10`}
+                  >
+                    ★
+                  </button>
+                )
+              })}
             </div>
-            <div style={ratingHintRowStyle}>
-              <span>Rough</span>
-              <span>Great</span>
-            </div>
-          </>
+          </div>
         )}
 
         {screen === 'reason' && (
-          <>
-            <h2 id="back-feedback-title" style={titleStyle}>What stood out most?</h2>
-            <p style={bodyTextStyle}>Pick the closest reason. We’ll use it to improve the experience fast.</p>
-            <div style={chipGridStyle}>
+          <div style={centerWrapStyle}>
+            <div style={chipWrapStyle}>
               {reasonOptions.map((option) => (
                 <button
                   key={option}
@@ -222,57 +179,42 @@ export function BackFeedbackModal({ open, onClose, onSubmit }: BackFeedbackModal
                 </button>
               ))}
             </div>
-            <div style={footerActionsStyle}>
-              <button type="button" style={ghostButtonStyle} onClick={() => setScreen('rating')}>
-                Back
-              </button>
-            </div>
-          </>
+          </div>
         )}
 
         {screen === 'details' && (
-          <>
-            <h2 id="back-feedback-title" style={titleStyle}>Anything else? We read every response 🙏</h2>
-            <p style={bodyTextStyle}>
-              {reason ? `You picked “${reason}”. Add anything extra if you want.` : 'Add any extra context if you want.'}
-            </p>
-            <textarea
+          <div style={detailsWrapStyle}>
+            <input
+              type="text"
               value={otherText}
               onChange={(event) => setOtherText(event.target.value)}
-              placeholder="Optional note"
-              rows={5}
-              style={textareaStyle}
+              placeholder="Tell us how to improve..."
+              style={textInputStyle}
               disabled={isSubmitting}
             />
-            {submitError && <div style={errorTextStyle}>{submitError}</div>}
-            <div style={footerActionsStyle}>
-              <button
-                type="button"
-                style={ghostButtonStyle}
-                onClick={() => setScreen('reason')}
-                disabled={isSubmitting}
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                style={submitButtonStyle}
-                onClick={() => void handleSubmit()}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Sending...' : 'Submit'}
-              </button>
-            </div>
-          </>
+            <button
+              type="button"
+              style={submitButtonStyle}
+              onClick={() => void handleSave(true)}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Saving...' : 'Submit'}
+            </button>
+            <button
+              type="button"
+              style={skipLinkStyle}
+              onClick={() => void handleSave(false)}
+              disabled={isSubmitting}
+            >
+              Skip
+            </button>
+            {submitError ? <div style={errorTextStyle}>{submitError}</div> : null}
+          </div>
         )}
 
         {screen === 'thanks' && (
-          <div style={thanksWrapStyle}>
-            <div style={thanksBadgeStyle}>✓</div>
-            <h2 id="back-feedback-title" style={titleStyle}>Thanks! 🙌</h2>
-            <p style={{ ...bodyTextStyle, marginBottom: 0 }}>
-              Your feedback is safely in. Closing this in a moment.
-            </p>
+          <div style={centerWrapStyle}>
+            <div style={thanksTextStyle}>Thanks 🙏</div>
           </div>
         )}
       </div>
@@ -303,215 +245,118 @@ const overlayStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: '20px',
-  background: 'rgba(2, 6, 23, 0.82)',
-  backdropFilter: 'blur(14px)',
+  padding: '24px',
+  background: 'rgba(7, 7, 11, 0.7)',
+  backdropFilter: 'blur(18px)',
 }
 
-const modalStyle: CSSProperties = {
-  width: 'min(100%, 420px)',
-  borderRadius: '28px',
-  border: '1px solid rgba(148, 163, 184, 0.18)',
-  background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 0.98))',
-  boxShadow: '0 32px 90px rgba(0, 0, 0, 0.48)',
-  padding: '20px',
-}
-
-const headerRowStyle: CSSProperties = {
+const modalShellStyle: CSSProperties = {
+  width: 'min(100%, 520px)',
+  minHeight: '160px',
   display: 'flex',
-  alignItems: 'flex-start',
-  justifyContent: 'space-between',
-  gap: '12px',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: '#1a1a1f',
 }
 
-const eyebrowStyle: CSSProperties = {
-  fontSize: '0.72rem',
-  fontWeight: 700,
-  letterSpacing: '0.14em',
-  textTransform: 'uppercase',
-  color: '#60a5fa',
+const centerWrapStyle: CSSProperties = {
+  width: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 }
 
-const stepLabelStyle: CSSProperties = {
-  marginTop: '6px',
-  fontSize: '0.82rem',
-  color: '#94a3b8',
+const starRowStyle: CSSProperties = {
+  width: '100%',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  gap: '4px',
+  flexWrap: 'nowrap',
 }
 
-const iconButtonStyle: CSSProperties = {
+const starButtonStyle: CSSProperties = {
   border: 'none',
-  background: 'rgba(30, 41, 59, 0.82)',
-  color: '#cbd5e1',
-  width: '34px',
-  height: '34px',
-  borderRadius: '999px',
-  cursor: 'pointer',
-  fontSize: '1.3rem',
+  background: 'transparent',
+  color: 'rgba(255, 255, 255, 0.18)',
+  fontSize: 'clamp(1rem, 3.7vw, 2rem)',
   lineHeight: 1,
-}
-
-const progressTrackStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-  gap: '8px',
-  marginTop: '16px',
-}
-
-const progressSegmentStyle: CSSProperties = {
-  height: '8px',
-  borderRadius: '999px',
-  background: 'rgba(51, 65, 85, 0.78)',
-}
-
-const progressSegmentActiveStyle: CSSProperties = {
-  background: 'linear-gradient(90deg, #60a5fa, #93c5fd)',
-}
-
-const progressSegmentCompleteStyle: CSSProperties = {
-  background: 'linear-gradient(90deg, #34d399, #86efac)',
-}
-
-const titleStyle: CSSProperties = {
-  margin: '18px 0 0',
-  fontSize: '1.45rem',
-  lineHeight: 1.15,
-  color: '#f8fafc',
-}
-
-const bodyTextStyle: CSSProperties = {
-  margin: '10px 0 0',
-  fontSize: '0.98rem',
-  lineHeight: 1.55,
-  color: '#cbd5e1',
-}
-
-const ratingGridStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-  gap: '10px',
-  marginTop: '18px',
-}
-
-const ratingButtonStyle: CSSProperties = {
-  minHeight: '54px',
-  border: '1px solid rgba(148, 163, 184, 0.16)',
-  borderRadius: '18px',
-  color: '#f8fafc',
-  fontSize: '1.05rem',
-  fontWeight: 800,
+  padding: '0',
   cursor: 'pointer',
-  transition: 'transform 140ms ease, box-shadow 140ms ease',
+  transition: 'color 120ms ease, transform 120ms ease, text-shadow 120ms ease',
 }
 
-const ratingButtonLowStyle: CSSProperties = {
-  background: 'linear-gradient(180deg, rgba(127, 29, 29, 0.96), rgba(69, 10, 10, 0.98))',
-  boxShadow: '0 16px 34px rgba(69, 10, 10, 0.28)',
+const starButtonActiveStyle: CSSProperties = {
+  color: '#facc15',
+  transform: 'translateY(-1px) scale(1.06)',
+  textShadow: '0 0 18px rgba(250, 204, 21, 0.68)',
 }
 
-const ratingButtonMidStyle: CSSProperties = {
-  background: 'linear-gradient(180deg, rgba(120, 53, 15, 0.96), rgba(67, 20, 7, 0.98))',
-  boxShadow: '0 16px 34px rgba(120, 53, 15, 0.22)',
-}
-
-const ratingButtonHighStyle: CSSProperties = {
-  background: 'linear-gradient(180deg, rgba(22, 101, 52, 0.96), rgba(20, 83, 45, 0.98))',
-  boxShadow: '0 16px 34px rgba(20, 83, 45, 0.24)',
-}
-
-const ratingHintRowStyle: CSSProperties = {
+const chipWrapStyle: CSSProperties = {
   display: 'flex',
-  justifyContent: 'space-between',
-  marginTop: '10px',
-  fontSize: '0.82rem',
-  color: '#64748b',
-}
-
-const chipGridStyle: CSSProperties = {
-  display: 'grid',
+  flexWrap: 'wrap',
+  justifyContent: 'center',
   gap: '10px',
-  marginTop: '18px',
 }
 
 const chipButtonStyle: CSSProperties = {
-  width: '100%',
-  border: '1px solid rgba(96, 165, 250, 0.18)',
-  borderRadius: '18px',
-  background: 'rgba(15, 23, 42, 0.94)',
-  color: '#e2e8f0',
-  padding: '14px 16px',
-  textAlign: 'left',
-  font: 'inherit',
-  fontWeight: 600,
-  cursor: 'pointer',
-  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
-}
-
-const textareaStyle: CSSProperties = {
-  width: '100%',
-  marginTop: '18px',
-  borderRadius: '18px',
-  border: '1px solid rgba(148, 163, 184, 0.2)',
-  background: 'rgba(15, 23, 42, 0.88)',
-  color: '#e2e8f0',
-  padding: '14px 15px',
-  font: 'inherit',
-  lineHeight: 1.5,
-  resize: 'vertical',
-}
-
-const footerActionsStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: '10px',
-  marginTop: '18px',
-}
-
-const sharedButtonStyle: CSSProperties = {
   border: 'none',
+  background: 'rgba(255, 255, 255, 0.08)',
+  color: '#f5f5f5',
+  padding: '10px 14px',
   borderRadius: '999px',
-  padding: '12px 18px',
   font: 'inherit',
-  fontWeight: 700,
+  fontSize: '0.92rem',
   cursor: 'pointer',
+  transition: 'background 120ms ease, transform 120ms ease',
 }
 
-const ghostButtonStyle: CSSProperties = {
-  ...sharedButtonStyle,
-  color: '#cbd5e1',
-  background: 'rgba(51, 65, 85, 0.8)',
-}
-
-const submitButtonStyle: CSSProperties = {
-  ...sharedButtonStyle,
-  color: '#0f172a',
-  background: '#f8fafc',
-  minWidth: '116px',
-}
-
-const errorTextStyle: CSSProperties = {
-  marginTop: '12px',
-  color: '#fda4af',
-  fontSize: '0.9rem',
-}
-
-const thanksWrapStyle: CSSProperties = {
+const detailsWrapStyle: CSSProperties = {
+  width: '100%',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  justifyContent: 'center',
-  textAlign: 'center',
-  padding: '36px 10px 14px',
+  gap: '12px',
 }
 
-const thanksBadgeStyle: CSSProperties = {
-  width: '56px',
-  height: '56px',
-  borderRadius: '999px',
-  display: 'grid',
-  placeItems: 'center',
-  background: 'linear-gradient(180deg, rgba(52, 211, 153, 0.26), rgba(34, 197, 94, 0.18))',
-  color: '#86efac',
-  fontSize: '1.4rem',
-  fontWeight: 900,
-  boxShadow: '0 18px 38px rgba(22, 163, 74, 0.16)',
+const textInputStyle: CSSProperties = {
+  width: 'min(100%, 360px)',
+  border: 'none',
+  outline: 'none',
+  background: 'rgba(255, 255, 255, 0.06)',
+  color: '#f5f5f5',
+  padding: '12px 14px',
+  font: 'inherit',
+}
+
+const submitButtonStyle: CSSProperties = {
+  border: 'none',
+  background: '#f5f5f5',
+  color: '#111115',
+  padding: '8px 14px',
+  font: 'inherit',
+  fontSize: '0.9rem',
+  fontWeight: 600,
+  cursor: 'pointer',
+}
+
+const skipLinkStyle: CSSProperties = {
+  border: 'none',
+  background: 'transparent',
+  color: 'rgba(255, 255, 255, 0.58)',
+  font: 'inherit',
+  fontSize: '0.88rem',
+  cursor: 'pointer',
+  textDecoration: 'underline',
+}
+
+const errorTextStyle: CSSProperties = {
+  color: '#fca5a5',
+  fontSize: '0.84rem',
+}
+
+const thanksTextStyle: CSSProperties = {
+  color: '#f5f5f5',
+  fontSize: '1.15rem',
+  fontWeight: 500,
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import type { CSSProperties } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FeedbackPrompt } from './FeedbackPrompt'
 
@@ -10,16 +10,26 @@ const VISITED_FEEDBACK_ENTRY_KEY = 'visitedFeedbackEntry'
 export default function FeedbackEntryPage() {
   const router = useRouter()
   const [showFeedback, setShowFeedback] = useState(false)
+  const hasPushedChatRef = useRef(false)
 
   useEffect(() => {
+    console.log('entered feedback-entry')
+
     const hasVisitedFeedbackEntry = window.sessionStorage.getItem(VISITED_FEEDBACK_ENTRY_KEY)
 
     if (hasVisitedFeedbackEntry) {
+      console.log('returned via back -> showing feedback')
       setShowFeedback(true)
       return
     }
 
+    if (hasPushedChatRef.current) {
+      return
+    }
+
+    hasPushedChatRef.current = true
     window.sessionStorage.setItem(VISITED_FEEDBACK_ENTRY_KEY, 'true')
+    console.log('first visit -> pushing chat')
     router.push('/chat')
   }, [router])
 

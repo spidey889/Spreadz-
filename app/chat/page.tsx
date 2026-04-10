@@ -3261,9 +3261,13 @@ export default function GlobalChat() {
                   <Link href="/terms" className="profile-legal-link">
                     Terms of Service
                   </Link>{' '}
-                  and{' '}
+                  ,{' '}
                   <Link href="/privacy" className="profile-legal-link">
                     Privacy Policy
+                  </Link>{' '}
+                  and{' '}
+                  <Link href="/community-guidelines" className="profile-legal-link">
+                    Community Guidelines
                   </Link>
                 </div>
                 <button type="submit" className="profile-submit">Save</button>

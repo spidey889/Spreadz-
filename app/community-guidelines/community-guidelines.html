@@ -1,0 +1,388 @@
+<style>
+  :root {
+    --bg: #ffffff;
+    --text: #101828;
+    --muted: #475467;
+    --border: #d0d5dd;
+    --soft: #fff7ed;
+    --soft-strong: #ffedd5;
+    --accent: #7c2d12;
+    --accent-strong: #9a3412;
+    --link: #b45309;
+    --max-width: 920px;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.72;
+  }
+
+  .page {
+    min-height: 100vh;
+    padding: 36px 22px 72px;
+    background:
+      radial-gradient(circle at top right, rgba(251, 191, 36, 0.12), transparent 26%),
+      linear-gradient(180deg, #fffdf9 0%, #ffffff 24%);
+  }
+
+  .container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+  }
+
+  .hero {
+    padding-bottom: 26px;
+    margin-bottom: 30px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .eyebrow {
+    margin-bottom: 10px;
+    color: var(--accent-strong);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0 0 12px;
+    color: var(--accent);
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.08;
+  }
+
+  .updated {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.98rem;
+    font-weight: 500;
+  }
+
+  .notice,
+  .toc,
+  .contact-box {
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 22px;
+  }
+
+  .notice {
+    margin-bottom: 28px;
+    background: linear-gradient(180deg, var(--soft), #ffffff);
+  }
+
+  .notice strong {
+    color: var(--accent);
+  }
+
+  .summary-list {
+    margin-top: 16px;
+  }
+
+  .toc {
+    margin: 30px 0 8px;
+    background: #fff;
+  }
+
+  h2 {
+    margin: 42px 0 14px;
+    color: var(--accent);
+    font-size: 1.45rem;
+    line-height: 1.25;
+  }
+
+  h3 {
+    margin: 26px 0 10px;
+    color: var(--text);
+    font-size: 1.08rem;
+    line-height: 1.35;
+  }
+
+  p {
+    margin: 0 0 16px;
+    color: var(--text);
+  }
+
+  .muted {
+    color: var(--muted);
+  }
+
+  .toc h2 {
+    margin-top: 0;
+  }
+
+  .toc ol {
+    margin: 12px 0 0;
+    padding-left: 20px;
+  }
+
+  .toc li {
+    margin-bottom: 10px;
+  }
+
+  a {
+    color: var(--link);
+  }
+
+  .toc a {
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  section {
+    padding-top: 8px;
+  }
+
+  ul {
+    margin: 0 0 16px;
+    padding-left: 22px;
+  }
+
+  li {
+    margin-bottom: 10px;
+    color: var(--text);
+  }
+
+  .callout {
+    margin: 0 0 18px;
+    color: var(--text);
+    border-left: 4px solid rgba(180, 83, 9, 0.22);
+    padding-left: 14px;
+  }
+
+  .contact-box {
+    margin-top: 12px;
+    background: #fffaf5;
+  }
+
+  .footer-note {
+    margin-top: 40px;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 640px) {
+    .page {
+      padding: 22px 14px 48px;
+    }
+
+    .notice,
+    .toc,
+    .contact-box {
+      padding: 16px;
+      border-radius: 16px;
+    }
+
+    h2 {
+      font-size: 1.28rem;
+    }
+  }
+</style>
+
+<main class="page">
+  <div class="container">
+    <header class="hero">
+      <div class="eyebrow">Safety Policy</div>
+      <h1>Community Guidelines</h1>
+      <p class="updated">Last updated: April 10, 2026</p>
+    </header>
+
+    <div class="notice">
+      <p>
+        Spreadz is built for real conversations between real people. These Community Guidelines explain what is allowed, what is not allowed, and how we may respond when users cross the line.
+      </p>
+      <p>
+        These Guidelines work alongside our Terms of Service. We do not pre-screen every post, message, or profile, but we reserve the right to review, remove, restrict, or investigate content and accounts whenever needed to protect <strong>users</strong>, <strong>Spreadz</strong>, or the broader community.
+      </p>
+
+      <ul class="summary-list">
+        <li>You must be <strong>18 or older</strong> to use Spreadz.</li>
+        <li>You are responsible for the content you post, share, or send.</li>
+        <li>Harassment, hate, sexual exploitation, scams, privacy violations, and platform abuse are not allowed.</li>
+        <li>We may remove content or accounts without prior notice when safety, integrity, or legal compliance requires it.</li>
+      </ul>
+    </div>
+
+    <nav class="toc" aria-label="Table of contents">
+      <h2>Table of Contents</h2>
+      <ol>
+        <li><a href="#section-1">Purpose and Scope</a></li>
+        <li><a href="#section-2">Eligibility</a></li>
+        <li><a href="#section-3">Respectful Conduct</a></li>
+        <li><a href="#section-4">Sexual Content and Exploitation</a></li>
+        <li><a href="#section-5">Violence, Self-Harm, and Dangerous Activity</a></li>
+        <li><a href="#section-6">Spam, Fraud, and Manipulation</a></li>
+        <li><a href="#section-7">Privacy and Personal Information</a></li>
+        <li><a href="#section-8">Platform Abuse and Security</a></li>
+        <li><a href="#section-9">Reporting and Moderation</a></li>
+        <li><a href="#section-10">Enforcement and Ban Evasion</a></li>
+        <li><a href="#section-11">Legal Compliance</a></li>
+        <li><a href="#section-12">Right to Moderate</a></li>
+        <li><a href="#section-13">Appeals and Contact</a></li>
+        <li><a href="#section-14">Updates</a></li>
+      </ol>
+    </nav>
+
+    <section id="section-1">
+      <h2>1. Purpose and Scope</h2>
+      <div class="callout"><strong>In short:</strong> Spreadz hosts user-generated content, but we are not required to host or keep any content that creates risk, abuse, or platform harm.</div>
+      <p>Spreadz is a platform for user conversations, profiles, and related content. Users, not Spreadz, are responsible for what they post, share, send, or promote through the Services.</p>
+      <p>These Guidelines are examples of conduct we do not allow. They are not exhaustive. If behavior is abusive, unsafe, deceptive, unlawful, or damaging to the platform, we may act even if the exact behavior is not listed word-for-word below.</p>
+    </section>
+
+    <section id="section-2">
+      <h2>2. Eligibility</h2>
+      <div class="callout"><strong>In short:</strong> Spreadz is strictly for adults.</div>
+      <p>You must be at least 18 years old to use Spreadz. By using the platform, you represent that you meet this requirement.</p>
+      <p>If we believe an account belongs to or is being used on behalf of someone under 18, we may suspend, restrict, or permanently remove that account without prior notice.</p>
+    </section>
+
+    <section id="section-3">
+      <h2>3. Respectful Conduct</h2>
+      <div class="callout"><strong>In short:</strong> Talk like a normal human being. Abuse, hate, and intimidation are not welcome here.</div>
+      <p>Users must interact respectfully with others. The following are prohibited:</p>
+      <ul>
+        <li>Harassment, bullying, intimidation, dogpiling, or targeted abuse.</li>
+        <li>Threats of violence, threats of sexual harm, or threats intended to create fear.</li>
+        <li>Hate speech, slurs, or degrading content targeting religion, caste, ethnicity, nationality, gender, sexual orientation, disability, or similar protected characteristics.</li>
+        <li>Content intended to humiliate, bait, degrade, or provoke others into conflict.</li>
+      </ul>
+    </section>
+
+    <section id="section-4">
+      <h2>4. Sexual Content and Exploitation</h2>
+      <div class="callout"><strong>In short:</strong> Explicit sexual content and exploitative sexual behavior are not allowed.</div>
+      <p>The following is strictly prohibited:</p>
+      <ul>
+        <li>Pornographic, sexually explicit, or clearly NSFW content.</li>
+        <li>Nudity or sexually suggestive material shared to arouse, solicit, or exploit.</li>
+        <li>Any sexual content involving minors, whether real, fictional, edited, or AI-generated.</li>
+        <li>Grooming, sexual solicitation, coercion, or exploitation involving minors.</li>
+        <li>Non-consensual intimate content, including leaked private media or revenge-style sharing.</li>
+        <li>Deepfake or manipulated sexual content involving any person.</li>
+      </ul>
+      <p>Violations in this category may result in immediate permanent removal and, where appropriate, escalation to relevant authorities.</p>
+    </section>
+
+    <section id="section-5">
+      <h2>5. Violence, Self-Harm, and Dangerous Activity</h2>
+      <div class="callout"><strong>In short:</strong> Do not use Spreadz to glorify harm, encourage self-destruction, or organize dangerous behavior.</div>
+      <p>We do not allow content that:</p>
+      <ul>
+        <li>Encourages, instructs, or celebrates suicide or self-harm.</li>
+        <li>Promotes violent acts, extremist activity, terrorism, or organized harm.</li>
+        <li>Provides instructions for dangerous, illegal, or physically harmful activities.</li>
+        <li>Is intended to incite panic, real-world harm, or credible safety threats.</li>
+      </ul>
+    </section>
+
+    <section id="section-6">
+      <h2>6. Spam, Fraud, and Manipulation</h2>
+      <div class="callout"><strong>In short:</strong> Spreadz is for genuine interaction, not scams, fake growth, or social engineering.</div>
+      <p>The following behavior is prohibited:</p>
+      <ul>
+        <li>Spam, repeated unwanted messages, link dumping, or irrelevant promotions.</li>
+        <li>Scams, phishing attempts, fraud, or attempts to obtain money, passwords, or personal information through deception.</li>
+        <li>Impersonating another person, organization, or account in a misleading way.</li>
+        <li>Creating fake accounts to manipulate discussions, inflate engagement, or mislead users.</li>
+        <li>Coordinated attempts to game conversations, rankings, reporting systems, or moderation outcomes.</li>
+      </ul>
+    </section>
+
+    <section id="section-7">
+      <h2>7. Privacy and Personal Information</h2>
+      <div class="callout"><strong>In short:</strong> Do not expose, trade, or weaponize other people's private information.</div>
+      <p>The following are strictly prohibited:</p>
+      <ul>
+        <li>Doxxing or sharing someone's personal, identifying, or location-related information without consent.</li>
+        <li>Posting or redistributing private photos, videos, or messages without permission.</li>
+        <li>Recording, screenshotting, or sharing private conversations outside the platform in ways that violate privacy or are clearly abusive.</li>
+        <li>Attempting to identify, track, stalk, expose, or pressure other users off-platform.</li>
+      </ul>
+    </section>
+
+    <section id="section-8">
+      <h2>8. Platform Abuse and Security</h2>
+      <div class="callout"><strong>In short:</strong> Do not attack the product, scrape it, or automate abuse on top of it.</div>
+      <p>You may not use Spreadz to:</p>
+      <ul>
+        <li>Run bots, scripts, or unauthorized automation that manipulates the product or other users.</li>
+        <li>Scrape, harvest, or extract user data, messages, or account information without permission.</li>
+        <li>Hack, probe, exploit, reverse engineer, or interfere with the platform or its underlying systems.</li>
+        <li>Disrupt normal operations, degrade performance, or attempt to bypass security, moderation, or access controls.</li>
+      </ul>
+    </section>
+
+    <section id="section-9">
+      <h2>9. Reporting and Moderation</h2>
+      <div class="callout"><strong>In short:</strong> If something is wrong, report it. We review reports, but response times can vary.</div>
+      <p>Users may report content or behavior that appears to violate these Guidelines. We review reports as quickly as reasonably possible, typically within 48 hours, but response times may vary based on volume, complexity, and urgency.</p>
+      <p>When reviewing content, we may consider severity, context, pattern of behavior, prior violations, and risk to users or the platform. We may use manual review, automated signals, or both.</p>
+    </section>
+
+    <section id="section-10">
+      <h2>10. Enforcement and Ban Evasion</h2>
+      <div class="callout"><strong>In short:</strong> If you break the rules, we can warn, restrict, suspend, or remove you.</div>
+      <p>Depending on the severity of the violation, enforcement may include:</p>
+      <ul>
+        <li>Content removal.</li>
+        <li>Warnings or notices.</li>
+        <li>Temporary feature restrictions.</li>
+        <li>Temporary suspension.</li>
+        <li>Permanent account removal.</li>
+      </ul>
+      <p>Serious violations may result in immediate action without prior warning.</p>
+      <p>Creating new accounts, using alternate identities, or otherwise attempting to bypass a warning, restriction, or ban is prohibited and may result in removal of all related accounts.</p>
+    </section>
+
+    <section id="section-11">
+      <h2>11. Legal Compliance</h2>
+      <div class="callout"><strong>In short:</strong> Users must follow the law, and we may act when unlawful conduct touches the platform.</div>
+      <p>Users must comply with applicable law when using Spreadz. We reserve the right to remove illegal content, restrict accounts involved in unlawful conduct, preserve relevant records, and cooperate with law enforcement or legal requests where required or appropriate.</p>
+    </section>
+
+    <section id="section-12">
+      <h2>12. Right to Moderate</h2>
+      <div class="callout"><strong>In short:</strong> We keep final discretion over what stays on Spreadz.</div>
+      <p>Spreadz reserves the right to remove content, limit features, restrict visibility, or terminate access at any time when we believe doing so is necessary to protect users, preserve platform integrity, reduce abuse, comply with legal obligations, or address behavior inconsistent with these Guidelines or our Terms.</p>
+      <p>Nothing in these Guidelines requires us to host, restore, or continue distributing any content, account, or interaction.</p>
+    </section>
+
+    <section id="section-13">
+      <h2>13. Appeals and Contact</h2>
+      <div class="contact-box">
+        <p>If you believe a moderation decision was made in error, or if you want to report a serious issue, contact us at:</p>
+        <p><strong>Spreadz</strong><br />Ahmedabad, Gujarat, India<br /><a href="mailto:spreadzapp@gmail.com">spreadzapp@gmail.com</a></p>
+      </div>
+    </section>
+
+    <section id="section-14">
+      <h2>14. Updates</h2>
+      <div class="callout"><strong>In short:</strong> These Guidelines may change as the product evolves.</div>
+      <p>We may update these Community Guidelines from time to time. When we do, we will update the "Last updated" date at the top of this page. Continued use of Spreadz after an update means you accept the revised Guidelines.</p>
+    </section>
+
+    <div class="footer-note">
+      These Community Guidelines are intended to help protect users, reduce abuse, and give Spreadz room to act when something is clearly off.
+    </div>
+  </div>
+</main>

@@ -14,6 +14,8 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
   const onOpenRef = useRef(onOpen)
   const syntheticHashRef = useRef<string | null>(null)
   const isDisabledRef = useRef(false)
+  const hasReinforcedOnGestureRef = useRef(false)
+  const didCreateHistoryEntryRef = useRef(false)
 
   useEffect(() => {
     onOpenRef.current = onOpen
@@ -32,15 +34,7 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
     console.log('[back-intercept] mounted immediately')
 
     const backInterceptWindow = getBackInterceptWindow()
-    let hasInitializedHistory = false
-
-    function initializeHistoryEntry() {
-      if (hasInitializedHistory || backInterceptWindow.__spreadzBackInterceptHash) {
-        syntheticHashRef.current = backInterceptWindow.__spreadzBackInterceptHash ?? syntheticHashRef.current
-        return
-      }
-
-      hasInitializedHistory = true
+    function pushSyntheticHistoryEntry() {
       const currentState = window.history.state ?? {}
       const actualCurrentUrl = new URL(window.location.href)
       actualCurrentUrl.hash = ''
@@ -54,33 +48,55 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
       console.log('[back-intercept] clean chat url', actualCurrentUrl.toString())
       console.log('[back-intercept] synthetic url', syntheticUrl.toString())
       console.log('[back-intercept] href before push', window.location.href)
-      console.log('[back-intercept] history.length before push', window.history.length)
+      const historyLengthBeforePush = window.history.length
+      console.log('[back-intercept] history.length before push', historyLengthBeforePush)
       window.history.replaceState(currentState, '', syntheticUrl.toString())
       window.history.pushState(currentState, '', actualCurrentUrl.toString())
       console.log('[back-intercept] href after push', window.location.href)
       console.log('[back-intercept] history.length after push', window.history.length)
       console.log('[back-intercept] hash after push', window.location.hash)
       console.log('[back-intercept] pushed hash entry')
+
+      return window.history.length > historyLengthBeforePush
     }
 
-    function removeInteractionListeners() {
-      window.removeEventListener('touchstart', handleFirstInteraction)
-      window.removeEventListener('mousedown', handleFirstInteraction)
-      window.removeEventListener('scroll', handleFirstInteraction)
+    function removeGestureListeners() {
+      window.removeEventListener('pointerdown', handleFirstGesture)
+      window.removeEventListener('touchstart', handleFirstGesture)
+      window.removeEventListener('click', handleFirstGesture)
     }
 
-    function handleFirstInteraction() {
-      removeInteractionListeners()
-      initializeHistoryEntry()
+    function handleFirstGesture() {
+      removeGestureListeners()
+      console.log('[back-intercept] gesture received')
+
+      if (
+        hasReinforcedOnGestureRef.current ||
+        isDisabledRef.current ||
+        !syntheticHashRef.current ||
+        !backInterceptWindow.__spreadzBackInterceptHash ||
+        didCreateHistoryEntryRef.current
+      ) {
+        hasReinforcedOnGestureRef.current = true
+        console.log('[back-intercept] gesture reinforcement skipped')
+        return
+      }
+
+      hasReinforcedOnGestureRef.current = true
+      console.log('[back-intercept] reinforcing hash entry after gesture')
+      didCreateHistoryEntryRef.current = pushSyntheticHistoryEntry()
     }
 
     if (!backInterceptWindow.__spreadzBackInterceptHash) {
-      window.addEventListener('touchstart', handleFirstInteraction, { passive: true })
-      window.addEventListener('mousedown', handleFirstInteraction, { passive: true })
-      window.addEventListener('scroll', handleFirstInteraction, { passive: true })
+      didCreateHistoryEntryRef.current = pushSyntheticHistoryEntry()
     } else {
       syntheticHashRef.current = backInterceptWindow.__spreadzBackInterceptHash
+      didCreateHistoryEntryRef.current = true
     }
+
+    window.addEventListener('pointerdown', handleFirstGesture, { passive: true })
+    window.addEventListener('touchstart', handleFirstGesture, { passive: true })
+    window.addEventListener('click', handleFirstGesture, { passive: true })
 
     function disableInterception() {
       if (isDisabledRef.current) {
@@ -89,6 +105,7 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
 
       isDisabledRef.current = true
       delete backInterceptWindow.__spreadzBackInterceptHash
+      removeGestureListeners()
       window.removeEventListener('popstate', handlePopState)
       console.log('[back-intercept] interception disabled')
     }
@@ -112,7 +129,7 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
     window.addEventListener('popstate', handlePopState)
 
     return () => {
-      removeInteractionListeners()
+      removeGestureListeners()
       window.removeEventListener('popstate', handlePopState)
       resetBackInterceptTimer = window.setTimeout(() => {
         delete getBackInterceptWindow().__spreadzBackInterceptHash

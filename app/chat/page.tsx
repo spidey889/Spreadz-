@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { BackFeedbackModal, type BackFeedbackSubmission } from '@/app/chat/components/BackFeedbackModal'
 import { useBackFeedbackIntercept } from '@/app/chat/hooks/useBackFeedbackIntercept'
+import type { Database } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 import {
   trackRoomEnter,
@@ -405,20 +406,32 @@ export default function GlobalChat() {
   }, [])
 
   const handleBackFeedbackSubmit = useCallback(async ({ rating, reason, otherText }: BackFeedbackSubmission) => {
-    const { error } = await supabase
-      .from('feedback' as any)
-      .insert({
-        rating,
-        reason,
-        other_text: otherText,
-        user_id: userIdRef.current || null,
-        created_at: new Date().toISOString(),
-      })
+    const feedbackPayload: Database['public']['Tables']['feedback']['Insert'] = {
+      rating,
+      reason,
+      other_text: otherText,
+      user_id: userIdRef.current || null,
+      created_at: new Date().toISOString(),
+    }
+
+    const { data, error } = await supabase
+      .from('feedback')
+      .insert(feedbackPayload)
+      .select()
+      .single()
 
     if (error) {
-      console.error('[BackFeedback] submit failed:', error)
+      console.log('[BackFeedback] submit failed:', {
+        payload: feedbackPayload,
+        error,
+      })
       throw error
     }
+
+    console.log('[BackFeedback] submit succeeded:', {
+      payload: feedbackPayload,
+      data,
+    })
   }, [])
 
   useBackFeedbackIntercept(openBackFeedbackModal)

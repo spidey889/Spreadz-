@@ -17,12 +17,12 @@ type BackFeedbackModalProps = {
 
 type FlowScreen = 'rating' | 'reason' | 'details' | 'thanks'
 
-const RATING_COPY = 'be honest, we can take it \u{1F605}'
+const RATING_HEADING = 'Rate Us! \u2B50'
 const RATING_SUBTEXT = 'took us months to build this. 2 seconds to rate it.'
 const LOW_RATING_HEADING = 'okay ouch \u{1F62C} what went wrong?'
 const MID_RATING_HEADING = "so close! what's missing?"
 const HIGH_RATING_HEADING = "you're our favorite person rn \u{1F64C} what clicked?"
-const DETAILS_PLACEHOLDER = "anything else? go off, we're listening \u{1F442}"
+const DETAILS_PLACEHOLDER = 'tell us how to improve \u2014 we read all of these \u270C\uFE0F'
 const SUBMIT_LABEL = 'send it \u{1F680}'
 const SKIP_LABEL = "nah I'm good"
 const THANK_YOU_COPY = "you're a legend \u{1F64F} we'll make it better"
@@ -32,6 +32,7 @@ const LOW_RATING_REASONS = [
   "didn't get what this was",
   'something broke',
   'just not for me',
+  'Other',
 ]
 
 const MID_RATING_REASONS = [
@@ -39,6 +40,7 @@ const MID_RATING_REASONS = [
   'missing something I wanted',
   'a bit confusing',
   'almost but not quite',
+  'Other',
 ]
 
 const HIGH_RATING_REASONS = [
@@ -46,6 +48,7 @@ const HIGH_RATING_REASONS = [
   'actually met someone cool',
   'love the live discussions',
   'finally something different',
+  'Other',
 ]
 
 export function BackFeedbackModal({ open, onClose, onSubmit }: BackFeedbackModalProps) {
@@ -152,7 +155,7 @@ export function BackFeedbackModal({ open, onClose, onSubmit }: BackFeedbackModal
       <div style={cardStyle} role="dialog" aria-modal="true" aria-label="Feedback">
         {screen === 'rating' && (
           <div style={contentStackStyle}>
-            <div style={metaTextStyle}>{RATING_COPY}</div>
+            <h2 style={ratingHeadingStyle}>{RATING_HEADING}</h2>
             <div style={subTextStyle}>{RATING_SUBTEXT}</div>
             <div style={starsRowStyle}>
               {Array.from({ length: 5 }, (_, index) => index + 1).map((value) => {
@@ -268,8 +271,8 @@ function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      width="36"
-      height="36"
+      width="40"
+      height="40"
       aria-hidden="true"
       style={{
         display: 'block',
@@ -316,14 +319,16 @@ const contentStackStyle: CSSProperties = {
   textAlign: 'center',
 }
 
-const metaTextStyle: CSSProperties = {
-  color: '#6b7280',
-  fontSize: '0.92rem',
-  lineHeight: 1.4,
+const ratingHeadingStyle: CSSProperties = {
+  margin: 0,
+  color: '#111827',
+  fontSize: '1.9rem',
+  lineHeight: 1.1,
+  fontWeight: 800,
 }
 
 const subTextStyle: CSSProperties = {
-  marginTop: '8px',
+  marginTop: '10px',
   color: '#9ca3af',
   fontSize: '0.8rem',
   lineHeight: 1.45,
@@ -346,10 +351,10 @@ const starButtonStyle: CSSProperties = {
 
 const headingStyle: CSSProperties = {
   margin: 0,
-  color: '#111827',
-  fontSize: '1.4rem',
+  color: '#000000',
+  fontSize: '22px',
   lineHeight: 1.25,
-  fontWeight: 700,
+  fontWeight: 800,
 }
 
 const reasonsListStyle: CSSProperties = {
@@ -368,7 +373,7 @@ const reasonButtonStyle: CSSProperties = {
   color: '#111827',
   padding: '12px 16px',
   font: 'inherit',
-  fontSize: '0.94rem',
+  fontSize: '16px',
   lineHeight: 1.35,
   cursor: 'pointer',
 }

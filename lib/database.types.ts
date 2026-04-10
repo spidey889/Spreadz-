@@ -69,6 +69,33 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback: {
+        Row: {
+          id: string
+          rating: number
+          reason: string
+          other_text: string | null
+          user_id: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          rating: number
+          reason: string
+          other_text?: string | null
+          user_id?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          rating?: number
+          reason?: string
+          other_text?: string | null
+          user_id?: string | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           id: string

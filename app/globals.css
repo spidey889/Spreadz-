@@ -1044,18 +1044,15 @@ display: flex;
         .profile-settings-link-main {
           display: inline-flex;
           align-items: center;
-          gap: 10px;
           min-width: 0;
           font-size: 14px;
           font-weight: 600;
           line-height: 1.4;
         }
-        .profile-settings-link-icon,
         .profile-settings-link-arrow {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          color: #667085;
         }
         .profile-settings-link-arrow {
           color: #98a2b3;

@@ -41,8 +41,13 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
       syntheticHashRef.current = syntheticHash
       backInterceptWindow.__spreadzBackInterceptHash = syntheticHash
 
+      console.log('[back-intercept] href before push', window.location.href)
+      console.log('[back-intercept] history.length before push', window.history.length)
       window.history.replaceState({}, '', syntheticUrl.toString())
       window.history.pushState({}, '', currentUrl.toString())
+      console.log('[back-intercept] href after push', window.location.href)
+      console.log('[back-intercept] history.length after push', window.history.length)
+      console.log('[back-intercept] hash after push', window.location.hash)
       console.log('[back-intercept] pushed hash entry')
     } else {
       syntheticHashRef.current = backInterceptWindow.__spreadzBackInterceptHash
@@ -59,8 +64,11 @@ export function useBackFeedbackIntercept(onOpen: () => void) {
       console.log('[back-intercept] interception disabled')
     }
 
-    function handlePopState() {
+    function handlePopState(event: PopStateEvent) {
       console.log('[back-intercept] popstate fired')
+      console.log('[back-intercept] popstate event.state', event.state)
+      console.log('[back-intercept] current href during popstate', window.location.href)
+      console.log('[back-intercept] current hash during popstate', window.location.hash)
 
       const syntheticHash = syntheticHashRef.current
       if (!syntheticHash || isDisabledRef.current || window.location.hash !== `#${syntheticHash}`) {

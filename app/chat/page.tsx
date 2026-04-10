@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { BackFeedbackModal } from '@/app/chat/components/BackFeedbackModal'
+import { useBackFeedbackIntercept } from '@/app/chat/hooks/useBackFeedbackIntercept'
 import { supabase } from '@/lib/supabase'
 import {
   trackRoomEnter,
@@ -150,7 +152,6 @@ const HACKER_NEWS_REVEAL_THINKING_MIN_MS = 8000
 const HACKER_NEWS_REVEAL_THINKING_MAX_MS = 12000
 const HACKER_NEWS_REVEAL_CLUSTER_CHANCE = 0.35
 const MESSAGE_SELECT_COLUMNS = 'id, content, created_at, display_name, college, room_name, room_id, user_uuid'
-const FEEDBACK_HISTORY_SETUP_STORAGE_KEY = 'spreadz_feedback_history_initialized'
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (text: string) => text.startsWith(GIF_MESSAGE_PREFIX)
@@ -336,6 +337,7 @@ export default function GlobalChat() {
   const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
   const [friendRequestQueue, setFriendRequestQueue] = useState<FriendRequest[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
+  const [backFeedbackModalOpen, setBackFeedbackModalOpen] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
   const userIdRef = useRef<string>('')
   const displayNameToUsernameRef = useRef<Record<string, string>>({})
@@ -394,29 +396,19 @@ export default function GlobalChat() {
   const roomIsAtBottomByIdRef = useRef<Record<string, boolean>>({})
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const hasInitializedFeedbackHistory = window.sessionStorage.getItem(FEEDBACK_HISTORY_SETUP_STORAGE_KEY)
-    if (hasInitializedFeedbackHistory) {
-      console.log('[back-setup] already initialized, skipping')
-      return
-    }
-
-    const currentHistoryState = window.history.state && typeof window.history.state === 'object'
-      ? window.history.state
-      : {}
-    const feedbackUrl = new URL('/feedback-form', window.location.origin)
-    const chatUrl = new URL(window.location.href)
-
-    window.history.replaceState({ ...currentHistoryState }, '', feedbackUrl.toString())
-    console.log('[back-setup] replaced current entry with /feedback-form')
-
-    window.history.pushState({ ...currentHistoryState }, '', chatUrl.toString())
-    console.log('[back-setup] pushed current entry to /chat')
-
-    window.sessionStorage.setItem(FEEDBACK_HISTORY_SETUP_STORAGE_KEY, 'true')
+  const openBackFeedbackModal = useCallback(() => {
+    setBackFeedbackModalOpen(true)
   }, [])
+
+  const closeBackFeedbackModal = useCallback(() => {
+    setBackFeedbackModalOpen(false)
+  }, [])
+
+  const handleBackFeedbackSubmit = useCallback(async (_feedback: string) => {
+    setBackFeedbackModalOpen(false)
+  }, [])
+
+  useBackFeedbackIntercept(openBackFeedbackModal)
 
   useEffect(() => {
     currentRoomIndexRef.current = currentRoomIndex
@@ -3284,6 +3276,12 @@ export default function GlobalChat() {
           </form>
         </div>
       )}
+
+      <BackFeedbackModal
+        open={backFeedbackModalOpen}
+        onClose={closeBackFeedbackModal}
+        onSubmit={handleBackFeedbackSubmit}
+      />
 
       {menuOpen && (
         <div className="menu-overlay" onClick={() => setMenuOpen(false)}>

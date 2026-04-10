@@ -73,7 +73,7 @@ export type Database = {
         Row: {
           id: string
           rating: number
-          reason: string
+          reason: string | null
           other_text: string | null
           user_id: string | null
           created_at: string | null
@@ -81,7 +81,7 @@ export type Database = {
         Insert: {
           id?: string
           rating: number
-          reason: string
+          reason?: string | null
           other_text?: string | null
           user_id?: string | null
           created_at?: string | null
@@ -89,7 +89,7 @@ export type Database = {
         Update: {
           id?: string
           rating?: number
-          reason?: string
+          reason?: string | null
           other_text?: string | null
           user_id?: string | null
           created_at?: string | null

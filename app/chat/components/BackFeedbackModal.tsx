@@ -61,6 +61,8 @@ export function BackFeedbackModal({ open, onClose }: BackFeedbackModalProps) {
   const [submitError, setSubmitError] = useState('')
   const closeTimerRef = useRef<number | null>(null)
   const screenTimerRef = useRef<number | null>(null)
+  const feedbackRowIdRef = useRef<string | null>(null)
+  const feedbackInsertPromiseRef = useRef<Promise<string | null> | null>(null)
 
   useEffect(() => {
     if (!open) {
@@ -72,6 +74,8 @@ export function BackFeedbackModal({ open, onClose }: BackFeedbackModalProps) {
       setOtherText('')
       setIsSubmitting(false)
       setSubmitError('')
+      feedbackRowIdRef.current = null
+      feedbackInsertPromiseRef.current = null
     }
   }, [open])
 
@@ -93,6 +97,98 @@ export function BackFeedbackModal({ open, onClose }: BackFeedbackModalProps) {
     }
   }
 
+  async function getCurrentUserId() {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+    if (sessionError) {
+      console.log('[BackFeedbackModal] getSession failed:', sessionError)
+    }
+
+    return sessionData?.session?.user?.id ?? null
+  }
+
+  async function ensureFeedbackRow(payload: Database['public']['Tables']['feedback']['Insert']) {
+    if (feedbackRowIdRef.current) {
+      return feedbackRowIdRef.current
+    }
+
+    if (feedbackInsertPromiseRef.current) {
+      return feedbackInsertPromiseRef.current
+    }
+
+    feedbackInsertPromiseRef.current = (async () => {
+      const insertPayload: Database['public']['Tables']['feedback']['Insert'] = {
+        ...payload,
+        user_id: await getCurrentUserId(),
+        created_at: new Date().toISOString(),
+      }
+
+      const { data, error } = await supabase
+        .from('feedback')
+        .insert(insertPayload)
+        .select('id')
+        .single()
+
+      if (error) {
+        console.log('[BackFeedbackModal] feedback insert failed:', {
+          payload: insertPayload,
+          error,
+        })
+        return null
+      }
+
+      feedbackRowIdRef.current = data.id
+      return data.id
+    })()
+
+    const feedbackId = await feedbackInsertPromiseRef.current
+    feedbackInsertPromiseRef.current = null
+    return feedbackId
+  }
+
+  async function updateFeedbackRow(update: Database['public']['Tables']['feedback']['Update']) {
+    const feedbackId = feedbackRowIdRef.current
+    if (!feedbackId) {
+      return false
+    }
+
+    const { error } = await supabase
+      .from('feedback')
+      .update(update)
+      .eq('id', feedbackId)
+
+    if (error) {
+      console.log('[BackFeedbackModal] feedback update failed:', {
+        feedbackId,
+        update,
+        error,
+      })
+      return false
+    }
+
+    return true
+  }
+
+  async function persistRatingSelection(nextRating: number) {
+    await ensureFeedbackRow({
+      rating: nextRating,
+    })
+  }
+
+  async function persistReasonSelection(nextReason: string, nextRating: number) {
+    const feedbackId = await ensureFeedbackRow({
+      rating: nextRating,
+    })
+
+    if (!feedbackId) {
+      return
+    }
+
+    await updateFeedbackRow({
+      reason: nextReason,
+    })
+  }
+
   function handleRatingSelect(nextRating: number) {
     if (isSubmitting) {
       return
@@ -103,6 +199,8 @@ export function BackFeedbackModal({ open, onClose }: BackFeedbackModalProps) {
     setReason('')
     setOtherText('')
     setSubmitError('')
+
+    void persistRatingSelection(nextRating)
 
     screenTimerRef.current = window.setTimeout(() => {
       setScreen('reason')
@@ -117,6 +215,9 @@ export function BackFeedbackModal({ open, onClose }: BackFeedbackModalProps) {
 
     setReason(nextReason)
     setSubmitError('')
+    if (rating) {
+      void persistReasonSelection(nextReason, rating)
+    }
     setScreen('details')
   }
 
@@ -129,30 +230,28 @@ export function BackFeedbackModal({ open, onClose }: BackFeedbackModalProps) {
     setSubmitError('')
 
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError) {
-        console.log('[BackFeedbackModal] getSession failed:', sessionError)
-      }
-
-      const feedbackPayload: Database['public']['Tables']['feedback']['Insert'] = {
+      const feedbackId = await ensureFeedbackRow({
         rating,
-        reason,
-        other_text: includeText ? otherText.trim() || null : null,
-        user_id: sessionData?.session?.user?.id ?? null,
-        created_at: new Date().toISOString(),
+      })
+
+      if (!feedbackId) {
+        throw new Error('Feedback row could not be created')
       }
 
-      const { error: insertError } = await supabase
-        .from('feedback')
-        .insert(feedbackPayload)
+      const didUpdateReason = await updateFeedbackRow({
+        reason,
+      })
 
-      if (insertError) {
-        console.log('[BackFeedbackModal] feedback insert failed:', {
-          payload: feedbackPayload,
-          error: insertError,
-        })
-        throw insertError
+      if (!didUpdateReason) {
+        throw new Error('Feedback reason could not be saved')
+      }
+
+      const didUpdateOtherText = await updateFeedbackRow({
+        other_text: includeText ? otherText.trim() || null : null,
+      })
+
+      if (!didUpdateOtherText) {
+        throw new Error('Feedback notes could not be saved')
       }
 
       setScreen('thanks')

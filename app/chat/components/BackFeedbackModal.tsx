@@ -18,7 +18,7 @@ type BackFeedbackModalProps = {
 type FlowScreen = 'rating' | 'reason' | 'details' | 'thanks'
 
 const RATING_HEADING = 'Rate Us! \u2B50'
-const RATING_SUBTEXT = 'took us months to build this. 2 seconds to rate it.'
+const RATING_SUBTEXT = 'took us months to build this. 2 seconds to rate it. \u{1F60A}'
 const LOW_RATING_HEADING = 'okay ouch \u{1F62C} what went wrong?'
 const MID_RATING_HEADING = "so close! what's missing?"
 const HIGH_RATING_HEADING = "you're our favorite person rn \u{1F64C} what clicked?"
@@ -271,8 +271,8 @@ function StarIcon({ filled }: { filled: boolean }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      width="40"
-      height="40"
+      width="48"
+      height="48"
       aria-hidden="true"
       style={{
         display: 'block',
@@ -321,17 +321,20 @@ const contentStackStyle: CSSProperties = {
 
 const ratingHeadingStyle: CSSProperties = {
   margin: 0,
+  width: '100%',
   color: '#111827',
   fontSize: '1.9rem',
   lineHeight: 1.1,
   fontWeight: 800,
+  textAlign: 'center',
 }
 
 const subTextStyle: CSSProperties = {
-  marginTop: '10px',
-  color: '#9ca3af',
+  marginTop: '16px',
+  color: '#6b7280',
   fontSize: '0.8rem',
   lineHeight: 1.45,
+  maxWidth: '280px',
 }
 
 const starsRowStyle: CSSProperties = {
@@ -339,7 +342,7 @@ const starsRowStyle: CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   gap: '10px',
-  marginTop: '30px',
+  marginTop: '38px',
 }
 
 const starButtonStyle: CSSProperties = {

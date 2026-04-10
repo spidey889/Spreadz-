@@ -1,0 +1,328 @@
+<style>
+  :root {
+    --bg: #ffffff;
+    --text: #101828;
+    --muted: #475467;
+    --border: #d0d5dd;
+    --soft: #f8fafc;
+    --soft-strong: #eef2ff;
+    --accent: #1d4ed8;
+    --accent-strong: #1e40af;
+    --link: #1d4ed8;
+    --max-width: 920px;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.72;
+  }
+
+  .page {
+    min-height: 100vh;
+    padding: 36px 22px 72px;
+    background:
+      radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 28%),
+      linear-gradient(180deg, #f8fbff 0%, #ffffff 24%);
+  }
+
+  .container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+  }
+
+  .hero {
+    padding-bottom: 26px;
+    margin-bottom: 30px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .eyebrow {
+    margin-bottom: 10px;
+    color: var(--accent-strong);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    margin: 0 0 12px;
+    color: var(--accent-strong);
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.08;
+  }
+
+  .updated {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.98rem;
+    font-weight: 500;
+  }
+
+  .notice,
+  .toc,
+  .contact-box {
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 22px;
+  }
+
+  .notice {
+    margin-bottom: 28px;
+    background: linear-gradient(180deg, #eff6ff, #ffffff);
+  }
+
+  .notice strong {
+    color: var(--accent-strong);
+  }
+
+  .toc {
+    margin: 30px 0 8px;
+    background: #fff;
+  }
+
+  h2 {
+    margin: 42px 0 14px;
+    color: var(--accent-strong);
+    font-size: 1.45rem;
+    line-height: 1.25;
+  }
+
+  h3 {
+    margin: 26px 0 10px;
+    color: var(--text);
+    font-size: 1.08rem;
+    line-height: 1.35;
+  }
+
+  p {
+    margin: 0 0 16px;
+    color: var(--text);
+  }
+
+  .muted {
+    color: var(--muted);
+  }
+
+  .toc h2 {
+    margin-top: 0;
+  }
+
+  .toc ol {
+    margin: 12px 0 0;
+    padding-left: 20px;
+  }
+
+  .toc li {
+    margin-bottom: 10px;
+  }
+
+  a {
+    color: var(--link);
+  }
+
+  .toc a {
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  section {
+    padding-top: 8px;
+  }
+
+  ul {
+    margin: 0 0 16px;
+    padding-left: 22px;
+  }
+
+  li {
+    margin-bottom: 10px;
+    color: var(--text);
+  }
+
+  .callout {
+    margin: 0 0 18px;
+    color: var(--text);
+    border-left: 4px solid rgba(29, 78, 216, 0.2);
+    padding-left: 14px;
+  }
+
+  .contact-box {
+    margin-top: 12px;
+    background: #f8fbff;
+  }
+
+  .footer-note {
+    margin-top: 40px;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 640px) {
+    .page {
+      padding: 22px 14px 48px;
+    }
+
+    .notice,
+    .toc,
+    .contact-box {
+      padding: 16px;
+      border-radius: 16px;
+    }
+
+    h2 {
+      font-size: 1.28rem;
+    }
+  }
+</style>
+
+<main class="page">
+  <div class="container">
+    <header class="hero">
+      <div class="eyebrow">Platform Policy</div>
+      <h1>Cookies Policy</h1>
+      <p class="updated">Last updated: April 10, 2026</p>
+    </header>
+
+    <div class="notice">
+      <p>
+        This Cookies Policy explains how <strong>Spreadz</strong> uses cookies and similar technologies when you visit or use our platform, including <strong>spreadz.vercel.app</strong> and related features.
+      </p>
+      <p>
+        When we say "cookies" in this policy, we are also referring to similar technologies such as local storage, session storage, analytics identifiers, and authentication/session technologies that help the product work, stay secure, and improve over time.
+      </p>
+    </div>
+
+    <nav class="toc" aria-label="Table of contents">
+      <h2>Table of Contents</h2>
+      <ol>
+        <li><a href="#section-1">What Are Cookies and Similar Technologies?</a></li>
+        <li><a href="#section-2">How We Use Them</a></li>
+        <li><a href="#section-3">Types of Cookies and Technologies We Use</a></li>
+        <li><a href="#section-4">Third-Party Services</a></li>
+        <li><a href="#section-5">Your Choices</a></li>
+        <li><a href="#section-6">Updates to This Policy</a></li>
+        <li><a href="#section-7">Contact</a></li>
+      </ol>
+    </nav>
+
+    <section id="section-1">
+      <h2>1. What Are Cookies and Similar Technologies?</h2>
+      <div class="callout"><strong>In short:</strong> They are small tools used by browsers and apps to remember information and help services work properly.</div>
+      <p>Cookies are small text files stored on your device when you visit a website. Similar technologies, such as local storage, session storage, and analytics identifiers, can also store or remember information in your browser or device.</p>
+      <p>These technologies can help a platform recognize a session, remember settings, understand usage patterns, improve performance, and support security features.</p>
+    </section>
+
+    <section id="section-2">
+      <h2>2. How We Use Them</h2>
+      <div class="callout"><strong>In short:</strong> We use these technologies to run Spreadz, keep it secure, remember preferences, and understand how the product is being used.</div>
+      <p>Spreadz uses cookies and similar technologies to:</p>
+      <ul>
+        <li>Keep the platform working properly.</li>
+        <li>Remember basic preferences and product state.</li>
+        <li>Support authentication, security, and abuse prevention.</li>
+        <li>Measure usage, diagnose issues, and improve performance and reliability.</li>
+      </ul>
+      <p>We do not use cookies to personally track you across unrelated websites for our own advertising purposes.</p>
+    </section>
+
+    <section id="section-3">
+      <h2>3. Types of Cookies and Technologies We Use</h2>
+
+      <h3>a) Essential technologies</h3>
+      <p>These are required for core product functionality, reliability, and security. Without them, parts of Spreadz may not function correctly.</p>
+      <ul>
+        <li>Basic platform functionality.</li>
+        <li>Security and fraud prevention.</li>
+        <li>Remembering limited session or device state needed for the app to operate.</li>
+      </ul>
+
+      <h3>b) Authentication and session technologies</h3>
+      <p>We use Supabase and related session/authentication tools to support access, persistence, and account/session handling. Depending on the part of the product, this may involve cookies, browser storage, or similar session technologies.</p>
+      <ul>
+        <li>Identifying and maintaining a session.</li>
+        <li>Keeping authorized users signed in where applicable.</li>
+        <li>Reducing unauthorized access and account misuse.</li>
+      </ul>
+
+      <h3>c) Analytics and performance technologies</h3>
+      <p>We use analytics and measurement tools such as <strong>Google Analytics</strong> and, where enabled, <strong>PostHog</strong> to understand how users interact with Spreadz and how the product is performing.</p>
+      <ul>
+        <li>Page views and general usage patterns.</li>
+        <li>Performance and reliability data.</li>
+        <li>Product interaction data and diagnostics.</li>
+        <li>Session replay or recording tools, where enabled, to help debug and improve the experience.</li>
+      </ul>
+      <p>This information is typically used in aggregate or pseudonymous form, but it may still involve browser or device identifiers.</p>
+
+      <h3>d) Preference and local device storage</h3>
+      <p>Spreadz stores some information locally in your browser or device to remember settings and improve usability.</p>
+      <ul>
+        <li>Profile setup state.</li>
+        <li>Saved interests or product preferences.</li>
+        <li>Notification-related state and similar app settings.</li>
+      </ul>
+    </section>
+
+    <section id="section-4">
+      <h2>4. Third-Party Services</h2>
+      <div class="callout"><strong>In short:</strong> Some third-party services used inside Spreadz may place their own cookies or use similar technologies.</div>
+      <p>Spreadz may rely on third-party services that use their own cookies or tracking technologies, subject to their own policies. Examples may include:</p>
+      <ul>
+        <li><strong>Google Analytics</strong> for traffic and usage measurement.</li>
+        <li><strong>PostHog</strong> for product analytics and, where enabled, session recording.</li>
+        <li><strong>GIPHY</strong> or similar media providers for GIF and rich media functionality.</li>
+        <li><strong>Supabase</strong> and related infrastructure services for session and platform functionality.</li>
+      </ul>
+      <p>We do not control how third-party providers use their own cookies or similar technologies once their services are loaded through the platform.</p>
+    </section>
+
+    <section id="section-5">
+      <h2>5. Your Choices</h2>
+      <div class="callout"><strong>In short:</strong> You can control cookies through your browser and device settings, but some features may stop working.</div>
+      <p>You can usually:</p>
+      <ul>
+        <li>Disable or block cookies through your browser settings.</li>
+        <li>Clear cookies and local storage at any time.</li>
+        <li>Adjust certain analytics or privacy settings through your browser, device, or relevant third-party tools where available.</li>
+      </ul>
+      <p>If you disable certain cookies or similar technologies, parts of Spreadz may not work correctly, including sign-in behavior, saved preferences, media loading, and some security-related functionality.</p>
+    </section>
+
+    <section id="section-6">
+      <h2>6. Updates to This Policy</h2>
+      <div class="callout"><strong>In short:</strong> We may revise this policy as Spreadz changes.</div>
+      <p>We may update this Cookies Policy from time to time as the platform, our providers, or our legal obligations evolve. When we do, we will update the "Last updated" date at the top of this page.</p>
+    </section>
+
+    <section id="section-7">
+      <h2>7. Contact</h2>
+      <div class="contact-box">
+        <p>If you have any questions about this Cookies Policy, you can contact us at:</p>
+        <p><strong>Spreadz</strong><br />Ahmedabad, Gujarat, India<br /><a href="mailto:spreadzapp@gmail.com">spreadzapp@gmail.com</a></p>
+      </div>
+    </section>
+
+    <div class="footer-note">
+      This Cookies Policy is intended to explain in plain language how browser and device-level technologies support the Spreadz experience.
+    </div>
+  </div>
+</main>

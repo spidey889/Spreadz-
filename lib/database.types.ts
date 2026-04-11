@@ -130,20 +130,20 @@ export type Database = {
       mutes: {
         Row: {
           id: string
-          muter_uuid: string
-          muted_uuid: string
+          muter_id: string
+          muted_id: string
           created_at: string
         }
         Insert: {
           id?: string
-          muter_uuid: string
-          muted_uuid: string
+          muter_id: string
+          muted_id: string
           created_at?: string
         }
         Update: {
           id?: string
-          muter_uuid?: string
-          muted_uuid?: string
+          muter_id?: string
+          muted_id?: string
           created_at?: string
         }
         Relationships: []

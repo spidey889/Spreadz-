@@ -33,8 +33,8 @@ export function MutedUsersSection() {
 
     const { data: muteRows, error: muteError } = await supabase
       .from('mutes')
-      .select('muted_uuid, created_at')
-      .eq('muter_uuid', currentUserId)
+      .select('muted_id, created_at')
+      .eq('muter_id', currentUserId)
       .order('created_at', { ascending: false })
 
     if (muteError) {
@@ -46,7 +46,7 @@ export function MutedUsersSection() {
     }
 
     const mutedIds = (muteRows || [])
-      .map((row) => row.muted_uuid)
+      .map((row) => row.muted_id)
       .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
 
     if (mutedIds.length === 0) {
@@ -110,8 +110,8 @@ export function MutedUsersSection() {
     const { error } = await supabase
       .from('mutes')
       .delete()
-      .eq('muter_uuid', currentUserId)
-      .eq('muted_uuid', mutedUserId)
+      .eq('muter_id', currentUserId)
+      .eq('muted_id', mutedUserId)
 
     if (error) {
       console.error('[Mutes] unmute failed:', error)

@@ -898,7 +898,7 @@ export default function GlobalChat() {
   }, [])
 
   const buildMutePairFilter = useCallback((firstUserId: string, secondUserId: string) => (
-    `and(muter_uuid.eq.${firstUserId},muted_uuid.eq.${secondUserId}),and(muter_uuid.eq.${secondUserId},muted_uuid.eq.${firstUserId})`
+    `and(muter_id.eq.${firstUserId},muted_id.eq.${secondUserId}),and(muter_id.eq.${secondUserId},muted_id.eq.${firstUserId})`
   ), [])
 
   const isMutedUser = useCallback((userId?: string | null) => {
@@ -1251,8 +1251,8 @@ export default function GlobalChat() {
 
     const { data, error } = await supabase
       .from('mutes')
-      .select('muter_uuid, muted_uuid')
-      .or(`muter_uuid.eq.${currentUserId},muted_uuid.eq.${currentUserId}`)
+      .select('muter_id, muted_id')
+      .or(`muter_id.eq.${currentUserId},muted_id.eq.${currentUserId}`)
 
     if (error) {
       console.error('[Mutes] fetch failed:', error)
@@ -1263,7 +1263,7 @@ export default function GlobalChat() {
     const nextMutedUserIds = new Set<string>()
 
     data?.forEach((row) => {
-      const otherUserId = row.muter_uuid === currentUserId ? row.muted_uuid : row.muter_uuid
+      const otherUserId = row.muter_id === currentUserId ? row.muted_id : row.muter_id
       if (otherUserId) {
         nextMutedUserIds.add(otherUserId)
       }
@@ -1933,13 +1933,13 @@ export default function GlobalChat() {
         { event: '*', schema: 'public', table: 'mutes' },
         (payload) => {
           const muteRow = (payload.eventType === 'DELETE' ? payload.old : payload.new) as {
-            muter_uuid?: string
-            muted_uuid?: string
+            muter_id?: string
+            muted_id?: string
           } | null
 
           if (!muteRow) return
 
-          const involvesCurrentUser = muteRow.muter_uuid === currentUserId || muteRow.muted_uuid === currentUserId
+          const involvesCurrentUser = muteRow.muter_id === currentUserId || muteRow.muted_id === currentUserId
           if (!involvesCurrentUser) return
 
           void syncMuteStateAndRooms()
@@ -2339,8 +2339,8 @@ export default function GlobalChat() {
       : await supabase
         .from('mutes')
         .insert({
-          muter_uuid: currentUserId,
-          muted_uuid: normalizedTargetUserId,
+          muter_id: currentUserId,
+          muted_id: normalizedTargetUserId,
         })
 
     if (error) {

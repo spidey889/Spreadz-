@@ -127,6 +127,27 @@ export type Database = {
         }
         Relationships: []
       }
+      mutes: {
+        Row: {
+          id: string
+          muter_uuid: string
+          muted_uuid: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          muter_uuid: string
+          muted_uuid: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          muter_uuid?: string
+          muted_uuid?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           id: string

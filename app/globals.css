@@ -941,9 +941,16 @@ display: flex;
           height: 1px;
           background: rgba(15, 23, 42, 0.08);
         }
-        .profile-sheet-view-report {
+        .profile-sheet-view-actions {
+          width: 100%;
+          display: flex;
+          gap: 14px;
           margin-top: auto;
           padding: 10px 0 0;
+        }
+        .profile-sheet-view-action {
+          flex: 1 1 0;
+          padding: 0;
           background: transparent;
           border: none;
           color: rgba(195, 52, 73, 0.82);
@@ -951,10 +958,21 @@ display: flex;
           font-weight: 600;
           line-height: 1.2;
           letter-spacing: 0.01em;
+          text-align: left;
           cursor: pointer;
         }
-        .profile-sheet-view-report:active {
+        .profile-sheet-view-action:active {
           opacity: 0.72;
+        }
+        .profile-sheet-view-action:disabled {
+          opacity: 0.56;
+          cursor: default;
+        }
+        .profile-sheet-view-action-status {
+          margin-top: 10px;
+          text-align: center;
+          font-size: 13px;
+          color: #ff8a8a;
         }
         .profile-username {
           font-size: 12px;

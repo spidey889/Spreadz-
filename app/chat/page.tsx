@@ -46,6 +46,11 @@ type MessageRow = {
   user_uuid: string | null
 }
 
+type FetchMessagesOptions = {
+  force?: boolean
+  revealMode?: 'schedule' | 'instant'
+}
+
 interface FriendRequest {
   id: string
   requester_uuid: string
@@ -328,6 +333,9 @@ export default function GlobalChat() {
   const [reportSheetMessage, setReportSheetMessage] = useState<Message | null>(null)
   const [readOnlyProfile, setReadOnlyProfile] = useState<ReadOnlyProfile | null>(null)
   const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
+  const [muteStatus, setMuteStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
+  const [muteStateReady, setMuteStateReady] = useState(false)
+  const [mutedUserIds, setMutedUserIds] = useState<Set<string>>(new Set())
   const [sheetClosing, setSheetClosing] = useState(false)
   const [friendsSheetOpen, setFriendsSheetOpen] = useState(false)
   const [notificationSheetOpen, setNotificationSheetOpen] = useState(false)
@@ -347,6 +355,7 @@ export default function GlobalChat() {
   const roomPanelRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
+  const muteChannelRef = useRef<any>(null)
   const friendRequestChannelRef = useRef<any>(null)
   const friendRequestsLoadedRef = useRef(false)
   const activeRoomMessagesRef = useRef<HTMLDivElement | null>(null)
@@ -840,6 +849,13 @@ export default function GlobalChat() {
     return `${roomId}::${displayName}::${content}`
   }, [])
 
+  const setInstantVisibleMessageIds = useCallback((roomId: string, msgs: Message[]) => {
+    setVisibleMessageIdsByRoom(prev => ({
+      ...prev,
+      [roomId]: new Set(msgs.map(message => message.id)),
+    }))
+  }, [])
+
   const buildMessageFromRow = useCallback((m: MessageRow, fallbackUsername?: string): Message => {
     const resolvedName = m.display_name || 'Anonymous'
     const resolvedCollege = m.college || ''
@@ -880,6 +896,15 @@ export default function GlobalChat() {
     }
     return ''
   }, [])
+
+  const buildMutePairFilter = useCallback((firstUserId: string, secondUserId: string) => (
+    `and(muter_uuid.eq.${firstUserId},muted_uuid.eq.${secondUserId}),and(muter_uuid.eq.${secondUserId},muted_uuid.eq.${firstUserId})`
+  ), [])
+
+  const isMutedUser = useCallback((userId?: string | null) => {
+    const normalizedUserId = userId?.trim() || ''
+    return Boolean(normalizedUserId && mutedUserIds.has(normalizedUserId))
+  }, [mutedUserIds])
 
   const getNotificationMessageKey = useCallback((message: any) => {
     if (typeof message?.id === 'string' && message.id.trim()) {
@@ -1175,6 +1200,9 @@ export default function GlobalChat() {
     if (message?.user_uuid && currentUserId && message.user_uuid === currentUserId) {
       return
     }
+    if (message?.user_uuid && isMutedUser(message.user_uuid)) {
+      return
+    }
 
     const notificationKey = getNotificationMessageKey(message)
     if (!rememberNotificationKey(notificationKey)) {
@@ -1186,7 +1214,7 @@ export default function GlobalChat() {
     } catch (error) {
       console.error('[Notifications] New message notification failed', error)
     }
-  }, [buildIncomingNotificationPayload, getCurrentUserId, getNotificationMessageKey, rememberNotificationKey, showIncomingNotification])
+  }, [buildIncomingNotificationPayload, getCurrentUserId, getNotificationMessageKey, isMutedUser, rememberNotificationKey, showIncomingNotification])
 
   const getCurrentUsername = useCallback(() => {
     if (accountUsername.trim()) return accountUsername.trim()
@@ -1213,6 +1241,37 @@ export default function GlobalChat() {
     if (!username) return
     localStorage.setItem(getSentRoomIdsStorageKey(username), JSON.stringify(Array.from(roomIds)))
   }, [getSentRoomIdsStorageKey])
+
+  const loadMuteState = useCallback(async () => {
+    const currentUserId = getCurrentUserId()
+    if (!currentUserId) {
+      setMutedUserIds(new Set())
+      return new Set<string>()
+    }
+
+    const { data, error } = await supabase
+      .from('mutes')
+      .select('muter_uuid, muted_uuid')
+      .or(`muter_uuid.eq.${currentUserId},muted_uuid.eq.${currentUserId}`)
+
+    if (error) {
+      console.error('[Mutes] fetch failed:', error)
+      setMutedUserIds(new Set())
+      return new Set<string>()
+    }
+
+    const nextMutedUserIds = new Set<string>()
+
+    data?.forEach((row) => {
+      const otherUserId = row.muter_uuid === currentUserId ? row.muted_uuid : row.muter_uuid
+      if (otherUserId) {
+        nextMutedUserIds.add(otherUserId)
+      }
+    })
+
+    setMutedUserIds(nextMutedUserIds)
+    return nextMutedUserIds
+  }, [getCurrentUserId])
 
   const cacheUsernamesForDisplayNames = useCallback(async (displayNames: Array<string | null | undefined>) => {
     const namesToFetch = Array.from(new Set(displayNames
@@ -1555,6 +1614,27 @@ export default function GlobalChat() {
   }, [rooms])
 
   useEffect(() => {
+    if (!authReady) return
+
+    let cancelled = false
+    setMuteStateReady(false)
+
+    const initializeMuteState = async () => {
+      await loadMuteState()
+
+      if (!cancelled) {
+        setMuteStateReady(true)
+      }
+    }
+
+    void initializeMuteState()
+
+    return () => {
+      cancelled = true
+    }
+  }, [authReady, loadMuteState])
+
+  useEffect(() => {
     if (!showProfileModal) {
       if (profileSheetCloseTimeoutRef.current !== null) {
         window.clearTimeout(profileSheetCloseTimeoutRef.current)
@@ -1577,6 +1657,7 @@ export default function GlobalChat() {
     pendingProfileReportMessageRef.current = null
     setSheetClosing(false)
     setReportStatus('idle')
+    setMuteStatus('idle')
     setReportSheetMessage(reportMessage)
   }, [readOnlyProfile])
 
@@ -1795,8 +1876,11 @@ export default function GlobalChat() {
   }, [scheduleReveal])
 
   // Fetch messages for a specific room
-  const fetchMessagesForRoom = useCallback(async (room: Room) => {
-    if (fetchedRoomsRef.current.has(room.id)) return
+  const fetchMessagesForRoom = useCallback(async (room: Room, options?: FetchMessagesOptions) => {
+    const force = options?.force ?? false
+    const revealMode = options?.revealMode ?? 'schedule'
+
+    if (!force && fetchedRoomsRef.current.has(room.id)) return
     fetchedRoomsRef.current.add(room.id)
 
     const { data } = await supabase
@@ -1814,11 +1898,64 @@ export default function GlobalChat() {
       const msgs = messageRows.map((message) => buildMessageFromRow(message))
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
 
+      if (revealMode === 'instant') {
+        setInstantVisibleMessageIds(room.id, msgs)
+        return
+      }
+
       requestAnimationFrame(() => {
         triggerRevealsForMessages(room.id, msgs)
       })
     }
-  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, normalizeMessageRow, triggerRevealsForMessages])
+  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, normalizeMessageRow, setInstantVisibleMessageIds, triggerRevealsForMessages])
+
+  const syncMuteStateAndRooms = useCallback(async () => {
+    await loadMuteState()
+
+    const fetchedRooms = rooms.filter((room) => fetchedRoomsRef.current.has(room.id))
+    if (fetchedRooms.length === 0) return
+
+    await Promise.all(
+      fetchedRooms.map((room) => fetchMessagesForRoom(room, { force: true, revealMode: 'instant' }))
+    )
+  }, [fetchMessagesForRoom, loadMuteState, rooms])
+
+  useEffect(() => {
+    if (!authReady) return
+
+    const currentUserId = getCurrentUserId()
+    if (!currentUserId) return
+
+    const channel = supabase
+      .channel('mutes-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'mutes' },
+        (payload) => {
+          const muteRow = (payload.eventType === 'DELETE' ? payload.old : payload.new) as {
+            muter_uuid?: string
+            muted_uuid?: string
+          } | null
+
+          if (!muteRow) return
+
+          const involvesCurrentUser = muteRow.muter_uuid === currentUserId || muteRow.muted_uuid === currentUserId
+          if (!involvesCurrentUser) return
+
+          void syncMuteStateAndRooms()
+        }
+      )
+      .subscribe()
+
+    muteChannelRef.current = channel
+
+    return () => {
+      if (muteChannelRef.current) {
+        supabase.removeChannel(muteChannelRef.current)
+        muteChannelRef.current = null
+      }
+    }
+  }, [authReady, getCurrentUserId, syncMuteStateAndRooms])
 
   const handleRealtimeMessage = useCallback((messageRow: any) => {
     const normalizedMessage = normalizeMessageRow(messageRow)
@@ -1829,6 +1966,7 @@ export default function GlobalChat() {
 
     const messageAuthorId = typeof normalizedMessage.user_uuid === 'string' ? normalizedMessage.user_uuid : ''
     if (messageAuthorId && messageAuthorId === getCurrentUserId()) return
+    if (messageAuthorId && isMutedUser(messageAuthorId)) return
 
     const pendingMessageKey = getPendingMessageKey(normalizedMessage)
     const optimisticTempId = pendingMessageKey ? pendingOutgoingMessageIdsRef.current.get(pendingMessageKey) || '' : ''
@@ -1893,11 +2031,13 @@ export default function GlobalChat() {
         return { ...prev, [roomId]: nextRoomMessages }
       })
     })()
-  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, getCurrentUserId, getPendingMessageKey, handleIncomingMessageNotification, normalizeMessageRow, scheduleReveal])
+  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, getCurrentUserId, getPendingMessageKey, handleIncomingMessageNotification, isMutedUser, normalizeMessageRow, scheduleReveal])
 
 
   // Fetch messages for the active room and its adjacent neighbors as room state changes.
   useEffect(() => {
+    if (!muteStateReady) return
+
     const activeRoom = rooms[currentRoomIndex]
     if (!activeRoom) return
 
@@ -1914,11 +2054,11 @@ export default function GlobalChat() {
     if (nextRoom) {
       void fetchMessagesForRoom(nextRoom)
     }
-  }, [currentRoomIndex, fetchMessagesForRoom, rooms])
+  }, [currentRoomIndex, fetchMessagesForRoom, muteStateReady, rooms])
 
   // Keep one long-lived messages subscription so room changes do not interrupt realtime inserts.
   useEffect(() => {
-    if (!authReady || rooms.length === 0) return
+    if (!authReady || !muteStateReady || rooms.length === 0) return
 
     const channel = supabase
       .channel('messages-realtime')
@@ -1939,7 +2079,7 @@ export default function GlobalChat() {
         channelRef.current = null
       }
     }
-  }, [authReady, rooms.length, handleRealtimeMessage])
+  }, [authReady, muteStateReady, rooms.length, handleRealtimeMessage])
 
   useEffect(() => {
     scrollCurrentRoomToBottom('smooth')
@@ -2115,6 +2255,7 @@ export default function GlobalChat() {
     setSheetClosing(false)
     setReportSheetMessage(msg)
     setReportStatus('idle')
+    setMuteStatus('idle')
   }, [])
 
   const startLongPress = (msg: Message) => {
@@ -2124,15 +2265,16 @@ export default function GlobalChat() {
     }, 450)
   }
 
-  const closeSheet = () => {
+  const closeSheet = useCallback(() => {
     if (sheetClosing) return
     setSheetClosing(true)
     window.setTimeout(() => {
       setReportSheetMessage(null)
       setReportStatus('idle')
+      setMuteStatus('idle')
       setSheetClosing(false)
     }, 280)
-  }
+  }, [sheetClosing])
 
   const handleReport = async () => {
     if (!reportSheetMessage) return
@@ -2173,6 +2315,59 @@ export default function GlobalChat() {
     setReportStatus('done')
     closeSheet()
   }
+
+  const handleMuteToggle = useCallback(async (targetUserId?: string | null) => {
+    const currentUserId = getCurrentUserId()
+    const normalizedTargetUserId = targetUserId?.trim() || ''
+
+    if (!currentUserId || !normalizedTargetUserId || normalizedTargetUserId === currentUserId) {
+      setMuteStatus('error')
+      window.setTimeout(() => {
+        setMuteStatus('idle')
+      }, 1400)
+      return false
+    }
+
+    setMuteStatus('submitting')
+
+    const isCurrentlyMuted = isMutedUser(normalizedTargetUserId)
+    const { error } = isCurrentlyMuted
+      ? await supabase
+        .from('mutes')
+        .delete()
+        .or(buildMutePairFilter(currentUserId, normalizedTargetUserId))
+      : await supabase
+        .from('mutes')
+        .insert({
+          muter_uuid: currentUserId,
+          muted_uuid: normalizedTargetUserId,
+        })
+
+    if (error) {
+      if (!isCurrentlyMuted && error.code === '23505') {
+        await syncMuteStateAndRooms()
+        setMuteStatus('done')
+        return true
+      }
+
+      console.error('[Mutes] toggle failed:', error)
+      setMuteStatus('error')
+      window.setTimeout(() => {
+        setMuteStatus('idle')
+      }, 1400)
+      return false
+    }
+
+    await syncMuteStateAndRooms()
+    setMuteStatus('done')
+    return true
+  }, [buildMutePairFilter, getCurrentUserId, isMutedUser, syncMuteStateAndRooms])
+
+  const handleSheetMute = useCallback(async () => {
+    const didToggleMute = await handleMuteToggle(reportSheetMessage?.user_uuid)
+    if (!didToggleMute) return
+    closeSheet()
+  }, [closeSheet, handleMuteToggle, reportSheetMessage])
 
   const handleAcceptFriendRequest = async () => {
     if (!activeFriendRequest) return
@@ -2723,6 +2918,12 @@ export default function GlobalChat() {
     setReadOnlyProfile(null)
   }
 
+  const handleReadOnlyProfileMute = useCallback(async () => {
+    const didToggleMute = await handleMuteToggle(readOnlyProfile?.reportMessage?.user_uuid)
+    if (!didToggleMute) return
+    setReadOnlyProfile(null)
+  }, [handleMuteToggle, readOnlyProfile])
+
   const renderMessageBody = (msg: Message) => {
     if (isGifMessage(msg.text)) {
       const gifUrl = getGifUrlFromMessage(msg.text)
@@ -2852,9 +3053,10 @@ export default function GlobalChat() {
                   <div className="messages-spacer" aria-hidden="true" />
                   {messages.map((msg) => {
                     const isVisible = visibleMessageIds.has(msg.id)
-                    if (!isVisible) return null
+                    const isMutedMessage = isMutedUser(msg.user_uuid)
+                    if (!isVisible || isMutedMessage) return null
 
-                    const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id))
+                    const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id) && !isMutedUser(m.user_uuid))
                     const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
                     const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
                     const isOwnMessage = msg.senderUsername === getCurrentUsername()
@@ -3143,13 +3345,28 @@ export default function GlobalChat() {
                   <span>{formatProfileJoinedLabel(readOnlyProfile.joinedAt)}</span>
                 </div>
               </div>
-              <button
-                type="button"
-                className="profile-sheet-view-report"
-                onClick={handleReadOnlyProfileReport}
-              >
-                Report user
-              </button>
+              <div className="profile-sheet-view-actions">
+                {readOnlyProfile.reportMessage?.user_uuid && readOnlyProfile.reportMessage.user_uuid !== getCurrentUserId() && (
+                  <button
+                    type="button"
+                    className="profile-sheet-view-action"
+                    onClick={handleReadOnlyProfileMute}
+                    disabled={muteStatus === 'submitting'}
+                  >
+                    {muteStatus === 'submitting'
+                      ? (isMutedUser(readOnlyProfile.reportMessage?.user_uuid) ? 'Unmuting...' : 'Muting...')
+                      : (isMutedUser(readOnlyProfile.reportMessage?.user_uuid) ? 'Unmute' : 'Mute')}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="profile-sheet-view-action profile-sheet-view-report"
+                  onClick={handleReadOnlyProfileReport}
+                >
+                  Report user
+                </button>
+              </div>
+              {muteStatus === 'error' && <div className="profile-sheet-view-action-status error">Mute failed</div>}
             </div>
           </div>
         </div>
@@ -3327,6 +3544,31 @@ export default function GlobalChat() {
         <div className={`sheet-overlay${sheetClosing ? ' closing' : ''}`} onClick={closeSheet}>
           <div className={`sheet${sheetClosing ? ' closing' : ''}`} onClick={(e) => e.stopPropagation()}>
             <div className="sheet-handle" />
+            {reportSheetMessage.user_uuid && reportSheetMessage.user_uuid !== getCurrentUserId() && (
+              <>
+                <button
+                  className="sheet-item sheet-item-report"
+                  onClick={handleSheetMute}
+                  disabled={muteStatus === 'submitting'}
+                >
+                  <span className="sheet-icon" aria-hidden="true">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 9v6" />
+                      <path d="M7 6v12" />
+                      <path d="M11 4v16" />
+                      <path d="M15 7v10" />
+                      <path d="M19 10v4" />
+                    </svg>
+                  </span>
+                  <span>
+                    {muteStatus === 'submitting'
+                      ? (isMutedUser(reportSheetMessage.user_uuid) ? 'Unmuting...' : 'Muting...')
+                      : (isMutedUser(reportSheetMessage.user_uuid) ? 'Unmute' : 'Mute')}
+                  </span>
+                </button>
+                <div className="sheet-divider" />
+              </>
+            )}
             <button
               className="sheet-item sheet-item-report"
               onClick={handleReport}
@@ -3340,6 +3582,7 @@ export default function GlobalChat() {
               </span>
               <span>Report</span>
             </button>
+            {muteStatus === 'error' && <div className="sheet-confirm error">Mute failed</div>}
             {reportStatus === 'done' && <div className="sheet-confirm">Reported</div>}
             {reportStatus === 'error' && <div className="sheet-confirm error">Report failed</div>}
           </div>

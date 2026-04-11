@@ -25,6 +25,7 @@
 # sql notes (keep README tracked)
 sql/**/*.sql
 !sql/add_messages_user_uuid.sql
+!sql/add_mutes.sql
 !sql/insert_hacker_news_room.sql
 
 # generated office-hours docs

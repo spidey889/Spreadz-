@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { MutedUsersSection } from './MutedUsersSection'
 
 const ABOUT_LINKS = [
   { href: '/terms', label: 'Terms of Service' },
@@ -44,6 +45,7 @@ export default function AboutPage() {
               </Link>
             ))}
           </div>
+          <MutedUsersSection />
         </section>
       </div>
     </main>

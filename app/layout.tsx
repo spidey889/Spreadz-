@@ -4,19 +4,19 @@ import './globals.css'
 import HackerNewsStartupSync from './HackerNewsStartupSync'
 import Providers from './providers'
 
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Spreadz',
+  url: 'https://spreadz.in',
+  logo: 'https://spreadz.in/icon-512x512.png',
+}
+
 export const metadata: Metadata = {
+  metadataBase: new URL('https://spreadz.in'),
   title: 'SpreadZ',
   description: 'Global live chat',
   manifest: '/manifest.json',
-  icons: {
-    icon: [
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon-48x48.png', sizes: '48x48', type: 'image/png' },
-      { url: '/favicon.ico', sizes: 'any' },
-    ],
-    apple: '/apple-touch-icon.png',
-  },
 }
 
 export const viewport = {
@@ -33,6 +33,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="bg-[#1a1a1f]">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+      </head>
       <body className="bg-[#1a1a1f]">
         <HackerNewsStartupSync />
         <Providers>{children}</Providers>

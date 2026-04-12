@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const OPENROUTER_MODEL = 'stepfun/step-3.5-flash:free'
+const DEFAULT_OPENROUTER_MODEL = 'arcee-ai/trinity-large-preview:free'
 const MAX_TOKENS = 256
 
 type GhostRequestPayload = {
@@ -19,12 +19,12 @@ type OpenRouterChatResponse = {
 }
 
 export async function POST(request: Request) {
-  if (process.env.AI_GHOST_ENABLED !== 'true') {
+  if (process.env.AI_GHOST_ENABLED?.trim() !== 'true') {
     console.log('[Ghost] Disabled via AI_GHOST_ENABLED')
     return NextResponse.json({ enabled: false }, { status: 200 })
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY
+  const apiKey = process.env.OPENROUTER_API_KEY?.trim()
   if (!apiKey) {
     console.error('[Ghost] Missing OPENROUTER_API_KEY')
     return NextResponse.json({ error: 'Missing OPENROUTER_API_KEY' }, { status: 500 })
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     ghostCollege,
   })
 
-  const model = OPENROUTER_MODEL
+  const model = process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL
   const systemPrompt = [
     `you are ${ghostName}, a student at ${ghostCollege} in a whatsapp group chat.`,
     `reply like a real indian college student texting in the group.`,

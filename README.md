@@ -24,6 +24,7 @@ Swipe to find new people and fresh discussions — no commitment, no friend requ
 4. `npm run dev`
 
 ## Progress log
+- April 12, 2026 — Light README refresh to keep the project snapshot current.
 - March 15, 2026 — Hit 101 pushes; shipped identity, reporting, PWA install flow, and UI polish.
 - March 15, 2026 — Crossed 100+ commits and kept shipping consistently.
 - Early build — Real-time chat, swipe rooms, discussion headlines, and FRIDAY personalization.

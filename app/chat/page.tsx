@@ -10,8 +10,6 @@ import {
   trackRoomEnter,
   trackMessageSent,
   flushToSupabase,
-  saveInterests,
-  getInterests,
 } from '@/lib/friday'
 
 interface Room {
@@ -118,7 +116,6 @@ const formatProfileJoinedLabel = (isoString?: string | null) => {
   })}`
 }
 
-const INTEREST_OPTIONS = ['Tech & AI', 'Sports', 'Politics', 'Entertainment', 'Business', 'Science', 'Gaming', 'Campus Life']
 const ROOM_SCROLL_EDGE_THRESHOLD_PX = 10
 const ROOM_DRAG_SETTLE_DURATION_MS = 260
 const ROOM_DRAG_ACTIVATION_DELTA_PX = 8
@@ -286,8 +283,6 @@ export default function GlobalChat() {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [profileSheetDragging, setProfileSheetDragging] = useState(false)
-  const [selectedInterests, setSelectedInterests] = useState<string[]>([])
-  const [interestDismissed, setInterestDismissed] = useState(false)
   const [visibleMessageIdsByRoom, setVisibleMessageIdsByRoom] = useState<Record<string, Set<string>>>({})
   const [reportSheetMessage, setReportSheetMessage] = useState<Message | null>(null)
   const [readOnlyProfile, setReadOnlyProfile] = useState<ReadOnlyProfile | null>(null)
@@ -302,7 +297,7 @@ export default function GlobalChat() {
   const [notificationErrorMessage, setNotificationErrorMessage] = useState('')
   const [friends, setFriends] = useState<{ id: string; username: string }[]>([])
   const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
-  const [friendRequestQueue, setFriendRequestQueue] = useState<FriendRequest[]>([])
+  const [, setFriendRequestQueue] = useState<FriendRequest[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
   const [backFeedbackModalOpen, setBackFeedbackModalOpen] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
@@ -1796,12 +1791,6 @@ export default function GlobalChat() {
     }
   }, [authReady])
 
-  // FRIDAY: load saved interests on mount
-  useEffect(() => {
-    const saved = getInterests()
-    if (saved.length > 0) setSelectedInterests(saved)
-  }, [])
-
   useEffect(() => {
     if (!activeGifPickerRoomId) return
 
@@ -2829,52 +2818,6 @@ export default function GlobalChat() {
       setAvatarUploading(false)
       e.target.value = ''
     }
-  }
-
-  const handleProfileSheetTouchStart = (e: React.TouchEvent<HTMLFormElement>) => {
-    if (profileSheetCloseTimeoutRef.current !== null) {
-      window.clearTimeout(profileSheetCloseTimeoutRef.current)
-      profileSheetCloseTimeoutRef.current = null
-    }
-    profileSheetTouchStartYRef.current = e.touches[0]?.clientY ?? null
-    setProfileSheetDragging(true)
-  }
-
-  const handleProfileSheetTouchMove = (e: React.TouchEvent<HTMLFormElement>) => {
-    const startY = profileSheetTouchStartYRef.current
-    const currentY = e.touches[0]?.clientY
-
-    if (startY === null || currentY === undefined) return
-
-    const nextOffset = Math.max(0, currentY - startY)
-    applyProfileSheetOffset(nextOffset)
-
-    if (nextOffset > 0) e.preventDefault()
-  }
-
-  const handleProfileSheetTouchEnd = (e: React.TouchEvent<HTMLFormElement>) => {
-    const startY = profileSheetTouchStartYRef.current
-    const endY = e.changedTouches[0]?.clientY
-    profileSheetTouchStartYRef.current = null
-    setProfileSheetDragging(false)
-
-    if (startY === null || endY === undefined) return
-
-    const dragDistance = Math.max(0, endY - startY)
-    const sheetHeight = profileSheetRef.current?.offsetHeight ?? 0
-    const closeThreshold = sheetHeight > 0 ? Math.max(56, sheetHeight * 0.09) : 56
-
-    if (dragDistance > closeThreshold) {
-      const closeDistance = Math.max(sheetHeight + 72, dragDistance + 64)
-      applyProfileSheetOffset(closeDistance)
-      profileSheetCloseTimeoutRef.current = window.setTimeout(() => {
-        profileSheetCloseTimeoutRef.current = null
-        closeProfileModal()
-      }, 180)
-      return
-    }
-
-    applyProfileSheetOffset(0)
   }
 
   const openReadOnlyProfile = (profile: ReadOnlyProfile) => {

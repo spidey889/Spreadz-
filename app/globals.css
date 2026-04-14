@@ -640,6 +640,20 @@ display: flex;
           background: rgba(88, 101, 242, 0.24);
           color: #ffffff;
         }
+        .composer-counter {
+          flex-shrink: 0;
+          align-self: center;
+          color: #737b88;
+          font-size: 11px;
+          font-weight: 600;
+          line-height: 1;
+          letter-spacing: 0.02em;
+          font-variant-numeric: tabular-nums;
+          user-select: none;
+        }
+        .composer-counter.limit {
+          color: #ff7272;
+        }
 
         .send-btn {
           background: #5865F2;
@@ -672,6 +686,22 @@ display: flex;
         }
         .send-btn:hover { background: #6673f6; }
         .send-btn:active { transform: scale(0.95); }
+        .send-btn:disabled {
+          background: rgba(255,255,255,0.08);
+          color: #6f7886;
+          cursor: not-allowed;
+          box-shadow: none;
+          transform: none;
+        }
+        .send-btn:disabled::before {
+          background: rgba(255, 255, 255, 0.08);
+        }
+        .send-btn:disabled:hover {
+          background: rgba(255,255,255,0.08);
+        }
+        .send-btn:disabled:active {
+          transform: none;
+        }
         .send-btn:focus-visible,
         .gif-btn:focus-visible,
         .gif-picker-handle-zone:focus-visible,

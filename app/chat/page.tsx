@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { BackFeedbackModal } from '@/app/chat/components/BackFeedbackModal'
@@ -146,12 +146,76 @@ const GIF_MESSAGE_PREFIX = '[gif]:'
 const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
 const GIPHY_LIMIT = 20
 const GIF_PICKER_CLOSE_DURATION_MS = 200
+const MESSAGE_MAX_LENGTH = 500
+const MESSAGE_COUNTER_THRESHOLD = 400
 const MESSAGE_SELECT_COLUMNS = 'id, content, created_at, display_name, college, room_name, room_id, user_uuid'
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (text: string) => text.startsWith(GIF_MESSAGE_PREFIX)
 const getGifUrlFromMessage = (text: string) => isGifMessage(text) ? text.slice(GIF_MESSAGE_PREFIX.length).trim() : ''
 const buildGifMessageContent = (url: string) => `${GIF_MESSAGE_PREFIX}${url}`
+const clampComposerText = (value: string) => value.slice(0, MESSAGE_MAX_LENGTH)
+const isComposerMessageEmpty = (value: string) => value.trim().length === 0
+const isComposerMessageTooLong = (value: string) => value.length > MESSAGE_MAX_LENGTH
+
+const getContentEditableSelectionOffsets = (element: HTMLElement) => {
+  const contentLength = element.textContent?.length ?? 0
+
+  if (typeof window === 'undefined') {
+    return { start: contentLength, end: contentLength }
+  }
+
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0) {
+    return { start: contentLength, end: contentLength }
+  }
+
+  const range = selection.getRangeAt(0)
+  if (!element.contains(range.startContainer) || !element.contains(range.endContainer)) {
+    return { start: contentLength, end: contentLength }
+  }
+
+  const startRange = range.cloneRange()
+  startRange.selectNodeContents(element)
+  startRange.setEnd(range.startContainer, range.startOffset)
+  const start = startRange.toString().length
+
+  return {
+    start,
+    end: start + range.toString().length,
+  }
+}
+
+const setContentEditableCaret = (element: HTMLElement, offset: number) => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return
+
+  const selection = window.getSelection()
+  if (!selection) return
+
+  const range = document.createRange()
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+  let traversedLength = 0
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode
+    const textLength = textNode.textContent?.length ?? 0
+
+    if (traversedLength + textLength >= offset) {
+      range.setStart(textNode, Math.max(0, offset - traversedLength))
+      range.collapse(true)
+      selection.removeAllRanges()
+      selection.addRange(range)
+      return
+    }
+
+    traversedLength += textLength
+  }
+
+  range.selectNodeContents(element)
+  range.collapse(false)
+  selection.removeAllRanges()
+  selection.addRange(range)
+}
 
 const generateUsernameFromDisplayName = (displayName: string) => {
   const normalized = displayName
@@ -375,6 +439,67 @@ export default function GlobalChat() {
   useEffect(() => {
     currentRoomIndexRef.current = currentRoomIndex
   }, [currentRoomIndex])
+
+  const syncComposerText = useCallback((roomId: string, value: string) => {
+    setInputTexts(prev => {
+      if (prev[roomId] === value) return prev
+      return { ...prev, [roomId]: value }
+    })
+  }, [])
+
+  const handleComposerInput = useCallback((roomId: string, element: HTMLDivElement) => {
+    const rawText = element.textContent || ''
+    const nextText = clampComposerText(rawText)
+
+    if (rawText !== nextText) {
+      element.textContent = nextText
+      setContentEditableCaret(element, nextText.length)
+    }
+
+    syncComposerText(roomId, nextText)
+  }, [syncComposerText])
+
+  const handleComposerBeforeInput = useCallback((event: FormEvent<HTMLDivElement>) => {
+    const nativeEvent = event.nativeEvent as InputEvent
+
+    if (nativeEvent.inputType === 'insertParagraph' || nativeEvent.inputType === 'insertLineBreak') {
+      event.preventDefault()
+      return
+    }
+
+    if (!nativeEvent.inputType?.startsWith('insert')) return
+
+    const insertedText = nativeEvent.data ?? ''
+    if (!insertedText) return
+
+    const currentText = event.currentTarget.textContent || ''
+    const { start, end } = getContentEditableSelectionOffsets(event.currentTarget)
+    const nextLength = currentText.length - (end - start) + insertedText.length
+
+    if (nextLength > MESSAGE_MAX_LENGTH) {
+      event.preventDefault()
+    }
+  }, [])
+
+  const handleComposerPaste = useCallback((roomId: string, event: ClipboardEvent<HTMLDivElement>) => {
+    event.preventDefault()
+
+    const pastedText = event.clipboardData.getData('text')
+    if (!pastedText) return
+
+    const currentText = event.currentTarget.textContent || ''
+    const { start, end } = getContentEditableSelectionOffsets(event.currentTarget)
+    const availableLength = MESSAGE_MAX_LENGTH - (currentText.length - (end - start))
+
+    if (availableLength <= 0) return
+
+    const insertedText = pastedText.slice(0, availableLength)
+    const nextText = `${currentText.slice(0, start)}${insertedText}${currentText.slice(end)}`
+
+    event.currentTarget.textContent = nextText
+    setContentEditableCaret(event.currentTarget, start + insertedText.length)
+    syncComposerText(roomId, nextText)
+  }, [syncComposerText])
 
   const syncComposerMetrics = useCallback(() => {
     if (typeof window === 'undefined') return
@@ -2635,8 +2760,10 @@ export default function GlobalChat() {
   }, [clearGifPickerCloseTimeout, clearGifPickerFrame])
 
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string, contentOverride?: string) => {
-    const text = (contentOverride ?? inputTexts[roomId] ?? '').trim()
+    const rawText = contentOverride ?? inputTexts[roomId] ?? ''
+    const text = rawText.trim()
     if (!text) return
+    if (!isGifMessage(text) && isComposerMessageTooLong(rawText)) return
     const shouldUseOptimisticMessage = !isGifMessage(text)
 
     const userId = getCurrentUserId()
@@ -2762,6 +2889,17 @@ export default function GlobalChat() {
       await incrementUserMessagesSent(activeUsername)
       await updateRoomMessageStats(roomId, activeUsername)
     }
+  }
+
+  const handleComposerKeyDown = (roomId: string, event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Enter' || event.shiftKey) return
+
+    event.preventDefault()
+
+    const currentText = inputTexts[roomId] ?? event.currentTarget.textContent ?? ''
+    if (isComposerMessageEmpty(currentText) || isComposerMessageTooLong(currentText)) return
+
+    void handleSend(roomId)
   }
 
   const handleGifSelect = async (roomId: string, gifUrl: string) => {
@@ -2956,6 +3094,11 @@ export default function GlobalChat() {
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
           const isCurrentRoom = index === currentRoomIndex
           const isGifPickerOpen = activeGifPickerRoomId === room.id
+          const composerText = inputTexts[room.id] ?? ''
+          const remainingCharacters = Math.max(0, MESSAGE_MAX_LENGTH - composerText.length)
+          const showComposerCounter = composerText.length > MESSAGE_COUNTER_THRESHOLD
+          const isComposerAtLimit = composerText.length >= MESSAGE_MAX_LENGTH
+          const isSendDisabled = isComposerMessageEmpty(composerText) || isComposerMessageTooLong(composerText)
           const roomPanelClassName = `room-panel ${isCurrentRoom ? 'active-room' : (index < currentRoomIndex ? 'room-before' : 'room-after')}`
 
           return (
@@ -3213,17 +3356,10 @@ export default function GlobalChat() {
                       aria-label="Say something..."
                       data-placeholder="Say something..."
                       className="chat-input-editable"
-                      onInput={(e) => {
-                        const text = e.currentTarget.textContent || ''
-                        setInputTexts(prev => ({ ...prev, [room.id]: text }))
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleSend(room.id)
-                          e.currentTarget.textContent = ''
-                        }
-                      }}
+                      onBeforeInput={handleComposerBeforeInput}
+                      onInput={(e) => handleComposerInput(room.id, e.currentTarget)}
+                      onPaste={(e) => handleComposerPaste(room.id, e)}
+                      onKeyDown={(e) => handleComposerKeyDown(room.id, e)}
                       onFocus={() => {
                         setIsKeyboardOpen(true)
                         if (activeGifPickerRoomId === room.id) {
@@ -3251,14 +3387,23 @@ export default function GlobalChat() {
                         </svg>
                       </span>
                     </button>
+                    {showComposerCounter && (
+                      <span
+                        className={`composer-counter${isComposerAtLimit ? ' limit' : ''}`}
+                        aria-live="polite"
+                      >
+                        {remainingCharacters}
+                      </span>
+                    )}
                     <button
                       type="button"
                       className="send-btn"
                       aria-label="Send"
+                      disabled={isSendDisabled}
                       onClick={(e) => {
                         const btn = e.currentTarget as HTMLButtonElement
                         btn.blur()
-                        handleSend(room.id)
+                        void handleSend(room.id)
                       }}
                     >
                       <svg

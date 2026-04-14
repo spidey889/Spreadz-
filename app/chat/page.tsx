@@ -149,54 +149,12 @@ const GIF_MESSAGE_PREFIX = '[gif]:'
 const GIPHY_API_KEY = 'xVwYwZtF5oenEwBNTkTQrhkvzUKDfa4o'
 const GIPHY_LIMIT = 20
 const GIF_PICKER_CLOSE_DURATION_MS = 200
-const HACKER_NEWS_ROOM_ID = 'b87b934f-7b1a-41b6-9d89-3319a3442c0c'
-const HACKER_NEWS_REVEAL_DEFAULT_MIN_MS = 4000
-const HACKER_NEWS_REVEAL_DEFAULT_MAX_MS = 12000
-const HACKER_NEWS_REVEAL_CLUSTER_MIN_MS = 2000
-const HACKER_NEWS_REVEAL_CLUSTER_MAX_MS = 3000
-const HACKER_NEWS_REVEAL_THINKING_MIN_MS = 8000
-const HACKER_NEWS_REVEAL_THINKING_MAX_MS = 12000
-const HACKER_NEWS_REVEAL_CLUSTER_CHANCE = 0.35
 const MESSAGE_SELECT_COLUMNS = 'id, content, created_at, display_name, college, room_name, room_id, user_uuid'
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (text: string) => text.startsWith(GIF_MESSAGE_PREFIX)
 const getGifUrlFromMessage = (text: string) => isGifMessage(text) ? text.slice(GIF_MESSAGE_PREFIX.length).trim() : ''
 const buildGifMessageContent = (url: string) => `${GIF_MESSAGE_PREFIX}${url}`
-
-const getRandomRevealDelay = (min: number, max: number) =>
-  Math.floor(Math.random() * (max - min + 1)) + min
-
-const buildHackerNewsRevealSchedule = (messages: Message[]) => {
-  let cumulativeDelay = 0
-  let shouldUseLongPause = false
-
-  return messages.map((message, index) => {
-    if (index === 0) {
-      return {
-        messageId: message.id,
-        delay: 0,
-      }
-    }
-
-    const canCluster = index < messages.length - 1
-    const shouldCluster = !shouldUseLongPause && canCluster && Math.random() < HACKER_NEWS_REVEAL_CLUSTER_CHANCE
-
-    const gap = shouldUseLongPause
-      ? getRandomRevealDelay(HACKER_NEWS_REVEAL_THINKING_MIN_MS, HACKER_NEWS_REVEAL_THINKING_MAX_MS)
-      : shouldCluster
-        ? getRandomRevealDelay(HACKER_NEWS_REVEAL_CLUSTER_MIN_MS, HACKER_NEWS_REVEAL_CLUSTER_MAX_MS)
-        : getRandomRevealDelay(HACKER_NEWS_REVEAL_DEFAULT_MIN_MS, HACKER_NEWS_REVEAL_DEFAULT_MAX_MS)
-
-    cumulativeDelay += gap
-    shouldUseLongPause = shouldCluster
-
-    return {
-      messageId: message.id,
-      delay: cumulativeDelay,
-    }
-  })
-}
 
 const generateUsernameFromDisplayName = (displayName: string) => {
   const normalized = displayName
@@ -1875,21 +1833,6 @@ export default function GlobalChat() {
   }, [activeGifPickerRoomId, fetchGifResults, gifSearchInput])
 
   const triggerRevealsForMessages = useCallback((roomId: string, msgs: Message[]) => {
-    if (roomId === HACKER_NEWS_ROOM_ID) {
-      if (msgs.length === 0) return
-      const revealSchedule = buildHackerNewsRevealSchedule(msgs)
-
-      setVisibleMessageIdsByRoom(prev => ({
-        ...prev,
-        [roomId]: new Set([msgs[0].id]),
-      }))
-
-      revealSchedule.slice(1).forEach(({ messageId, delay }) => {
-        scheduleReveal(roomId, messageId, delay)
-      })
-      return
-    }
-
     msgs.forEach((m) => {
       scheduleReveal(roomId, m.id, 0)
     })

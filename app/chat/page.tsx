@@ -312,7 +312,7 @@ export default function GlobalChat() {
           })
         }
 
-        const insertGhostMessage = async (attempt = 0) => {
+        const insertGhostMessage = async (includeGhostUserUuid: boolean, attempt = 0) => {
           const ghostMessageId = crypto.randomUUID()
           return supabase
             .from('messages')
@@ -322,17 +322,29 @@ export default function GlobalChat() {
               display_name: ghostProfile.name,
               college: ghostProfile.college,
               room_id: roomId,
-              user_uuid: ghostProfile.uuid,
+              user_uuid: includeGhostUserUuid ? ghostProfile.uuid : null,
               created_at: new Date().toISOString(),
             })
             .select()
         }
 
-        let insertResult = await insertGhostMessage()
+        let includeGhostUserUuid = !ghostUserError
+        let insertResult = await insertGhostMessage(includeGhostUserUuid)
+
+        if (insertResult.error?.code === '23503' && includeGhostUserUuid) {
+          console.warn('[Ghost] Missing ghost user row, retrying without user_uuid', {
+            code: insertResult.error.code,
+            message: insertResult.error.message,
+            details: insertResult.error.details,
+            hint: insertResult.error.hint,
+          })
+          includeGhostUserUuid = false
+          insertResult = await insertGhostMessage(false)
+        }
 
         if (insertResult.error?.code === '23505') {
           console.warn('[Ghost] ID conflict, retrying insert', { code: insertResult.error.code })
-          insertResult = await insertGhostMessage(1)
+          insertResult = await insertGhostMessage(includeGhostUserUuid, 1)
         }
 
         const { data: insertData, error } = insertResult

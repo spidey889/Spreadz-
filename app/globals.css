@@ -690,17 +690,18 @@ display: flex;
         .send-btn:hover { background: #6673f6; }
         .send-btn:active { transform: scale(0.95); }
         .send-btn:disabled {
-          background: rgba(255,255,255,0.08);
-          color: #6f7886;
+          background: #5865F2;
+          color: #ffffff;
           cursor: not-allowed;
-          box-shadow: none;
+          box-shadow: 0 8px 18px rgba(88, 101, 242, 0.2);
           transform: none;
+          opacity: 1;
         }
         .send-btn:disabled::before {
-          background: rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.1);
         }
         .send-btn:disabled:hover {
-          background: rgba(255,255,255,0.08);
+          background: #5865F2;
         }
         .send-btn:disabled:active {
           transform: none;

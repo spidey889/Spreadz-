@@ -268,6 +268,8 @@ export default function GlobalChat() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: userMessage,
+            roomId,
+            ghostUuid: ghostProfile.uuid,
             ghostName: ghostProfile.name,
             ghostCollege: ghostProfile.college,
           }),
@@ -281,6 +283,10 @@ export default function GlobalChat() {
         }
         if (data?.enabled === false) {
           console.warn('[Ghost] API disabled', { roomId })
+          return
+        }
+        if (data?.skipped) {
+          console.warn('[Ghost] Reply skipped', { roomId, reason: data.reason })
           return
         }
         if (!data?.text) {
@@ -316,6 +322,7 @@ export default function GlobalChat() {
               display_name: ghostProfile.name,
               college: ghostProfile.college,
               room_id: roomId,
+              user_uuid: ghostProfile.uuid,
               created_at: new Date().toISOString(),
             })
             .select()

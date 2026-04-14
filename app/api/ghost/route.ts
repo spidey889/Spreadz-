@@ -1,15 +1,35 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/database.types'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const OPENROUTER_APP_URL = 'https://spreadz.in'
 const OPENROUTER_APP_TITLE = 'Spreadz'
 const DEFAULT_OPENROUTER_MODEL = 'arcee-ai/trinity-large-preview:free'
+const HISTORY_FETCH_LIMIT = 30
+const CONTEXT_FALLBACK_WINDOWS = [30, 20, 10, 5] as const
+const MAX_CONTEXT_TOKENS = 80_000
+const ESTIMATED_CHARS_PER_TOKEN = 4
 const MAX_TOKENS = 256
 
 type GhostRequestPayload = {
   message?: string
+  roomId?: string
+  ghostUuid?: string
   ghostName?: string
   ghostCollege?: string
+}
+
+type RoomMessageRow = Database['public']['Tables']['messages']['Row']
+
+type OpenRouterMessage = {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+}
+
+type HistoryMessage = {
+  role: 'user' | 'assistant'
+  content: string
 }
 
 type OpenRouterChatResponse = {
@@ -18,6 +38,113 @@ type OpenRouterChatResponse = {
       content?: string
     }
   }>
+}
+
+function createServerSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('[Ghost] Missing Supabase env for history context', {
+      hasSupabaseUrl: Boolean(supabaseUrl),
+      hasSupabaseAnonKey: Boolean(supabaseAnonKey),
+    })
+    return null
+  }
+
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
+}
+
+async function fetchRecentRoomMessages(roomId: string) {
+  const supabase = createServerSupabaseClient()
+  if (!supabase) return [] as RoomMessageRow[]
+
+  const { data, error } = await supabase
+    .from('messages')
+    .select('id, content, display_name, college, room_id, created_at, user_uuid')
+    .eq('room_id', roomId)
+    .order('created_at', { ascending: false })
+    .limit(HISTORY_FETCH_LIMIT)
+
+  if (error) {
+    console.error('[Ghost] Failed to fetch room history', {
+      roomId,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    })
+    return [] as RoomMessageRow[]
+  }
+
+  return (data || []).reverse()
+}
+
+function isGhostMessage(row: RoomMessageRow, ghostUuid: string | undefined, ghostName: string, ghostCollege: string) {
+  if (ghostUuid && row.user_uuid === ghostUuid) return true
+
+  const displayName = row.display_name?.trim() || ''
+  const college = row.college?.trim() || ''
+  return displayName === ghostName && college === ghostCollege
+}
+
+function formatHistoryMessage(row: RoomMessageRow, ghostUuid: string | undefined, ghostName: string, ghostCollege: string) {
+  const content = row.content?.trim()
+  if (!content) return null
+
+  if (isGhostMessage(row, ghostUuid, ghostName, ghostCollege)) {
+    return {
+      role: 'assistant',
+      content,
+    } satisfies HistoryMessage
+  }
+
+  const displayName = row.display_name?.trim() || 'Student'
+  const college = row.college?.trim()
+  const speakerLabel = college ? `${displayName} (${college})` : displayName
+
+  return {
+    role: 'user',
+    content: `${speakerLabel}: ${content}`,
+  } satisfies HistoryMessage
+}
+
+function estimateTokenCount(messages: OpenRouterMessage[]) {
+  return messages.reduce((total, message) => {
+    const contentTokens = Math.ceil(message.content.length / ESTIMATED_CHARS_PER_TOKEN)
+    return total + contentTokens + 8
+  }, 0)
+}
+
+function fitConversationWindow(systemPrompt: string, historyMessages: HistoryMessage[]) {
+  const uniqueWindows = Array.from(new Set([historyMessages.length, ...CONTEXT_FALLBACK_WINDOWS]))
+    .filter(limit => limit > 0)
+    .map(limit => Math.min(limit, historyMessages.length))
+    .filter((limit, index, limits) => limits.indexOf(limit) === index)
+
+  for (const limit of uniqueWindows) {
+    const trimmedHistory = historyMessages.slice(-limit)
+    const conversationMessages: OpenRouterMessage[] = [
+      { role: 'system', content: systemPrompt },
+      ...trimmedHistory,
+    ]
+    const estimatedTokens = estimateTokenCount(conversationMessages) + MAX_TOKENS
+
+    if (estimatedTokens <= MAX_CONTEXT_TOKENS) {
+      return {
+        conversationMessages,
+        estimatedTokens,
+        trimmedMessageCount: historyMessages.length - trimmedHistory.length,
+      }
+    }
+  }
+
+  return null
 }
 
 export async function POST(request: Request) {
@@ -41,6 +168,8 @@ export async function POST(request: Request) {
   }
 
   const message = payload.message?.trim()
+  const roomId = payload.roomId?.trim()
+  const ghostUuid = payload.ghostUuid?.trim()
   const ghostName = payload.ghostName?.trim() || 'Rohit'
   const ghostCollege = payload.ghostCollege?.trim() || 'IIT Bombay'
 
@@ -50,7 +179,9 @@ export async function POST(request: Request) {
   }
 
   console.log('[Ghost] Request received', {
+    roomId,
     messagePreview: message.slice(0, 120),
+    ghostUuid: ghostUuid || null,
     ghostName,
     ghostCollege,
   })
@@ -74,6 +205,49 @@ export async function POST(request: Request) {
     `never mention being ai.`,
   ].join('\n')
 
+  const historyRows = roomId ? await fetchRecentRoomMessages(roomId) : []
+  const historyMessages = historyRows
+    .map(row => formatHistoryMessage(row, ghostUuid, ghostName, ghostCollege))
+    .filter((entry): entry is HistoryMessage => Boolean(entry))
+
+  const latestHistoryContent = historyRows[historyRows.length - 1]?.content?.trim()
+  if (!historyMessages.length || latestHistoryContent !== message) {
+    historyMessages.push({
+      role: 'user',
+      content: `Student: ${message}`,
+    })
+  }
+
+  const fittedConversation = fitConversationWindow(systemPrompt, historyMessages)
+  if (!fittedConversation) {
+    const estimatedTokens = estimateTokenCount([
+      { role: 'system', content: systemPrompt },
+      ...historyMessages,
+    ]) + MAX_TOKENS
+
+    console.warn('[Ghost] Skipping reply because room context is too large', {
+      roomId,
+      historyMessageCount: historyMessages.length,
+      estimatedTokens,
+      maxContextTokens: MAX_CONTEXT_TOKENS,
+    })
+    return NextResponse.json(
+      {
+        skipped: true,
+        reason: 'context_limit',
+      },
+      { status: 200 }
+    )
+  }
+
+  console.log('[Ghost] Using room history context', {
+    roomId,
+    fetchedMessages: historyRows.length,
+    contextMessages: fittedConversation.conversationMessages.length - 1,
+    trimmedMessages: fittedConversation.trimmedMessageCount,
+    estimatedTokens: fittedConversation.estimatedTokens,
+  })
+
   let response: Response
   try {
     console.log('[Ghost] Calling OpenRouter model', { model })
@@ -87,10 +261,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message },
-        ],
+        messages: fittedConversation.conversationMessages,
         temperature: 0.9,
         max_tokens: MAX_TOKENS,
         stream: false,

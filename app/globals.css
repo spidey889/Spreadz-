@@ -86,12 +86,14 @@ body {
           --text-secondary: #AAB2BE;
           --text-muted: #7E8692;
           --headline-bg: #0D0D0D;
+          --accent-green: #71b9ff;
+          --accent-green-soft: rgba(113,185,255,0.16);
           --shadow-card: 0 20px 44px rgba(0, 0, 0, 0.34);
           color-scheme: dark;
         }
 
         html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
-        body { background: var(--bg); color: var(--text-primary); }
+        body { background: radial-gradient(circle at top, rgba(113,185,255,0.15), transparent 34%), var(--bg); color: var(--text-primary); }
 
         .rooms-container {
           position: relative;
@@ -124,6 +126,16 @@ body {
         .room-panel.room-after {
           transform: translate3d(0, 100%, 0);
         }
+        .room-panel::before {
+          content: '';
+          position: absolute;
+          inset: 0 0 auto;
+          height: 260px;
+          background: radial-gradient(circle at top center, rgba(113,185,255,0.18), transparent 72%);
+          pointer-events: none;
+          z-index: 0;
+        }
+
         .header,
         .ai-card-wrap,
         .room-messages,

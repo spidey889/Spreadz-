@@ -2,7 +2,6 @@
 
 import type { CSSProperties, MutableRefObject } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import type { Database } from '@/lib/database.types'
 import { supabase } from '@/lib/supabase'
 
 export type BackFeedbackSubmission = {
@@ -17,6 +16,13 @@ type BackFeedbackModalProps = {
 }
 
 type FlowScreen = 'rating' | 'reason' | 'details' | 'thanks'
+
+type FeedbackDraftWrite = {
+  feedbackId?: string
+  rating?: number
+  reason?: string | null
+  otherText?: string | null
+}
 
 const RATING_HEADING = 'Rate Us! \u2B50'
 const RATING_SUBTEXT = 'took us months to build this. 2 seconds to rate it. \u{1F60A}'
@@ -97,17 +103,64 @@ export function BackFeedbackModal({ open, onClose }: BackFeedbackModalProps) {
     }
   }
 
-  async function getCurrentUserId() {
+  async function ensureFeedbackSession() {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
     if (sessionError) {
       console.log('[BackFeedbackModal] getSession failed:', sessionError)
     }
 
-    return sessionData?.session?.user?.id ?? null
+    let session = sessionData?.session ?? null
+
+    if (!session) {
+      const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously()
+
+      if (signInError) {
+        console.log('[BackFeedbackModal] anonymous sign-in failed:', signInError)
+        return {
+          accessToken: '',
+          userId: null,
+        }
+      }
+
+      session = signInData?.session ?? null
+    }
+
+    return {
+      accessToken: session?.access_token?.trim() || '',
+      userId: session?.user?.id ?? null,
+    }
   }
 
-  async function ensureFeedbackRow(payload: Database['public']['Tables']['feedback']['Insert']) {
+  async function saveFeedback(write: FeedbackDraftWrite) {
+    const feedbackSession = await ensureFeedbackSession()
+    const response = await fetch('/api/feedback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(feedbackSession.accessToken
+          ? { Authorization: `Bearer ${feedbackSession.accessToken}` }
+          : {}),
+      },
+      body: JSON.stringify(write),
+    })
+
+    const responsePayload = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      console.log('[BackFeedbackModal] feedback save failed:', {
+        write,
+        status: response.status,
+        responsePayload,
+        userId: feedbackSession.userId,
+      })
+      return null
+    }
+
+    return typeof responsePayload?.id === 'string' ? responsePayload.id : null
+  }
+
+  async function ensureFeedbackRow(payload: FeedbackDraftWrite) {
     if (feedbackRowIdRef.current) {
       return feedbackRowIdRef.current
     }
@@ -117,28 +170,14 @@ export function BackFeedbackModal({ open, onClose }: BackFeedbackModalProps) {
     }
 
     feedbackInsertPromiseRef.current = (async () => {
-      const insertPayload: Database['public']['Tables']['feedback']['Insert'] = {
-        ...payload,
-        user_id: await getCurrentUserId(),
-        created_at: new Date().toISOString(),
-      }
+      const feedbackId = await saveFeedback(payload)
 
-      const { data, error } = await supabase
-        .from('feedback')
-        .insert(insertPayload)
-        .select('id')
-        .single()
-
-      if (error) {
-        console.log('[BackFeedbackModal] feedback insert failed:', {
-          payload: insertPayload,
-          error,
-        })
+      if (!feedbackId) {
         return null
       }
 
-      feedbackRowIdRef.current = data.id
-      return data.id
+      feedbackRowIdRef.current = feedbackId
+      return feedbackId
     })()
 
     const feedbackId = await feedbackInsertPromiseRef.current
@@ -146,23 +185,18 @@ export function BackFeedbackModal({ open, onClose }: BackFeedbackModalProps) {
     return feedbackId
   }
 
-  async function updateFeedbackRow(update: Database['public']['Tables']['feedback']['Update']) {
+  async function updateFeedbackRow(update: Omit<FeedbackDraftWrite, 'feedbackId'>) {
     const feedbackId = feedbackRowIdRef.current
     if (!feedbackId) {
       return false
     }
 
-    const { error } = await supabase
-      .from('feedback')
-      .update(update)
-      .eq('id', feedbackId)
+    const updatedFeedbackId = await saveFeedback({
+      feedbackId,
+      ...update,
+    })
 
-    if (error) {
-      console.log('[BackFeedbackModal] feedback update failed:', {
-        feedbackId,
-        update,
-        error,
-      })
+    if (!updatedFeedbackId) {
       return false
     }
 
@@ -247,7 +281,8 @@ export function BackFeedbackModal({ open, onClose }: BackFeedbackModalProps) {
       }
 
       const didUpdateOtherText = await updateFeedbackRow({
-        other_text: includeText ? otherText.trim() || null : null,
+        reason,
+        otherText: includeText ? otherText.trim() || null : null,
       })
 
       if (!didUpdateOtherText) {

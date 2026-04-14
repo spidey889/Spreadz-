@@ -19,18 +19,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 @keyframes shine {
   0%,
   80% {
@@ -42,53 +30,19 @@ body {
   }
 }
 
-.animate-fade-in {
-  animation: fade-in 0.25s ease-out;
-}
-
-/* Subtle scrollbar */
-.chat-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #2a2a30 transparent;
-}
-
-.chat-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-
-.chat-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.chat-scroll::-webkit-scrollbar-thumb {
-  background: #2a2a30;
-  border-radius: 4px;
-}
-
 /* Chat page styles (moved from page.tsx) */
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
-          --app-viewport-height: 100dvh;
           --composer-reserved-space: 72px;
-          --keyboard-offset: 0px;
-          --composer-viewport-gap: 0px;
           --bg: #111214;
-          --surface: #1a1d22;
-          --surface-elevated: #20242b;
-          --surface-soft: #15181c;
           --border: #2E2F35;
           --border-soft: rgba(255,255,255,0.08);
-          --border-strong: rgba(255,255,255,0.12);
-          --discord-blurple: #5865F2;
           --text-primary: #F2F3F5;
           --text-msg: #E4E8EE;
           --text-secondary: #AAB2BE;
           --text-muted: #7E8692;
           --headline-bg: #0D0D0D;
-          --accent-green: #71b9ff;
-          --accent-green-soft: rgba(113,185,255,0.16);
-          --shadow-card: 0 20px 44px rgba(0, 0, 0, 0.34);
           color-scheme: dark;
         }
 
@@ -172,8 +126,6 @@ body {
           object-position: left center;
           filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.24));
         }
-        .settings-btn { background: none; border: none; cursor: pointer; color: var(--text-primary); padding: 4px; transition: color 0.1s; }
-        .settings-btn:hover { color: var(--text-primary); }
         .profile-avatar-btn {
           width: 34px;
           height: 34px;
@@ -269,13 +221,6 @@ display: flex;
         }
         .card-status-dot {
           display: none;
-        }
-        .card-kicker {
-          color: var(--text-muted);
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.03em;
-          text-align: right;
         }
         .ai-headline {
           font-size: 18px;
@@ -400,21 +345,6 @@ display: flex;
           opacity: 0.96;
           font-weight: 600;
           letter-spacing: 0.02em;
-        }
-        .hint-badge {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          padding: 4px 9px;
-          border-radius: 999px;
-          background: rgba(88, 101, 242, 0.14);
-          border: 1px solid rgba(132, 142, 255, 0.2);
-          color: #c0c6ff;
-          font-size: 9px;
-          font-weight: 700;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
         }
         .gif-picker {
           margin: 0 12px 8px;
@@ -723,34 +653,13 @@ display: flex;
         .sheet-item:focus-visible,
         .menu-item:focus-visible,
         .friend-request-btn:focus-visible,
-        .friends-close:focus-visible,
-        .interest-chip:focus-visible,
-        .interest-done-btn:focus-visible {
+        .friends-close:focus-visible {
           outline: none;
           box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2);
         }
 
         .input-area {
           z-index: 4;
-        }
-
-        .composer-debug {
-          position: fixed;
-          top: calc(env(safe-area-inset-top, 0px) + 8px);
-          right: 8px;
-          z-index: 9999;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          max-width: min(220px, calc(100vw - 16px));
-          padding: 8px 10px;
-          border-radius: 8px;
-          background: rgba(9, 10, 12, 0.92);
-          color: #ffffff;
-          font-size: 11px;
-          line-height: 1.3;
-          pointer-events: none;
-          white-space: nowrap;
         }
 
         .profile-overlay {
@@ -1454,15 +1363,6 @@ display: flex;
           }
         }
         .hidden { display: none !important; }
-        .interest-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
-        .interest-sheet { background: linear-gradient(180deg, rgba(27,29,34,0.98), rgba(18,20,24,0.98)); border: 1px solid var(--border-soft); border-radius: 20px 20px 0 0; padding: 24px; width: 100%; max-width: 440px; }
-        .interest-title { font-size: 18px; font-weight: 700; color: #fff; margin: 0 0 4px; }
-        .interest-subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 20px; }
-        .interest-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-        .interest-chip { background: rgba(255,255,255,0.04); border: 1px solid var(--border-soft); color: var(--text-secondary); padding: 8px 16px; border-radius: 20px; font-size: 14px; cursor: pointer; transition: all 0.15s; font-family: inherit; }
-        .interest-chip.selected { background: #5865F2; border-color: #5865F2; color: #fff; }
-        .interest-done-btn { margin-top: 20px; width: 100%; background: #5865F2; color: white; border: none; border-radius: 12px; padding: 14px; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; transition: opacity 0.15s; box-shadow: 0 16px 30px rgba(88, 101, 242, 0.24); }
-        .interest-done-btn:disabled { opacity: 0.4; cursor: default; }
 
         @media (min-width: 768px) {
           .rooms-container { padding: 0; }
@@ -1485,7 +1385,6 @@ display: flex;
           .logo-img { height: 76px; margin-top: -18px; margin-bottom: -15px; }
           .profile-avatar-btn { width: 30px; height: 30px; }
           .ai-card-wrap { margin-left: 10px; margin-right: 10px; }
-          .card-kicker { text-align: left; }
         }
       
 

@@ -54,10 +54,11 @@ export async function POST(request: Request) {
   })
 
   const model = process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL
+  const apiKeySuffix = apiKey.slice(-6)
   console.log('[Ghost] OpenRouter auth config', {
     hasApiKey: true,
     apiKeyLength: apiKey.length,
-    hasBearerPrefix: `Bearer ${apiKey}`.startsWith('Bearer '),
+    apiKeySuffix,
     model,
   })
 
@@ -97,6 +98,13 @@ export async function POST(request: Request) {
 
   if (!response.ok) {
     const errorBody = await response.text()
+    if (response.status === 401) {
+      console.error('[Ghost] OpenRouter 401 Unauthorized', {
+        apiKeySuffix,
+        statusText: response.statusText,
+        errorBody,
+      })
+    }
     console.error('[Ghost] OpenRouter response error', {
       status: response.status,
       statusText: response.statusText,

@@ -258,6 +258,36 @@ display: flex;
           -webkit-touch-callout: none;
         }
         .room-messages::-webkit-scrollbar { display: none; }
+        .jump-latest-btn {
+          position: absolute;
+          left: 50%;
+          bottom: 18px;
+          transform: translateX(-50%);
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 12px;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 999px;
+          background: rgba(14, 16, 20, 0.94);
+          color: #f5f7fa;
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          z-index: 3;
+          cursor: pointer;
+          transition: transform 0.18s ease, filter 0.18s ease;
+        }
+        .jump-latest-btn:hover {
+          filter: brightness(1.05);
+          transform: translateX(-50%) translateY(-1px);
+        }
+        .jump-latest-btn:active {
+          transform: translateX(-50%);
+        }
 
         .messages { display: flex; flex-direction: column; min-height: 100%; padding: 0 14px 10px; }
         .messages-spacer { flex: 1 1 auto; min-height: 12px; }

@@ -300,6 +300,7 @@ export default function GlobalChat() {
   const [, setFriendRequestQueue] = useState<FriendRequest[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
   const [backFeedbackModalOpen, setBackFeedbackModalOpen] = useState(false)
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
   const userIdRef = useRef<string>('')
   const displayNameToUsernameRef = useRef<Record<string, string>>({})
@@ -358,6 +359,8 @@ export default function GlobalChat() {
   const pendingProfileReportMessageRef = useRef<Message | null>(null)
   const roomIsAtBottomByIdRef = useRef<Record<string, boolean>>({})
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
+  const activeRoomMessagesList = activeRoomId ? roomMessages[activeRoomId] : undefined
+  const activeRoomVisibleMessageIds = activeRoomId ? visibleMessageIdsByRoom[activeRoomId] : undefined
 
   const openBackFeedbackModal = useCallback(() => {
     setBackFeedbackModalOpen(true)
@@ -386,6 +389,43 @@ export default function GlobalChat() {
     root.style.setProperty('--composer-reserved-space', `${reservedSpace}px`)
   }, [])
 
+  const isMessageListAtBottom = useCallback((element: HTMLDivElement | null) => {
+    if (!element) return true
+
+    return element.scrollTop + element.clientHeight >= element.scrollHeight - ROOM_SCROLL_EDGE_THRESHOLD_PX
+  }, [])
+
+  const setRoomBottomState = useCallback((roomId: string | null, isAtBottom: boolean) => {
+    if (!roomId) return
+
+    roomIsAtBottomByIdRef.current[roomId] = isAtBottom
+
+    if (roomId === activeRoomId) {
+      setShowJumpToLatest(!isAtBottom)
+    }
+  }, [activeRoomId])
+
+  const updateRoomBottomState = useCallback((roomId: string, element: HTMLDivElement | null) => {
+    if (!roomId || !element) return
+
+    setRoomBottomState(roomId, isMessageListAtBottom(element))
+  }, [isMessageListAtBottom, setRoomBottomState])
+
+  const syncActiveRoomBottomState = useCallback(() => {
+    if (!activeRoomId) {
+      setShowJumpToLatest(false)
+      return
+    }
+
+    const element = activeRoomMessagesRef.current
+    if (!element) {
+      setShowJumpToLatest(false)
+      return
+    }
+
+    setRoomBottomState(activeRoomId, isMessageListAtBottom(element))
+  }, [activeRoomId, isMessageListAtBottom, setRoomBottomState])
+
   const scrollCurrentRoomToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     const scrollElement = activeRoomMessagesRef.current
     const endEl = messageEndRefs.current[currentRoomIndex]
@@ -398,19 +438,9 @@ export default function GlobalChat() {
     if (scrollElement) {
       scrollElement.scrollTop = scrollElement.scrollHeight
     }
-  }, [currentRoomIndex])
 
-  const isMessageListAtBottom = useCallback((element: HTMLDivElement | null) => {
-    if (!element) return true
-
-    return element.scrollTop + element.clientHeight >= element.scrollHeight - ROOM_SCROLL_EDGE_THRESHOLD_PX
-  }, [])
-
-  const updateRoomBottomState = useCallback((roomId: string, element: HTMLDivElement | null) => {
-    if (!roomId || !element) return
-
-    roomIsAtBottomByIdRef.current[roomId] = isMessageListAtBottom(element)
-  }, [isMessageListAtBottom])
+    setRoomBottomState(activeRoomId, true)
+  }, [activeRoomId, currentRoomIndex, setRoomBottomState])
 
   const handleGifMediaLoad = useCallback((roomId?: string | null) => {
     if (!roomId || roomId !== activeRoomId) return
@@ -431,10 +461,10 @@ export default function GlobalChat() {
         pendingGifLoadScrollRoomIdRef.current = null
         scrollCurrentRoomToBottom('auto')
         element.scrollTop = element.scrollHeight
-        roomIsAtBottomByIdRef.current[roomId] = true
+        setRoomBottomState(roomId, true)
       })
     })
-  }, [activeRoomId, scrollCurrentRoomToBottom])
+  }, [activeRoomId, scrollCurrentRoomToBottom, setRoomBottomState])
 
   const clearRoomDragFrame = useCallback(() => {
     if (roomDragFrameRef.current !== null && typeof window !== 'undefined') {
@@ -2038,8 +2068,31 @@ export default function GlobalChat() {
   }, [authReady, muteStateReady, rooms.length, handleRealtimeMessage])
 
   useEffect(() => {
-    scrollCurrentRoomToBottom('smooth')
-  }, [roomMessages, currentRoomIndex, scrollCurrentRoomToBottom, visibleMessageIdsByRoom])
+    if (!activeRoomId) {
+      setShowJumpToLatest(false)
+      return
+    }
+
+    scrollCurrentRoomToBottom('auto')
+  }, [activeRoomId, scrollCurrentRoomToBottom])
+
+  useEffect(() => {
+    if (!activeRoomId) return
+
+    const shouldStickToBottom = roomIsAtBottomByIdRef.current[activeRoomId] ?? true
+    if (shouldStickToBottom) {
+      scrollCurrentRoomToBottom('smooth')
+      return
+    }
+
+    syncActiveRoomBottomState()
+  }, [
+    activeRoomId,
+    activeRoomMessagesList,
+    activeRoomVisibleMessageIds,
+    scrollCurrentRoomToBottom,
+    syncActiveRoomBottomState,
+  ])
 
   useEffect(() => {
     setCardCollapsed(false)
@@ -3046,6 +3099,17 @@ export default function GlobalChat() {
                   })}
                   <div ref={(el) => { messageEndRefs.current[index] = el }} />
                 </div>
+                {isCurrentRoom && showJumpToLatest && messages.length > 0 && (
+                  <button
+                    type="button"
+                    className="jump-latest-btn"
+                    onClick={() => scrollCurrentRoomToBottom('smooth')}
+                    aria-label="Jump to latest messages"
+                  >
+                    <span aria-hidden="true">↓</span>
+                    <span>Latest</span>
+                  </button>
+                )}
               </div>
 
               <div ref={isCurrentRoom ? composerLayerRef : undefined} className="composer-layer">

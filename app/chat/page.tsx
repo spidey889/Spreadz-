@@ -22,6 +22,7 @@ interface Room {
 
 interface Message {
   id: string
+  renderKey?: string
   username: string
   initials: string
   university: string
@@ -879,6 +880,7 @@ export default function GlobalChat() {
     const resolvedCollege = m.college || ''
     return {
       id: m.id,
+      renderKey: m.id,
       username: resolvedName,
       initials: getInitials(resolvedName),
       university: resolvedCollege,
@@ -2013,7 +2015,9 @@ export default function GlobalChat() {
 
         return {
           ...prev,
-          [roomId]: existing.map(msg => msg.id === optimisticTempId ? incomingMessage : msg),
+          [roomId]: existing.map(msg => msg.id === optimisticTempId
+            ? { ...incomingMessage, renderKey: msg.renderKey || optimisticTempId }
+            : msg),
         }
       }
 
@@ -2674,6 +2678,7 @@ export default function GlobalChat() {
 
     const optimisticMsg: Message = {
       id: tempId,
+      renderKey: tempId,
       username: activeDisplayName,
       initials: getInitials(activeDisplayName),
       university: activeCollege,
@@ -2750,7 +2755,9 @@ export default function GlobalChat() {
           }
 
           return existing.some(msg => msg.id === tempId)
-            ? existing.map(msg => msg.id === tempId ? serverMessage : msg)
+            ? existing.map(msg => msg.id === tempId
+              ? { ...serverMessage, renderKey: msg.renderKey || tempId }
+              : msg)
             : [...withoutTemp, serverMessage]
         })(),
       }))
@@ -3089,7 +3096,7 @@ export default function GlobalChat() {
                     const isReadOnlyProfileAvatar = isFirstInGroup && !isOwnMessage
 
                     return (
-                      <div key={msg.id} className={`msg-reveal${isGifMessage(msg.text) ? ' has-media' : ''}`}
+                      <div key={msg.renderKey || msg.id} className={`msg-reveal${isGifMessage(msg.text) ? ' has-media' : ''}`}
                         onMouseDown={() => startLongPress(msg)}
                         onMouseUp={clearLongPress}
                         onMouseLeave={clearLongPress}

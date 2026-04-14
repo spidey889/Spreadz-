@@ -5,13 +5,17 @@ import { supabase } from '@/lib/supabase'
 
 const USER_UUID_STORAGE_KEY = 'spreadz_user_uuid'
 
+type MutedUsersSectionProps = {
+  className?: string
+}
+
 type MutedUser = {
   id: string
   displayName: string
   username: string
 }
 
-export function MutedUsersSection() {
+export function MutedUsersSection({ className = '' }: MutedUsersSectionProps) {
   const [mutedUsers, setMutedUsers] = useState<MutedUser[]>([])
   const [loading, setLoading] = useState(true)
   const [busyUserId, setBusyUserId] = useState('')
@@ -125,7 +129,7 @@ export function MutedUsersSection() {
   }, [])
 
   return (
-    <div className="mt-5 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">
+    <div className={`rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 ${className}`.trim()}>
       <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Muted people</div>
       <div className="mt-2 text-sm text-slate-500">People you muted will show up here.</div>
 

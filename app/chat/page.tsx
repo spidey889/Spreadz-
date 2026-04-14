@@ -70,7 +70,6 @@ const COLLEGE_STORAGE_KEY = 'spreadz_college'
 const FRIENDS_STORAGE_KEY = 'spreadz_friends'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const GHOST_PROFILE_STORAGE_KEY = 'spreadz_ghost_profiles'
-const AI_GHOST_SILENCE_MS = 10 * 60 * 1000
 const GHOST_NAMES = [
   'Aarav Mehta',
   'Priya Sharma',
@@ -144,7 +143,6 @@ export default function GlobalChat() {
   const userIdRef = useRef<string>('')
   const ghostProfilesRef = useRef<Record<string, GhostProfile>>({})
   const ghostProfilesLoadedRef = useRef(false)
-  const ghostPendingRef = useRef<Record<string, boolean>>({})
 
   const roomPanelRefs = useRef<(HTMLDivElement | null)[]>([])
   const roomMessageRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -255,46 +253,13 @@ export default function GlobalChat() {
     return profile
   }, [])
 
-  const isRoomEmptyForGhost = useCallback(
-    (roomId: string, ghostUuid: string, currentUserId: string, snapshot?: Message[]) => {
-      const messages = snapshot || roomMessages[roomId] || []
-      const now = Date.now()
-      return !messages.some(msg => {
-        const msgUser = msg.user_uuid
-        if (msgUser === currentUserId || msgUser === ghostUuid) return false
-        const createdAt = msg.created_at ? new Date(msg.created_at).getTime() : now
-        return now - createdAt < AI_GHOST_SILENCE_MS
-      })
-    },
-    [roomMessages]
-  )
-
+  // Test mode: fire the ghost flow for every successful user send.
   const requestGhostReply = useCallback(
-    async (roomId: string, userMessage: string, snapshot?: Message[]) => {
-      const currentUserId = getCurrentUserId()
-      if (!currentUserId) return
-
+    async (roomId: string, userMessage: string) => {
       const ghostProfile = getGhostProfile(roomId)
-      const roomIsEmpty = isRoomEmptyForGhost(roomId, ghostProfile.uuid, currentUserId, snapshot)
-      if (!roomIsEmpty) {
-        console.log('[Ghost] Skip: room not empty', { roomId })
-        return
-      }
-      if (ghostPendingRef.current[roomId]) {
-        console.log('[Ghost] Skip: pending request', { roomId })
-        return
-      }
-
-      ghostPendingRef.current[roomId] = true
       const delay = 700 + Math.random() * 900
 
       await new Promise(resolve => setTimeout(resolve, delay))
-
-      if (!isRoomEmptyForGhost(roomId, ghostProfile.uuid, currentUserId)) {
-        console.log('[Ghost] Cancelled after delay: room not empty', { roomId })
-        ghostPendingRef.current[roomId] = false
-        return
-      }
 
       try {
         console.log('[Ghost] Calling /api/ghost', { roomId, messagePreview: userMessage.slice(0, 80) })
@@ -312,17 +277,14 @@ export default function GlobalChat() {
 
         if (!response.ok) {
           console.error('[Ghost] API error', { status: response.status, data })
-          ghostPendingRef.current[roomId] = false
           return
         }
         if (data?.enabled === false) {
           console.warn('[Ghost] API disabled', { roomId })
-          ghostPendingRef.current[roomId] = false
           return
         }
         if (!data?.text) {
           console.warn('[Ghost] Empty API response', { roomId, data })
-          ghostPendingRef.current[roomId] = false
           return
         }
 
@@ -375,7 +337,6 @@ export default function GlobalChat() {
             details: error?.details,
             hint: error?.hint,
           })
-          ghostPendingRef.current[roomId] = false
           return
         }
 
@@ -386,11 +347,11 @@ export default function GlobalChat() {
           if (existing.some(msg => msg.id === serverMessage.id)) return prev
           return { ...prev, [roomId]: [...existing, serverMessage] }
         })
-      } finally {
-        ghostPendingRef.current[roomId] = false
+      } catch (error) {
+        console.error('[Ghost] Request failed', error)
       }
     },
-    [buildMessageFromRow, getCurrentUserId, getGhostProfile, isRoomEmptyForGhost, scheduleReveal]
+    [buildMessageFromRow, getGhostProfile, scheduleReveal]
   )
 
   useEffect(() => {
@@ -939,8 +900,6 @@ export default function GlobalChat() {
       reveal_delay: 0,
     }
 
-    const ghostSnapshot = [...(roomMessages[roomId] || []), optimisticMsg]
-
     // Reveal immediately for user's own message
     scheduleReveal(tempId, 0)
 
@@ -978,7 +937,7 @@ export default function GlobalChat() {
       // Ensure the server-returned success message is also revealed
       scheduleReveal(serverMessage.id, 0)
 
-      requestGhostReply(roomId, text, ghostSnapshot)
+      requestGhostReply(roomId, text)
     }
   }
 

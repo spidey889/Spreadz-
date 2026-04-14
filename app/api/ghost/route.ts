@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const DEFAULT_OPENROUTER_MODEL = 'arcee-ai/trinity-large-preview:free'
+const OPENROUTER_API_KEY_ENV = 'OPENROUTER_API_KEY'
 const MAX_TOKENS = 256
 
 type GhostRequestPayload = {
@@ -24,10 +25,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ enabled: false }, { status: 200 })
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim()
+  const apiKey = process.env[OPENROUTER_API_KEY_ENV]?.trim()
   if (!apiKey) {
-    console.error('[Ghost] Missing OPENROUTER_API_KEY')
-    return NextResponse.json({ error: 'Missing OPENROUTER_API_KEY' }, { status: 500 })
+    console.error(`[Ghost] Missing ${OPENROUTER_API_KEY_ENV}`)
+    return NextResponse.json({ error: `Missing ${OPENROUTER_API_KEY_ENV}` }, { status: 500 })
   }
 
   let payload: GhostRequestPayload
@@ -64,12 +65,13 @@ export async function POST(request: Request) {
 
   let response: Response
   try {
+    const authorizationHeader = `Bearer ${apiKey}`
     console.log('[Ghost] Calling OpenRouter model', { model })
     response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: authorizationHeader,
       },
       body: JSON.stringify({
         model,

@@ -856,6 +856,24 @@ export default function GlobalChat() {
     }))
   }, [])
 
+  const replaceVisibleMessageId = useCallback((roomId: string, fromId: string, toId: string) => {
+    if (!roomId || !fromId || !toId || fromId === toId) return
+
+    setVisibleMessageIdsByRoom(prev => {
+      const roomVisibleMessageIds = prev[roomId]
+      if (!roomVisibleMessageIds?.has(fromId)) return prev
+
+      const nextRoomVisibleMessageIds = new Set(roomVisibleMessageIds)
+      nextRoomVisibleMessageIds.delete(fromId)
+      nextRoomVisibleMessageIds.add(toId)
+
+      return {
+        ...prev,
+        [roomId]: nextRoomVisibleMessageIds,
+      }
+    })
+  }, [])
+
   const buildMessageFromRow = useCallback((m: MessageRow, fallbackUsername?: string): Message => {
     const resolvedName = m.display_name || 'Anonymous'
     const resolvedCollege = m.college || ''
@@ -1991,6 +2009,8 @@ export default function GlobalChat() {
           return { ...prev, [roomId]: [...existing, incomingMessage] }
         }
 
+        replaceVisibleMessageId(roomId, optimisticTempId, incomingMessage.id)
+
         return {
           ...prev,
           [roomId]: existing.map(msg => msg.id === optimisticTempId ? incomingMessage : msg),
@@ -2031,7 +2051,7 @@ export default function GlobalChat() {
         return { ...prev, [roomId]: nextRoomMessages }
       })
     })()
-  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, getCurrentUserId, getPendingMessageKey, handleIncomingMessageNotification, isMutedUser, normalizeMessageRow, scheduleReveal])
+  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, getCurrentUserId, getPendingMessageKey, handleIncomingMessageNotification, isMutedUser, normalizeMessageRow, replaceVisibleMessageId, scheduleReveal])
 
 
   // Fetch messages for the active room and its adjacent neighbors as room state changes.
@@ -2734,6 +2754,10 @@ export default function GlobalChat() {
             : [...withoutTemp, serverMessage]
         })(),
       }))
+
+      if (shouldUseOptimisticMessage) {
+        replaceVisibleMessageId(roomId, tempId, serverMessage.id)
+      }
 
       // Ensure the server-returned success message is also revealed
       scheduleReveal(roomId, serverMessage.id, 0)

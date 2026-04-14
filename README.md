@@ -1,7 +1,7 @@
 ﻿# Spreadz
 
 Real-time global chat where strangers discuss trending topics together.
-Swipe to find new people and fresh discussions — no commitment, no friend requests.
+Swipe to find new people and live discussions — no commitment, no friend requests.
 
 ## What's built
 - Live messaging with Supabase real-time

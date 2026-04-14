@@ -117,6 +117,7 @@ const formatProfileJoinedLabel = (isoString?: string | null) => {
 }
 
 const ROOM_SCROLL_EDGE_THRESHOLD_PX = 10
+const ROOM_PROGRAMMATIC_SCROLL_SUPPRESS_MS = 500
 const ROOM_DRAG_SETTLE_DURATION_MS = 260
 const ROOM_DRAG_ACTIVATION_DELTA_PX = 8
 const ROOM_DRAG_EDGE_THRESHOLD_PX = 12
@@ -422,6 +423,8 @@ export default function GlobalChat() {
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
   const pendingProfileReportMessageRef = useRef<Message | null>(null)
   const roomIsAtBottomByIdRef = useRef<Record<string, boolean>>({})
+  const roomHasUserScrolledByIdRef = useRef<Record<string, boolean>>({})
+  const roomProgrammaticScrollUntilByIdRef = useRef<Record<string, number>>({})
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
   const activeRoomMessagesList = activeRoomId ? roomMessages[activeRoomId] : undefined
   const activeRoomVisibleMessageIds = activeRoomId ? visibleMessageIdsByRoom[activeRoomId] : undefined
@@ -524,16 +527,25 @@ export default function GlobalChat() {
     if (!roomId) return
 
     roomIsAtBottomByIdRef.current[roomId] = isAtBottom
+    const hasUserScrolled = roomHasUserScrolledByIdRef.current[roomId] ?? false
 
     if (roomId === activeRoomId) {
-      setShowJumpToLatest(!isAtBottom)
+      setShowJumpToLatest(hasUserScrolled && !isAtBottom)
     }
   }, [activeRoomId])
 
   const updateRoomBottomState = useCallback((roomId: string, element: HTMLDivElement | null) => {
     if (!roomId || !element) return
 
-    setRoomBottomState(roomId, isMessageListAtBottom(element))
+    const isAtBottom = isMessageListAtBottom(element)
+    const programmaticScrollUntil = roomProgrammaticScrollUntilByIdRef.current[roomId] ?? 0
+    const isProgrammaticScroll = Date.now() < programmaticScrollUntil
+
+    if (!isProgrammaticScroll) {
+      roomHasUserScrolledByIdRef.current[roomId] = true
+    }
+
+    setRoomBottomState(roomId, isAtBottom)
   }, [isMessageListAtBottom, setRoomBottomState])
 
   const syncActiveRoomBottomState = useCallback(() => {
@@ -555,6 +567,10 @@ export default function GlobalChat() {
     const scrollElement = activeRoomMessagesRef.current
     const endEl = messageEndRefs.current[currentRoomIndex]
     if (!endEl && !scrollElement) return
+
+    if (activeRoomId) {
+      roomProgrammaticScrollUntilByIdRef.current[activeRoomId] = Date.now() + ROOM_PROGRAMMATIC_SCROLL_SUPPRESS_MS
+    }
 
     if (endEl) {
       endEl.scrollIntoView({ behavior, block: 'end' })
@@ -2198,6 +2214,7 @@ export default function GlobalChat() {
       return
     }
 
+    roomHasUserScrolledByIdRef.current[activeRoomId] = false
     scrollCurrentRoomToBottom('auto')
   }, [activeRoomId, scrollCurrentRoomToBottom])
 
@@ -3242,18 +3259,21 @@ export default function GlobalChat() {
                   })}
                   <div ref={(el) => { messageEndRefs.current[index] = el }} />
                 </div>
-                {isCurrentRoom && showJumpToLatest && messages.length > 0 && (
-                  <button
-                    type="button"
-                    className="jump-latest-btn"
-                    onClick={() => scrollCurrentRoomToBottom('smooth')}
-                    aria-label="Jump to latest messages"
-                  >
-                    <span aria-hidden="true">↓</span>
-                    <span>Latest</span>
-                  </button>
-                )}
               </div>
+
+              {isCurrentRoom && showJumpToLatest && messages.length > 0 && (
+                <button
+                  type="button"
+                  className="jump-latest-btn"
+                  onClick={() => scrollCurrentRoomToBottom('smooth')}
+                  aria-label="Jump to latest messages"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 5v12" />
+                    <path d="m7 13 5 5 5-5" />
+                  </svg>
+                </button>
+              )}
 
               <div ref={isCurrentRoom ? composerLayerRef : undefined} className="composer-layer">
                 {isGifPickerOpen && (

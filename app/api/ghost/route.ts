@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const OPENROUTER_APP_URL = 'https://spreadz.in'
+const OPENROUTER_APP_TITLE = 'Spreadz'
 const DEFAULT_OPENROUTER_MODEL = 'arcee-ai/trinity-large-preview:free'
 const MAX_TOKENS = 256
 
@@ -60,6 +62,8 @@ export async function POST(request: Request) {
     apiKeyLength: apiKey.length,
     apiKeySuffix,
     model,
+    appUrl: OPENROUTER_APP_URL,
+    appTitle: OPENROUTER_APP_TITLE,
   })
 
   const systemPrompt = [
@@ -76,8 +80,10 @@ export async function POST(request: Request) {
     response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': OPENROUTER_APP_URL,
+        'X-Title': OPENROUTER_APP_TITLE,
       },
       body: JSON.stringify({
         model,
@@ -87,7 +93,6 @@ export async function POST(request: Request) {
         ],
         temperature: 0.9,
         max_tokens: MAX_TOKENS,
-        reasoning: { exclude: true },
         stream: false,
       }),
     })
@@ -96,16 +101,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'OpenRouter request failed' }, { status: 502 })
   }
 
-  if (!response.ok) {
+  if (response.status !== 200) {
     const errorBody = await response.text()
     if (response.status === 401) {
       console.error('[Ghost] OpenRouter 401 Unauthorized', {
         apiKeySuffix,
+        model,
         statusText: response.statusText,
         errorBody,
       })
     }
     console.error('[Ghost] OpenRouter response error', {
+      url: OPENROUTER_API_URL,
+      model,
       status: response.status,
       statusText: response.statusText,
       errorBody,

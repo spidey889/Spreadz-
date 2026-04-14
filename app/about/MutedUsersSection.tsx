@@ -129,27 +129,27 @@ export function MutedUsersSection({ className = '' }: MutedUsersSectionProps) {
   }, [])
 
   return (
-    <div className={`rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 ${className}`.trim()}>
-      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Muted people</div>
-      <div className="mt-2 text-sm text-slate-500">People you muted will show up here.</div>
+    <div className={`rounded-[24px] border border-white/10 bg-[rgba(255,255,255,0.06)] p-4 text-white shadow-[0_16px_32px_rgba(0,0,0,0.24)] ${className}`.trim()}>
+      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">Muted people</div>
+      <div className="mt-2 text-sm text-white/55">People you muted will show up here.</div>
 
-      {loading && <div className="mt-4 text-sm text-slate-500">Loading...</div>}
-      {!loading && mutedUsers.length === 0 && <div className="mt-4 text-sm text-slate-500">No muted people.</div>}
+      {loading && <div className="mt-4 text-sm text-white/55">Loading...</div>}
+      {!loading && mutedUsers.length === 0 && <div className="mt-4 text-sm text-white/55">No muted people.</div>}
 
       {!loading && mutedUsers.length > 0 && (
         <div className="mt-4 space-y-3">
           {mutedUsers.map((user) => (
             <div
               key={user.id}
-              className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
+              className="flex items-center justify-between gap-3 rounded-[20px] border border-white/10 bg-[rgba(255,255,255,0.04)] px-4 py-3"
             >
               <div className="min-w-0">
-                <div className="truncate text-[15px] font-semibold text-slate-900">{user.displayName}</div>
-                {user.username && <div className="truncate text-sm text-slate-500">{user.username}</div>}
+                <div className="truncate text-[15px] font-semibold text-white">{user.displayName}</div>
+                {user.username && <div className="truncate text-sm text-white/55">{user.username}</div>}
               </div>
               <button
                 type="button"
-                className="shrink-0 rounded-full border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition active:scale-[0.98]"
+                className="shrink-0 rounded-full border border-white/10 bg-transparent px-3 py-1.5 text-sm font-medium text-white/80 active:bg-[rgba(255,255,255,0.08)]"
                 onClick={() => handleUnmute(user.id)}
                 disabled={busyUserId === user.id}
               >
@@ -160,7 +160,7 @@ export function MutedUsersSection({ className = '' }: MutedUsersSectionProps) {
         </div>
       )}
 
-      {errorMessage && <div className="mt-3 text-sm text-rose-500">{errorMessage}</div>}
+      {errorMessage && <div className="mt-3 text-sm text-rose-300">{errorMessage}</div>}
     </div>
   )
 }

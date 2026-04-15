@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { BackFeedbackModal } from '@/app/chat/components/BackFeedbackModal'
 import { useBackFeedbackIntercept } from '@/app/chat/hooks/useBackFeedbackIntercept'
+import { getRealtimeMessagePolicy } from '@/app/chat/realtime-message-policy'
 import { supabase } from '@/lib/supabase'
 import {
   trackRoomEnter,
@@ -2420,22 +2421,28 @@ export default function GlobalChat() {
 
     roomMessageRealtimeFiredByRoomRef.current[roomId] = true
 
-    if (!roomIdsRef.current.has(roomId)) {
-      void fetchRooms('unknown-room-message')
-    }
-
-    const messageAuthorId = typeof normalizedMessage.user_uuid === 'string' ? normalizedMessage.user_uuid : ''
-    if (messageAuthorId && messageAuthorId === getCurrentUserId()) return
-    if (messageAuthorId && isMutedUser(messageAuthorId)) return
-
     const pendingMessageKey = getPendingMessageKey(normalizedMessage)
     const optimisticTempId = pendingMessageKey ? pendingOutgoingMessageIdsRef.current.get(pendingMessageKey) || '' : ''
+    const messageAuthorId = typeof normalizedMessage.user_uuid === 'string' ? normalizedMessage.user_uuid : ''
+    const messagePolicy = getRealtimeMessagePolicy({
+      roomId,
+      roomIsKnown: roomIdsRef.current.has(roomId),
+      messageAuthorId,
+      currentUserId: getCurrentUserId(),
+      isMutedAuthor: Boolean(messageAuthorId && isMutedUser(messageAuthorId)),
+      optimisticTempId,
+    })
+
+    if (messagePolicy.shouldFetchRooms) {
+      void fetchRooms('unknown-room-message')
+    }
+    if (messagePolicy.shouldIgnore) return
     if (pendingMessageKey && optimisticTempId) {
       pendingOutgoingMessageIdsRef.current.delete(pendingMessageKey)
     }
 
     const incomingMessage = buildMessageFromRow(normalizedMessage)
-    let shouldNotify = !optimisticTempId
+    let shouldNotify = messagePolicy.shouldNotify
 
     scheduleReveal(roomId, incomingMessage.id, 0)
     setRoomMessages(prev => {

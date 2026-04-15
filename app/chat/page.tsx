@@ -413,6 +413,7 @@ export default function GlobalChat() {
   const roomPanelRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
+  const roomsChannelRef = useRef<any>(null)
   const muteChannelRef = useRef<any>(null)
   const friendRequestChannelRef = useRef<any>(null)
   const friendRequestsLoadedRef = useRef(false)
@@ -1795,6 +1796,38 @@ export default function GlobalChat() {
     roomIdsRef.current = new Set(rooms.map((room) => room.id))
   }, [rooms])
 
+  const fetchRooms = useCallback(async () => {
+    const orderedRoomsQuery = await (supabase.from('rooms') as any)
+      .select('id, headline, created_at, feed_position, message_count')
+      .not('headline', 'is', null)
+      .neq('headline', '')
+      .gt('message_count', 0)
+      .order('feed_position', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true })
+
+    if (orderedRoomsQuery.error) {
+      console.error('[Rooms] feed_position fetch failed, falling back:', orderedRoomsQuery.error)
+
+      const { data, error } = await supabase
+        .from('rooms')
+        .select('*')
+        .not('headline', 'is', null)
+        .neq('headline', '')
+        .gt('message_count', 0)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        console.error('[Rooms] fetch failed:', error)
+        return
+      }
+
+      setRooms(normalizeRoomFeed((data || []) as Room[]))
+      return
+    }
+
+    setRooms(normalizeRoomFeed((orderedRoomsQuery.data || []) as Room[]))
+  }, [])
+
   useEffect(() => {
     if (!authReady) return
 
@@ -1974,47 +2007,8 @@ export default function GlobalChat() {
   // Fetch rooms on mount
   useEffect(() => {
     if (!authReady) return
-    const fetchRooms = async () => {
-      const orderedRoomsQuery = await (supabase.from('rooms') as any)
-        .select('id, headline, created_at, feed_position, message_count')
-        .not('headline', 'is', null)
-        .neq('headline', '')
-        .gt('message_count', 0)
-        .order('feed_position', { ascending: true, nullsFirst: false })
-        .order('created_at', { ascending: true })
-
-      if (orderedRoomsQuery.error) {
-        console.error('[Rooms] feed_position fetch failed, falling back:', orderedRoomsQuery.error)
-
-        const { data, error } = await supabase
-          .from('rooms')
-          .select('*')
-          .not('headline', 'is', null)
-          .neq('headline', '')
-          .gt('message_count', 0)
-          .order('created_at', { ascending: true })
-
-        if (error) {
-          console.error('[Rooms] fetch failed:', error)
-          return
-        }
-
-        if (data && data.length > 0) {
-          setRooms(normalizeRoomFeed(data as Room[]))
-        }
-
-        return
-      }
-
-      const data = normalizeRoomFeed((orderedRoomsQuery.data || []) as Room[])
-
-      if (data.length > 0) {
-        // Set rooms in default order immediately
-        setRooms(data)
-      }
-    }
-    fetchRooms()
-  }, [authReady])
+    void fetchRooms()
+  }, [authReady, fetchRooms])
 
   // FRIDAY: flush to Supabase on beforeunload + every 60s
   useEffect(() => {
@@ -2151,7 +2145,11 @@ export default function GlobalChat() {
     if (!normalizedMessage) return
 
     const roomId = normalizedMessage.room_id
-    if (!roomId || !roomIdsRef.current.has(roomId)) return
+    if (!roomId) return
+    if (!roomIdsRef.current.has(roomId)) {
+      void fetchRooms()
+      return
+    }
 
     const messageAuthorId = typeof normalizedMessage.user_uuid === 'string' ? normalizedMessage.user_uuid : ''
     if (messageAuthorId && messageAuthorId === getCurrentUserId()) return
@@ -2224,7 +2222,31 @@ export default function GlobalChat() {
         return { ...prev, [roomId]: nextRoomMessages }
       })
     })()
-  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, getCurrentUserId, getPendingMessageKey, handleIncomingMessageNotification, isMutedUser, normalizeMessageRow, replaceVisibleMessageId, scheduleReveal])
+  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, fetchRooms, getCurrentUserId, getPendingMessageKey, handleIncomingMessageNotification, isMutedUser, normalizeMessageRow, replaceVisibleMessageId, scheduleReveal])
+
+  useEffect(() => {
+    if (!authReady) return
+
+    const channel = supabase
+      .channel('rooms-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rooms' },
+        () => {
+          void fetchRooms()
+        }
+      )
+      .subscribe()
+
+    roomsChannelRef.current = channel
+
+    return () => {
+      if (roomsChannelRef.current) {
+        supabase.removeChannel(roomsChannelRef.current)
+        roomsChannelRef.current = null
+      }
+    }
+  }, [authReady, fetchRooms])
 
 
   // Fetch messages for the active room and its adjacent neighbors as room state changes.

@@ -3513,12 +3513,10 @@ export default function GlobalChat() {
 
   if (roomFeedStatus === 'idle' || roomFeedStatus === 'loading') {
     return (
-      <ChatStatusScreen
-        eyebrow="Rooms"
-        title="Loading live rooms..."
-        description="Pulling the latest conversations."
-        showSpinner
-      />
+      <div className="chat-loading-shell" role="status" aria-live="polite" aria-busy="true">
+        <div className="chat-loading-rail" aria-hidden="true" />
+        <span className="chat-visually-hidden">Loading chat rooms.</span>
+      </div>
     )
   }
 

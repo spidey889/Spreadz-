@@ -441,6 +441,7 @@ export default function GlobalChat() {
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const profileSheetRef = useRef<HTMLFormElement>(null)
   const currentRoomIndexRef = useRef(0)
+  const activeRoomIdRef = useRef<string | null>(null)
   const dragStartYRef = useRef<number | null>(null)
   const dragCurrentYRef = useRef<number | null>(null)
   const dragOffsetYRef = useRef(0)
@@ -481,6 +482,10 @@ export default function GlobalChat() {
   useEffect(() => {
     currentRoomIndexRef.current = currentRoomIndex
   }, [currentRoomIndex])
+
+  useEffect(() => {
+    activeRoomIdRef.current = activeRoomId
+  }, [activeRoomId])
 
   const syncComposerText = useCallback((roomId: string, value: string) => {
     setInputTexts(prev => {
@@ -1796,6 +1801,23 @@ export default function GlobalChat() {
     roomIdsRef.current = new Set(rooms.map((room) => room.id))
   }, [rooms])
 
+  const applyRoomFeed = useCallback((nextRooms: Room[]) => {
+    const normalizedRooms = normalizeRoomFeed(nextRooms)
+    const previousActiveRoomId = activeRoomIdRef.current
+    const matchedRoomIndex = previousActiveRoomId
+      ? normalizedRooms.findIndex((room) => room.id === previousActiveRoomId)
+      : -1
+
+    const nextRoomIndex =
+      matchedRoomIndex >= 0
+        ? matchedRoomIndex
+        : Math.max(0, Math.min(currentRoomIndexRef.current, normalizedRooms.length - 1))
+
+    currentRoomIndexRef.current = nextRoomIndex
+    setCurrentRoomIndex((currentIndex) => (currentIndex === nextRoomIndex ? currentIndex : nextRoomIndex))
+    setRooms(normalizedRooms)
+  }, [])
+
   const fetchRooms = useCallback(async () => {
     const orderedRoomsQuery = await (supabase.from('rooms') as any)
       .select('id, headline, created_at, feed_position, message_count')
@@ -1821,12 +1843,12 @@ export default function GlobalChat() {
         return
       }
 
-      setRooms(normalizeRoomFeed((data || []) as Room[]))
+      applyRoomFeed((data || []) as Room[])
       return
     }
 
-    setRooms(normalizeRoomFeed((orderedRoomsQuery.data || []) as Room[]))
-  }, [])
+    applyRoomFeed((orderedRoomsQuery.data || []) as Room[])
+  }, [applyRoomFeed])
 
   useEffect(() => {
     if (!authReady) return

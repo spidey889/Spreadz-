@@ -27,6 +27,14 @@ type SeedRun = {
   completed_at: string | null
 }
 
+type LiveRoom = {
+  id: string
+  headline: string | null
+  created_at: string
+  feed_position: number | null
+  message_count: number | null
+}
+
 type CreateRunBody = {
   action: 'create-run'
   roomName?: string
@@ -186,6 +194,87 @@ const getOrCreateRoomForRun = async (adminDb: any, run: SeedRun) => {
   return { roomId: duplicateRoom.id, error: null }
 }
 
+const isVisibleFeedRoom = (room: LiveRoom, currentRoomId: string) => {
+  if (!room?.id) return false
+  if (room.id === currentRoomId) return true
+  if (typeof room.headline !== 'string' || room.headline.trim().length === 0) return false
+  return typeof room.message_count === 'number' && room.message_count > 0
+}
+
+const sortCurrentFeedRooms = (rooms: LiveRoom[]) => {
+  return [...rooms].sort((left, right) => {
+    const leftPosition =
+      typeof left.feed_position === 'number' ? left.feed_position : Number.MAX_SAFE_INTEGER
+    const rightPosition =
+      typeof right.feed_position === 'number' ? right.feed_position : Number.MAX_SAFE_INTEGER
+
+    if (leftPosition !== rightPosition) {
+      return leftPosition - rightPosition
+    }
+
+    return new Date(left.created_at).getTime() - new Date(right.created_at).getTime()
+  })
+}
+
+const placeRoomInGlobalFeed = async (adminDb: any, roomId: string, requestedPosition: number) => {
+  const { data, error } = await adminDb
+    .from('rooms')
+    .select('id, headline, created_at, feed_position, message_count')
+
+  if (error) {
+    return { actualPosition: 0, error }
+  }
+
+  const uniqueRoomsById = new Map<string, LiveRoom>()
+  ;((data || []) as LiveRoom[]).forEach((room) => {
+    if (!room?.id) return
+    uniqueRoomsById.set(room.id, room)
+  })
+
+  const currentRoom = uniqueRoomsById.get(roomId)
+  if (!currentRoom) {
+    return { actualPosition: 0, error: new Error('Room missing during placement') }
+  }
+
+  const currentFeedRooms = sortCurrentFeedRooms(
+    Array.from(uniqueRoomsById.values()).filter((room) => isVisibleFeedRoom(room, roomId))
+  )
+
+  const otherRooms = currentFeedRooms.filter((room) => room.id !== roomId)
+  const insertionIndex = Math.max(0, Math.min(requestedPosition - 1, otherRooms.length))
+  const finalRooms = [
+    ...otherRooms.slice(0, insertionIndex),
+    currentRoom,
+    ...otherRooms.slice(insertionIndex),
+  ]
+
+  const placementResults = await Promise.all(
+    finalRooms.map((room, index) =>
+      adminDb
+        .from('rooms')
+        .update({ feed_position: index + 1 })
+        .eq('id', room.id)
+    )
+  )
+
+  const placementFailure = placementResults.find((result) => result.error)
+  if (placementFailure?.error) {
+    return { actualPosition: 0, error: placementFailure.error }
+  }
+
+  console.log(
+    '[Seeding] Final global room ordering',
+    finalRooms.map((room, index) => ({
+      id: room.id,
+      feed_position: index + 1,
+      headline: room.headline,
+      message_count: room.message_count ?? null,
+    }))
+  )
+
+  return { actualPosition: insertionIndex + 1, error: null }
+}
+
 export async function GET(request: NextRequest) {
   if (!hasAdminBroadcastSecretConfigured()) {
     return NextResponse.json(
@@ -341,11 +430,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: roomError?.message || 'Failed to create room' }, { status: 500 })
     }
 
+    const { actualPosition, error: placementError } = await placeRoomInGlobalFeed(
+      adminDb,
+      roomId,
+      typeof run.feed_position === 'number' ? run.feed_position : 1
+    )
+
+    if (placementError || !actualPosition) {
+      return NextResponse.json(
+        { error: placementError?.message || 'Failed to place room in feed' },
+        { status: 500 }
+      )
+    }
+
     const { data, error } = await adminDb
       .from('seed_runs')
       .update({
         status: 'running',
         room_id: roomId,
+        feed_position: actualPosition,
         started_at: run.started_at || new Date().toISOString(),
         last_error: null,
       })

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 type SeedingClientProps = {
   isInitiallyAuthorized: boolean
@@ -29,6 +30,21 @@ type ParsedSeedMessage = {
   messageText: string
   postAtSeconds: number
   order: number
+}
+
+type AvatarDraft = {
+  file: File | null
+  previewUrl: string | null
+  avatarUrl: string | null
+}
+
+type LiveRunDraft = {
+  roomName: string
+  feedPosition: number
+  messagesInput: string
+  totalMessages: number
+  scheduledForIso: string
+  displayNames: string[]
 }
 
 type SeedingResponse = {
@@ -192,6 +208,69 @@ const formatDateTime = (value: string | null | undefined) => {
   return dateValue.toLocaleString()
 }
 
+const extractUniqueDisplayNamesFromInput = (value: string) => {
+  const seen = new Set<string>()
+  const displayNames: string[] = []
+
+  value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const name = line.split(' - ')[0]?.trim() || ''
+
+      if (!name || seen.has(name)) return
+
+      seen.add(name)
+      displayNames.push(name)
+    })
+
+  return displayNames
+}
+
+const extractUniqueDisplayNames = (messagesInput: string, messages: ParsedSeedMessage[]) => {
+  const displayNames = extractUniqueDisplayNamesFromInput(messagesInput)
+
+  if (displayNames.length > 0) {
+    return displayNames
+  }
+
+  const seen = new Set<string>()
+
+  messages.forEach((message) => {
+    const name = message.displayName.trim()
+    if (!name || seen.has(name)) return
+
+    seen.add(name)
+    displayNames.push(name)
+  })
+
+  return displayNames
+}
+
+const createAvatarDrafts = (displayNames: string[]) =>
+  Object.fromEntries(
+    displayNames.map((displayName) => [
+      displayName,
+      {
+        file: null,
+        previewUrl: null,
+        avatarUrl: null,
+      } satisfies AvatarDraft,
+    ])
+  ) as Record<string, AvatarDraft>
+
+const revokeAvatarPreview = (previewUrl: string | null) => {
+  if (previewUrl?.startsWith('blob:')) {
+    URL.revokeObjectURL(previewUrl)
+  }
+}
+
+const buildAvatarStoragePath = (roomId: string, displayName: string) => {
+  const safeDisplayName = displayName.trim().replace(/[\\/]/g, '-')
+  return `${roomId}/${safeDisplayName || 'avatar'}.png`
+}
+
 const sortRuns = (runs: SeedRun[]) => {
   return [...runs].sort((left, right) => {
     const leftPrimary = left.completed_at || left.scheduled_for || left.created_at || ''
@@ -210,6 +289,12 @@ export default function SeedingClient({
   const [roomName, setRoomName] = useState('')
   const [messagesInput, setMessagesInput] = useState('')
   const [scheduledFor, setScheduledFor] = useState('')
+  const [scriptDisplayNames, setScriptDisplayNames] = useState<string[]>([])
+  const [pendingLiveRunDraft, setPendingLiveRunDraft] = useState<LiveRunDraft | null>(null)
+  const [avatarModalRun, setAvatarModalRun] = useState<SeedRun | null>(null)
+  const [avatarDrafts, setAvatarDrafts] = useState<Record<string, AvatarDraft>>({})
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false)
+  const [avatarModalError, setAvatarModalError] = useState('')
   const [authPending, setAuthPending] = useState(false)
   const [actionPending, setActionPending] = useState<'now' | 'schedule' | null>(null)
   const [runs, setRuns] = useState<SeedRun[]>([])
@@ -225,6 +310,7 @@ export default function SeedingClient({
   const runTimeoutsRef = useRef<Map<string, number>>(new Map())
   const startingRunIdsRef = useRef<Set<string>>(new Set())
   const runningRunIdsRef = useRef<Set<string>>(new Set())
+  const avatarDraftsRef = useRef<Record<string, AvatarDraft>>({})
   const actionLockRef = useRef(false)
 
   const appendLog = (message: string) => {
@@ -262,6 +348,27 @@ export default function SeedingClient({
       clearAllTimers()
     }
   }, [])
+
+  useEffect(() => {
+    avatarDraftsRef.current = avatarDrafts
+  }, [avatarDrafts])
+
+  useEffect(() => {
+    return () => {
+      Object.values(avatarDraftsRef.current).forEach((draft) => {
+        revokeAvatarPreview(draft.previewUrl)
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    const parsed = parseMessagesInput(messagesInput)
+    setScriptDisplayNames(
+      parsed.errors.length > 0
+        ? extractUniqueDisplayNamesFromInput(messagesInput)
+        : extractUniqueDisplayNames(messagesInput, parsed.messages)
+    )
+  }, [messagesInput])
 
   const upsertRun = (nextRun: SeedRun) => {
     setRuns((currentRuns) =>
@@ -581,41 +688,47 @@ export default function SeedingClient({
 
     try {
       await fetch('/api/admin-auth', { method: 'DELETE' })
-    } catch (error) {
-      console.error('[Seeding] Logout failed', error)
-    }
+    } catch {}
 
     setIsAuthorized(false)
     setAdminKey('')
     setStatusLogs(['Enter the admin secret to unlock this page.'])
   }
 
-  const handleCreateRun = async (mode: 'now' | 'schedule') => {
-    if (actionLockRef.current) {
-      return
-    }
+  const closeAvatarModal = () => {
+    Object.values(avatarDraftsRef.current).forEach((draft) => {
+      revokeAvatarPreview(draft.previewUrl)
+    })
 
+    setAvatarDrafts({})
+    setAvatarModalError('')
+    setAvatarModalRun(null)
+    setPendingLiveRunDraft(null)
+    setIsAvatarModalOpen(false)
+  }
+
+  const validateRunDraft = (mode: 'now' | 'schedule') => {
     const parsedFeedPosition = Number(feedPosition)
     const parsedMessages = parseMessagesInput(messagesInput)
 
     if (!Number.isInteger(parsedFeedPosition) || parsedFeedPosition < 1) {
       setErrorMessage('Feed position number must be 1 or higher.')
-      return
+      return null
     }
 
     if (!roomName.trim()) {
       setErrorMessage('Room name is required.')
-      return
+      return null
     }
 
     if (parsedMessages.errors.length > 0) {
       setErrorMessage(parsedMessages.errors[0])
-      return
+      return null
     }
 
     if (parsedMessages.messages.length === 0) {
       setErrorMessage('Add at least one valid message line.')
-      return
+      return null
     }
 
     let scheduledForIso = new Date().toISOString()
@@ -623,16 +736,31 @@ export default function SeedingClient({
     if (mode === 'schedule') {
       if (!scheduledFor.trim()) {
         setErrorMessage('Pick a schedule time first.')
-        return
+        return null
       }
 
       const scheduledDate = new Date(scheduledFor)
       if (Number.isNaN(scheduledDate.getTime())) {
         setErrorMessage('Schedule time is invalid.')
-        return
+        return null
       }
 
       scheduledForIso = scheduledDate.toISOString()
+    }
+
+    return {
+      roomName: roomName.trim(),
+      feedPosition: parsedFeedPosition,
+      messagesInput,
+      totalMessages: parsedMessages.messages.length,
+      scheduledForIso,
+      displayNames: extractUniqueDisplayNames(messagesInput, parsedMessages.messages),
+    } satisfies LiveRunDraft
+  }
+
+  const createRunRecord = async (mode: 'now' | 'schedule', draft: LiveRunDraft) => {
+    if (actionLockRef.current) {
+      return { error: 'Another seeding action is already in progress.' }
     }
 
     actionLockRef.current = true
@@ -648,37 +776,235 @@ export default function SeedingClient({
         },
         body: JSON.stringify({
           action: 'create-run',
-          roomName: roomName.trim(),
-          feedPosition: parsedFeedPosition,
-          scheduledFor: scheduledForIso,
-          messagesInput,
-          totalMessages: parsedMessages.messages.length,
+          roomName: draft.roomName,
+          feedPosition: draft.feedPosition,
+          scheduledFor: draft.scheduledForIso,
+          messagesInput: draft.messagesInput,
+          totalMessages: draft.totalMessages,
         }),
       })
 
       const payload = (await response.json().catch(() => null)) as SeedingResponse | null
 
       if (!response.ok || !payload?.run) {
-        setErrorMessage(payload?.error || 'Failed to create run.')
-        return
+        return { error: payload?.error || 'Failed to create run.' }
       }
 
-      upsertRun(payload.run)
-      appendLog(
-        mode === 'now'
-          ? `Run queued for ${payload.run.room_name}.`
-          : `Scheduled ${payload.run.room_name} for ${formatDateTime(payload.run.scheduled_for)}.`
-      )
-      attachRun(payload.run)
+      return { run: payload.run }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to create run.')
+      return {
+        error: error instanceof Error ? error.message : 'Failed to create run.',
+      }
     } finally {
       actionLockRef.current = false
       setActionPending(null)
     }
   }
 
-  const canCreateRun = isAuthorized && !actionPending
+  const handleAvatarFileChange = (displayName: string, file: File | null) => {
+    setAvatarModalError('')
+
+    if (file && !file.type.startsWith('image/')) {
+      setAvatarModalError(`"${displayName}" must use an image file.`)
+      return
+    }
+
+    setAvatarDrafts((currentDrafts) => {
+      const currentDraft = currentDrafts[displayName] || {
+        file: null,
+        previewUrl: null,
+        avatarUrl: null,
+      }
+      const nextPreviewUrl = file ? URL.createObjectURL(file) : null
+
+      revokeAvatarPreview(currentDraft.previewUrl)
+
+      return {
+        ...currentDrafts,
+        [displayName]: {
+          file,
+          previewUrl: nextPreviewUrl,
+          avatarUrl: null,
+        },
+      }
+    })
+  }
+
+  const saveSeededAvatars = async (
+    roomId: string,
+    avatarRows: Array<{
+      room_id: string
+      display_name: string
+      avatar_url: string
+    }>
+  ) => {
+    if (avatarRows.length === 0) {
+      return
+    }
+
+    const seededAvatarQuery = (supabase.from as unknown as (table: string) => any)('seeded_avatars')
+    const { data: existingRows, error: existingError } = await seededAvatarQuery
+      .select('display_name')
+      .eq('room_id', roomId)
+      .in(
+        'display_name',
+        avatarRows.map((row) => row.display_name)
+      )
+
+    if (existingError) {
+      throw new Error(existingError.message || 'Failed to load seeded avatars.')
+    }
+
+    const existingNames = new Set(
+      ((existingRows || []) as Array<{ display_name: string | null }>).map(
+        (row) => row.display_name || ''
+      )
+    )
+    const rowsToInsert = avatarRows.filter((row) => !existingNames.has(row.display_name))
+
+    if (rowsToInsert.length === 0) {
+      return
+    }
+
+    const { error: insertError } = await ((supabase.from as unknown as (table: string) => any)(
+      'seeded_avatars'
+    ) as any).insert(rowsToInsert)
+
+    if (insertError) {
+      throw new Error(insertError.message || 'Failed to save seeded avatars.')
+    }
+  }
+
+  const handleAvatarModalContinue = async () => {
+    if (!pendingLiveRunDraft) {
+      return
+    }
+
+    setAvatarModalError('')
+
+    let run = avatarModalRun
+
+    if (!run) {
+      const result = await createRunRecord('now', pendingLiveRunDraft)
+
+      if (!result.run) {
+        const nextError = result.error || 'Failed to create run.'
+        setErrorMessage(nextError)
+        setAvatarModalError(nextError)
+        return
+      }
+
+      run = result.run
+      setAvatarModalRun(result.run)
+    }
+
+    if (!run.room_id) {
+      setAvatarModalError('Room id is missing for this run.')
+      return
+    }
+
+    try {
+      const avatarUrlsByName = new Map<string, string>()
+
+      for (const displayName of pendingLiveRunDraft.displayNames) {
+        const draft = avatarDraftsRef.current[displayName]
+
+        if (!draft) {
+          continue
+        }
+
+        if (draft.avatarUrl) {
+          avatarUrlsByName.set(displayName, draft.avatarUrl)
+          continue
+        }
+
+        if (!draft.file) {
+          continue
+        }
+
+        const storagePath = buildAvatarStoragePath(run.room_id, displayName)
+        const { error: uploadError } = await supabase.storage.from('avatars').upload(storagePath, draft.file, {
+          upsert: true,
+          contentType: draft.file.type || 'image/png',
+        })
+
+        if (uploadError) {
+          throw new Error(uploadError.message || `Failed to upload avatar for ${displayName}.`)
+        }
+
+        const { data } = supabase.storage.from('avatars').getPublicUrl(storagePath)
+        avatarUrlsByName.set(displayName, data.publicUrl)
+      }
+
+      if (avatarUrlsByName.size > 0) {
+        setAvatarDrafts((currentDrafts) => {
+          const nextDrafts = { ...currentDrafts }
+
+          avatarUrlsByName.forEach((avatarUrl, displayName) => {
+            const currentDraft = nextDrafts[displayName]
+            if (!currentDraft) return
+
+            nextDrafts[displayName] = {
+              ...currentDraft,
+              avatarUrl,
+            }
+          })
+
+          return nextDrafts
+        })
+
+        await saveSeededAvatars(
+          run.room_id,
+          Array.from(avatarUrlsByName.entries()).map(([displayName, avatarUrl]) => ({
+            room_id: run!.room_id!,
+            display_name: displayName,
+            avatar_url: avatarUrl,
+          }))
+        )
+      }
+
+      upsertRun(run)
+      appendLog(`Run queued for ${run.room_name}.`)
+      closeAvatarModal()
+      attachRun(run)
+    } catch (error) {
+      const nextError =
+        error instanceof Error ? error.message : 'Failed to save seeded avatars.'
+      setErrorMessage(nextError)
+      setAvatarModalError(nextError)
+    }
+  }
+
+  const handleCreateRun = async (mode: 'now' | 'schedule') => {
+    const draft = validateRunDraft(mode)
+
+    if (!draft) {
+      return
+    }
+
+    if (mode === 'now') {
+      setErrorMessage('')
+      setAvatarModalError('')
+      setAvatarModalRun(null)
+      setPendingLiveRunDraft(draft)
+      setAvatarDrafts(createAvatarDrafts(draft.displayNames))
+      setIsAvatarModalOpen(true)
+      return
+    }
+
+    const result = await createRunRecord(mode, draft)
+
+    if (!result.run) {
+      setErrorMessage(result.error || 'Failed to create run.')
+      return
+    }
+
+    upsertRun(result.run)
+    appendLog(`Scheduled ${result.run.room_name} for ${formatDateTime(result.run.scheduled_for)}.`)
+    attachRun(result.run)
+  }
+
+  const canCreateRun = isAuthorized && !actionPending && !isAvatarModalOpen
 
   return (
     <main style={pageStyle}>
@@ -959,6 +1285,15 @@ export default function SeedingClient({
                   <label htmlFor="bulk-messages" style={labelStyle}>
                     Messages
                   </label>
+                  <div
+                    style={{
+                      color: '#8f7474',
+                      fontSize: '12px',
+                      marginBottom: '10px',
+                    }}
+                  >
+                    Unique names detected: {scriptDisplayNames.length}
+                  </div>
                   <textarea
                     id="bulk-messages"
                     value={messagesInput}
@@ -981,6 +1316,174 @@ export default function SeedingClient({
           )}
         </section>
       </div>
+      {isAvatarModalOpen && pendingLiveRunDraft ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(8, 6, 6, 0.82)',
+            backdropFilter: 'blur(10px)',
+            padding: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '720px',
+              maxHeight: 'min(80dvh, 820px)',
+              overflowY: 'auto',
+              borderRadius: '24px',
+              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(16, 9, 9, 0.98)',
+              boxShadow: '0 28px 80px rgba(0, 0, 0, 0.45)',
+              padding: '24px',
+            }}
+          >
+            <div style={{ marginBottom: '18px' }}>
+              <div style={labelStyle}>Avatar Assignment</div>
+              <h2 style={{ margin: '0 0 8px', fontSize: '24px', color: '#fff3f3' }}>
+                Upload avatars before going live
+              </h2>
+              <p style={{ margin: 0, color: '#b89999', fontSize: '14px', lineHeight: 1.6 }}>
+                Upload is optional for each name. Unassigned names will be skipped.
+              </p>
+            </div>
+
+            {avatarModalError ? (
+              <div style={{ ...errorBoxStyle, marginBottom: '16px' }}>{avatarModalError}</div>
+            ) : null}
+
+            <div style={{ display: 'grid', gap: '12px' }}>
+              {pendingLiveRunDraft.displayNames.map((displayName) => {
+                const avatarDraft = avatarDrafts[displayName]
+                const previewSource = avatarDraft?.previewUrl || avatarDraft?.avatarUrl || ''
+
+                return (
+                  <div
+                    key={displayName}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'minmax(0, 1fr) auto auto',
+                      gap: '12px',
+                      alignItems: 'center',
+                      padding: '14px',
+                      borderRadius: '18px',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      background: 'rgba(255,255,255,0.02)',
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: '15px',
+                          fontWeight: 700,
+                          color: '#fff4f4',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {displayName}
+                      </div>
+                    </div>
+
+                    <label
+                      style={{
+                        ...buttonStyle,
+                        background: 'rgba(255,255,255,0.06)',
+                        color: '#f7efef',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {avatarDraft?.file ? 'Replace Image' : 'Upload Image'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={actionPending === 'now'}
+                        onChange={(event) =>
+                          handleAvatarFileChange(displayName, event.target.files?.[0] || null)
+                        }
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+
+                    <div
+                      style={{
+                        width: '54px',
+                        height: '54px',
+                        borderRadius: '999px',
+                        overflow: 'hidden',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'rgba(255,255,255,0.04)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#8e7575',
+                        fontSize: '11px',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {previewSource ? (
+                        <img
+                          src={previewSource}
+                          alt={`${displayName} avatar preview`}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        'No image'
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div
+              style={{
+                marginTop: '18px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '12px',
+                flexWrap: 'wrap' as const,
+              }}
+            >
+              <button
+                type="button"
+                onClick={closeAvatarModal}
+                disabled={actionPending === 'now' || !!avatarModalRun}
+                style={{
+                  ...buttonStyle,
+                  background: 'rgba(255,255,255,0.06)',
+                  color: '#f7efef',
+                  opacity: actionPending === 'now' || avatarModalRun ? 0.45 : 1,
+                }}
+              >
+                Back
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleAvatarModalContinue()}
+                disabled={actionPending === 'now'}
+                style={{
+                  ...buttonStyle,
+                  background: 'linear-gradient(135deg, #ff5f5f, #ff2f2f)',
+                  color: '#210404',
+                  opacity: actionPending === 'now' ? 0.7 : 1,
+                }}
+              >
+                {actionPending === 'now' ? 'Saving...' : 'Save Avatars & Go Live'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }

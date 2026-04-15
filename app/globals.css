@@ -42,7 +42,7 @@ body {
           --text-msg: #E4E8EE;
           --text-secondary: #AAB2BE;
           --text-muted: #7E8692;
-          --headline-bg: #0D0D0D;
+          --headline-bg: #ffffff;
           color-scheme: dark;
         }
 
@@ -164,6 +164,7 @@ display: flex;
           --context-accent-green: #67d996;
           --context-accent-rail: #56c383;
           background: var(--headline-bg);
+          color: #111214;
           position: relative;
           overflow: hidden;
           border-radius: 6px;
@@ -224,7 +225,7 @@ display: flex;
         }
         .ai-headline {
           font-size: 18px;
-          color: #f5f7fa;
+          color: #111214;
           font-weight: 700;
           line-height: 1.35;
           letter-spacing: -0.02em;

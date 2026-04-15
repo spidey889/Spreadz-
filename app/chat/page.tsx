@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { BackFeedbackModal } from '@/app/chat/components/BackFeedbackModal'
 import { useBackFeedbackIntercept } from '@/app/chat/hooks/useBackFeedbackIntercept'
+import { getRenderableMessages } from '@/app/chat/message-visibility'
 import { getRealtimeMessagePolicy } from '@/app/chat/realtime-message-policy'
 import { supabase } from '@/lib/supabase'
 import {
@@ -86,6 +87,10 @@ interface ReadOnlyProfile {
 }
 
 type RoomFeedStatus = 'idle' | 'loading' | 'ready' | 'error'
+type RoomMessageStatus = 'idle' | 'loading' | 'ready' | 'error'
+
+const EMPTY_MESSAGE_LIST: Message[] = []
+const EMPTY_VISIBLE_MESSAGE_IDS = new Set<string>()
 
 type ChatStatusScreenProps = {
   eyebrow: string
@@ -471,6 +476,7 @@ const urlBase64ToUint8Array = (base64String: string) => {
 export default function GlobalChat() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [roomMessages, setRoomMessages] = useState<Record<string, Message[]>>({})
+  const [roomMessageStatusByRoom, setRoomMessageStatusByRoom] = useState<Record<string, RoomMessageStatus>>({})
   const [seededAvatarMap, setSeededAvatarMap] = useState<Record<string, Record<string, string>>>({})
   const [inputTexts, setInputTexts] = useState<Record<string, string>>({})
   const [activeGifPickerRoomId, setActiveGifPickerRoomId] = useState<string | null>(null)
@@ -521,7 +527,6 @@ export default function GlobalChat() {
   const roomFeedFetchRequestIdRef = useRef(0)
   const roomMessageFetchRequestIdByRoomRef = useRef<Record<string, number>>({})
   const roomFeedRealtimeFiredRef = useRef(false)
-  const roomMessageRealtimeFiredByRoomRef = useRef<Record<string, boolean>>({})
   const sentRoomIdsRef = useRef<Set<string>>(new Set())
   const roomPanelRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -556,7 +561,6 @@ export default function GlobalChat() {
   const currentRoomIndexRef = useRef(0)
   const activeRoomIdRef = useRef<string | null>(null)
   const realtimeMessageHandlerRef = useRef<(messageRow: any) => void>(() => {})
-  const [messagesRealtimeReady, setMessagesRealtimeReady] = useState(false)
   const dragStartYRef = useRef<number | null>(null)
   const dragCurrentYRef = useRef<number | null>(null)
   const dragOffsetYRef = useRef(0)
@@ -581,8 +585,8 @@ export default function GlobalChat() {
   const roomHasUserScrolledByIdRef = useRef<Record<string, boolean>>({})
   const roomProgrammaticScrollUntilByIdRef = useRef<Record<string, number>>({})
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
-  const activeRoomMessagesList = activeRoomId ? roomMessages[activeRoomId] : undefined
-  const activeRoomVisibleMessageIds = activeRoomId ? visibleMessageIdsByRoom[activeRoomId] : undefined
+  const activeRoomMessagesList = activeRoomId ? (roomMessages[activeRoomId] ?? EMPTY_MESSAGE_LIST) : EMPTY_MESSAGE_LIST
+  const activeRoomVisibleMessageIds = activeRoomId ? (visibleMessageIdsByRoom[activeRoomId] ?? EMPTY_VISIBLE_MESSAGE_IDS) : EMPTY_VISIBLE_MESSAGE_IDS
 
   const openBackFeedbackModal = useCallback(() => {
     setBackFeedbackModalOpen(true)
@@ -2313,28 +2317,29 @@ export default function GlobalChat() {
     fetchedRoomsRef.current.add(room.id)
     const requestId = (roomMessageFetchRequestIdByRoomRef.current[room.id] || 0) + 1
     roomMessageFetchRequestIdByRoomRef.current[room.id] = requestId
-    roomMessageRealtimeFiredByRoomRef.current[room.id] = false
+    setRoomMessageStatusByRoom(prev => ({ ...prev, [room.id]: 'loading' }))
 
     const isStaleRequest = () => requestId !== roomMessageFetchRequestIdByRoomRef.current[room.id]
-    const didRealtimeFire = () => roomMessageRealtimeFiredByRoomRef.current[room.id] === true
 
-    const { data, error } = await supabase
-      .from('messages')
-      .select(MESSAGE_SELECT_COLUMNS)
-      .eq('room_id', room.id)
-      .order('created_at', { ascending: true })
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select(MESSAGE_SELECT_COLUMNS)
+        .eq('room_id', room.id)
+        .order('created_at', { ascending: true })
 
-    if (error) {
-      console.error('[Messages] fetch failed', error)
-      return
-    }
+      if (error) {
+        fetchedRoomsRef.current.delete(room.id)
+        setRoomMessageStatusByRoom(prev => ({ ...prev, [room.id]: 'error' }))
+        console.error('[Messages] fetch failed', error)
+        return
+      }
 
-    if (isStaleRequest() || didRealtimeFire()) {
-      return
-    }
+      if (isStaleRequest()) {
+        return
+      }
 
-    if (data) {
-      const messageRows = data
+      const messageRows = (data || [])
         .map((message: any) => normalizeMessageRow(message))
         .filter((message): message is MessageRow => Boolean(message))
 
@@ -2343,7 +2348,7 @@ export default function GlobalChat() {
         fetchSeededAvatarsForRoom(room.id),
       ])
 
-      if (isStaleRequest() || didRealtimeFire()) {
+      if (isStaleRequest()) {
         return
       }
 
@@ -2352,6 +2357,7 @@ export default function GlobalChat() {
         ...prev,
         [room.id]: mergeRoomMessageFeed(prev[room.id] || [], msgs),
       }))
+      setRoomMessageStatusByRoom(prev => ({ ...prev, [room.id]: 'ready' }))
 
       if (revealMode === 'instant') {
         setInstantVisibleMessageIds(room.id, msgs)
@@ -2361,6 +2367,10 @@ export default function GlobalChat() {
       requestAnimationFrame(() => {
         triggerRevealsForMessages(room.id, msgs)
       })
+    } catch (error) {
+      fetchedRoomsRef.current.delete(room.id)
+      setRoomMessageStatusByRoom(prev => ({ ...prev, [room.id]: 'error' }))
+      console.error('[Messages] fetch crashed', error)
     }
   }, [buildMessageFromRow, cacheUsernamesForDisplayNames, fetchSeededAvatarsForRoom, normalizeMessageRow, setInstantVisibleMessageIds, triggerRevealsForMessages])
 
@@ -2419,8 +2429,6 @@ export default function GlobalChat() {
     const roomId = normalizedMessage.room_id
     if (!roomId) return
 
-    roomMessageRealtimeFiredByRoomRef.current[roomId] = true
-
     const pendingMessageKey = getPendingMessageKey(normalizedMessage)
     const optimisticTempId = pendingMessageKey ? pendingOutgoingMessageIdsRef.current.get(pendingMessageKey) || '' : ''
     const messageAuthorId = typeof normalizedMessage.user_uuid === 'string' ? normalizedMessage.user_uuid : ''
@@ -2445,6 +2453,7 @@ export default function GlobalChat() {
     let shouldNotify = messagePolicy.shouldNotify
 
     scheduleReveal(roomId, incomingMessage.id, 0)
+    setRoomMessageStatusByRoom(prev => ({ ...prev, [roomId]: 'ready' }))
     setRoomMessages(prev => {
       const existing = prev[roomId] || []
       if (existing.some(msg => msg.id === normalizedMessage.id)) {
@@ -2552,7 +2561,7 @@ export default function GlobalChat() {
 
   // Fetch messages for the active room and its adjacent neighbors as room state changes.
   useEffect(() => {
-    if (!muteStateReady || !messagesRealtimeReady) return
+    if (!muteStateReady) return
 
     const activeRoom = rooms[currentRoomIndex]
     if (!activeRoom) return
@@ -2570,12 +2579,11 @@ export default function GlobalChat() {
     if (nextRoom) {
       void fetchMessagesForRoom(nextRoom)
     }
-  }, [currentRoomIndex, fetchMessagesForRoom, messagesRealtimeReady, muteStateReady, rooms])
+  }, [currentRoomIndex, fetchMessagesForRoom, muteStateReady, rooms])
 
   // Keep one long-lived messages subscription so room changes do not interrupt realtime inserts.
   useEffect(() => {
     if (!authReady || !muteStateReady) return
-    setMessagesRealtimeReady(false)
 
     const channel = supabase
       .channel('messages-realtime')
@@ -2586,14 +2594,11 @@ export default function GlobalChat() {
           realtimeMessageHandlerRef.current(payload.new)
         }
       )
-      .subscribe((status) => {
-        setMessagesRealtimeReady(status === 'SUBSCRIBED')
-      })
+      .subscribe()
 
     channelRef.current = channel
 
     return () => {
-      setMessagesRealtimeReady(false)
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
         channelRef.current = null
@@ -3216,8 +3221,6 @@ export default function GlobalChat() {
       pendingOutgoingMessageIdsRef.current.set(pendingMessageKey, tempId)
     }
 
-    roomMessageRealtimeFiredByRoomRef.current[roomId] = true
-
     if (shouldUseOptimisticMessage) {
       scheduleReveal(roomId, tempId, 0)
 
@@ -3574,8 +3577,18 @@ export default function GlobalChat() {
         {visibleRoomIndexes.map((index) => {
           const room = rooms[index]
           const messages = roomMessages[room.id] || []
+          const messageStatus = roomMessageStatusByRoom[room.id] ?? 'idle'
           const roomSeededAvatarMap = seededAvatarMap[room.id] || {}
-          const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
+          const visibleMessageIds = visibleMessageIdsByRoom[room.id] || EMPTY_VISIBLE_MESSAGE_IDS
+          const renderableMessages = getRenderableMessages({
+            messages,
+            visibleMessageIds,
+            isMutedUser,
+          }) as Message[]
+          const showMessageLoadingState = messages.length === 0 && (messageStatus === 'idle' || messageStatus === 'loading')
+          const showMessageErrorState = messages.length === 0 && messageStatus === 'error'
+          const showEmptyRoomState = messages.length === 0 && messageStatus === 'ready'
+          const showMutedRoomState = messages.length > 0 && renderableMessages.length === 0
           const isCurrentRoom = index === resolvedRoomIndex
           const isGifPickerOpen = activeGifPickerRoomId === room.id
           const composerText = inputTexts[room.id] ?? ''
@@ -3648,14 +3661,41 @@ export default function GlobalChat() {
               >
                 <div ref={isCurrentRoom ? activeMessagesRef : undefined} className="messages">
                   <div className="messages-spacer" aria-hidden="true" />
-                  {messages.map((msg) => {
-                    const isVisible = visibleMessageIds.has(msg.id)
-                    const isMutedMessage = isMutedUser(msg.user_uuid)
-                    if (!isVisible || isMutedMessage) return null
-
-                    const visibleMsgs = messages.filter(m => visibleMessageIds.has(m.id) && !isMutedUser(m.user_uuid))
-                    const visibleIndex = visibleMsgs.findIndex(m => m.id === msg.id)
-                    const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
+                  {showMessageLoadingState && (
+                    <div className="room-message-state" role="status" aria-live="polite">
+                      <div className="room-message-state-title">Loading messages...</div>
+                      <div className="room-message-state-copy">Pulling the latest conversation for this room.</div>
+                    </div>
+                  )}
+                  {showMessageErrorState && (
+                    <div className="room-message-state error" role="status" aria-live="polite">
+                      <div className="room-message-state-title">Could not load messages</div>
+                      <div className="room-message-state-copy">This room is available, but its message history did not load yet.</div>
+                      <button
+                        type="button"
+                        className="room-message-state-button"
+                        onClick={() => {
+                          void fetchMessagesForRoom(room, { force: true, revealMode: 'instant' })
+                        }}
+                      >
+                        Retry messages
+                      </button>
+                    </div>
+                  )}
+                  {showEmptyRoomState && (
+                    <div className="room-message-state" role="status" aria-live="polite">
+                      <div className="room-message-state-title">No messages yet</div>
+                      <div className="room-message-state-copy">Be the first person to start this conversation.</div>
+                    </div>
+                  )}
+                  {showMutedRoomState && (
+                    <div className="room-message-state" role="status" aria-live="polite">
+                      <div className="room-message-state-title">Messages hidden</div>
+                      <div className="room-message-state-copy">This room has messages, but they are hidden because you muted the people who sent them.</div>
+                    </div>
+                  )}
+                  {renderableMessages.map((msg, visibleIndex) => {
+                    const isFirstInGroup = visibleIndex === 0 || renderableMessages[visibleIndex - 1].username !== msg.username
                     const isOwnMessage = msg.senderUsername === getCurrentUsername()
                     const showOwnMessageAvatar = isOwnMessage && hasAvatarPhoto
                     const seededMessageAvatarUrl = roomSeededAvatarMap[msg.username.trim()]?.trim() || ''

@@ -431,6 +431,7 @@ const urlBase64ToUint8Array = (base64String: string) => {
 export default function GlobalChat() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [roomMessages, setRoomMessages] = useState<Record<string, Message[]>>({})
+  const [seededAvatarMap, setSeededAvatarMap] = useState<Record<string, Record<string, string>>>({})
   const [inputTexts, setInputTexts] = useState<Record<string, string>>({})
   const [activeGifPickerRoomId, setActiveGifPickerRoomId] = useState<string | null>(null)
   const [gifSearchInput, setGifSearchInput] = useState('')
@@ -1578,6 +1579,34 @@ export default function GlobalChat() {
     })
   }, [])
 
+  const fetchSeededAvatarsForRoom = useCallback(async (roomId: string) => {
+    const { data, error } = await ((supabase.from as unknown as (table: string) => any)(
+      'seeded_avatars'
+    ) as any)
+      .select('display_name, avatar_url')
+      .eq('room_id', roomId)
+
+    if (error) {
+      return
+    }
+
+    const nextRoomAvatarMap: Record<string, string> = {}
+
+    ;((data || []) as Array<{ display_name: string | null; avatar_url: string | null }>).forEach((row) => {
+      const displayName = row.display_name?.trim() || ''
+      const avatar = row.avatar_url?.trim() || ''
+
+      if (!displayName || !avatar) return
+
+      nextRoomAvatarMap[displayName] = avatar
+    })
+
+    setSeededAvatarMap((current) => ({
+      ...current,
+      [roomId]: nextRoomAvatarMap,
+    }))
+  }, [])
+
   const resolveUsernameForDisplayName = useCallback(async (name?: string | null) => {
     const normalizedName = name?.trim() || ''
     if (!normalizedName) return null
@@ -2236,7 +2265,10 @@ export default function GlobalChat() {
         .map((message: any) => normalizeMessageRow(message))
         .filter((message): message is MessageRow => Boolean(message))
 
-      await cacheUsernamesForDisplayNames(messageRows.map(message => message.display_name))
+      await Promise.all([
+        cacheUsernamesForDisplayNames(messageRows.map(message => message.display_name)),
+        fetchSeededAvatarsForRoom(room.id),
+      ])
 
       if (isStaleRequest() || didRealtimeFire()) {
         return
@@ -2257,7 +2289,7 @@ export default function GlobalChat() {
         triggerRevealsForMessages(room.id, msgs)
       })
     }
-  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, normalizeMessageRow, setInstantVisibleMessageIds, triggerRevealsForMessages])
+  }, [buildMessageFromRow, cacheUsernamesForDisplayNames, fetchSeededAvatarsForRoom, normalizeMessageRow, setInstantVisibleMessageIds, triggerRevealsForMessages])
 
   const syncMuteStateAndRooms = useCallback(async () => {
     await loadMuteState()
@@ -3390,6 +3422,7 @@ export default function GlobalChat() {
         {visibleRoomIndexes.map((index) => {
           const room = rooms[index]
           const messages = roomMessages[room.id] || []
+          const roomSeededAvatarMap = seededAvatarMap[room.id] || {}
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
           const isCurrentRoom = index === currentRoomIndex
           const isGifPickerOpen = activeGifPickerRoomId === room.id
@@ -3473,7 +3506,8 @@ export default function GlobalChat() {
                     const isFirstInGroup = visibleIndex === 0 || visibleMsgs[visibleIndex - 1].username !== msg.username
                     const isOwnMessage = msg.senderUsername === getCurrentUsername()
                     const showOwnMessageAvatar = isOwnMessage && hasAvatarPhoto
-                    const messageAvatarUrl = showOwnMessageAvatar ? currentAvatarUrl : (msg.avatarUrl?.trim() || '')
+                    const seededMessageAvatarUrl = roomSeededAvatarMap[msg.username.trim()]?.trim() || ''
+                    const messageAvatarUrl = seededMessageAvatarUrl || (showOwnMessageAvatar ? currentAvatarUrl : (msg.avatarUrl?.trim() || ''))
                     const isReadOnlyProfileAvatar = isFirstInGroup && !isOwnMessage
 
                     return (

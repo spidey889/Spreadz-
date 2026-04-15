@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type SeedingClientProps = {
   isInitiallyAuthorized: boolean
@@ -39,55 +39,62 @@ type SeedingResponse = {
 }
 
 const pageStyle = {
-  height: '100dvh',
+  minHeight: '100dvh',
   boxSizing: 'border-box' as const,
-  overflowY: 'auto' as const,
   background:
-    'radial-gradient(circle at top, rgba(124,255,183,0.12), transparent 24%), linear-gradient(180deg, #111214, #171a20)',
-  color: '#f5f7fa',
-  padding: '32px 16px 48px',
+    'radial-gradient(circle at top, rgba(255, 68, 68, 0.2), transparent 28%), linear-gradient(180deg, #160707 0%, #100606 32%, #080808 100%)',
+  color: '#f4eaea',
+  padding: '40px 24px 56px',
 }
 
 const shellStyle = {
   width: '100%',
-  maxWidth: '720px',
+  maxWidth: '1120px',
   margin: '0 auto',
 }
 
 const cardStyle = {
-  background: 'rgba(19, 22, 27, 0.96)',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: '24px',
-  padding: '24px',
-  boxShadow: '0 24px 48px rgba(0,0,0,0.28)',
-  backdropFilter: 'blur(16px)',
+  background: 'rgba(18, 10, 10, 0.92)',
+  border: '1px solid rgba(255, 92, 92, 0.14)',
+  borderRadius: '28px',
+  padding: '32px',
+  boxShadow: '0 28px 60px rgba(0, 0, 0, 0.38)',
+  backdropFilter: 'blur(18px)',
+}
+
+const panelStyle = {
+  borderRadius: '22px',
+  border: '1px solid rgba(255,255,255,0.06)',
+  background: 'rgba(255,255,255,0.02)',
+  padding: '22px',
 }
 
 const labelStyle = {
   display: 'block',
-  fontSize: '12px',
+  fontSize: '11px',
   fontWeight: 700,
-  letterSpacing: '0.08em',
+  letterSpacing: '0.12em',
   textTransform: 'uppercase' as const,
-  color: '#9da7b5',
-  marginBottom: '8px',
+  color: '#c98c8c',
+  marginBottom: '10px',
 }
 
 const inputStyle = {
   width: '100%',
-  borderRadius: '16px',
-  border: '1px solid rgba(255,255,255,0.1)',
-  background: 'rgba(8, 10, 13, 0.8)',
-  color: '#f5f7fa',
-  padding: '14px 16px',
+  borderRadius: '14px',
+  border: '1px solid rgba(255, 120, 120, 0.12)',
+  background: 'rgba(11, 8, 8, 0.92)',
+  color: '#f6eeee',
+  padding: '14px 15px',
   fontSize: '15px',
   outline: 'none',
   fontFamily: 'inherit',
+  boxSizing: 'border-box' as const,
 }
 
 const buttonStyle = {
   border: 'none',
-  borderRadius: '16px',
+  borderRadius: '14px',
   padding: '14px 18px',
   fontSize: '15px',
   fontWeight: 700,
@@ -96,19 +103,20 @@ const buttonStyle = {
 }
 
 const sectionTitleStyle = {
-  fontSize: '18px',
+  fontSize: '16px',
   fontWeight: 700,
   margin: '0 0 16px',
-  color: '#f5f7fa',
+  color: '#fff3f3',
 }
 
-const tableCellStyle = {
-  padding: '12px 10px',
-  borderBottom: '1px solid rgba(255,255,255,0.08)',
-  textAlign: 'left' as const,
-  verticalAlign: 'top' as const,
-  fontSize: '14px',
-  color: '#dce2ea',
+const errorBoxStyle = {
+  borderRadius: '16px',
+  border: '1px solid rgba(255, 105, 105, 0.24)',
+  background: 'rgba(255, 79, 79, 0.1)',
+  color: '#ffd1d1',
+  padding: '14px 16px',
+  fontSize: '13px',
+  lineHeight: 1.5,
 }
 
 const parseClockToSeconds = (value: string) => {
@@ -175,7 +183,7 @@ const parseMessagesInput = (value: string) => {
 }
 
 const formatDateTime = (value: string | null | undefined) => {
-  if (!value) return '—'
+  if (!value) return '-'
 
   const dateValue = new Date(value)
   if (Number.isNaN(dateValue.getTime())) return value
@@ -203,9 +211,8 @@ export default function SeedingClient({
   const [scheduledFor, setScheduledFor] = useState('')
   const [authPending, setAuthPending] = useState(false)
   const [actionPending, setActionPending] = useState<'now' | 'schedule' | null>(null)
-  const [dashboardLoading, setDashboardLoading] = useState(false)
   const [runs, setRuns] = useState<SeedRun[]>([])
-  const [statusLogs, setStatusLogs] = useState<string[]>([
+  const [, setStatusLogs] = useState<string[]>([
     secretConfigured
       ? isInitiallyAuthorized
         ? 'Seeding access unlocked.'
@@ -264,21 +271,18 @@ export default function SeedingClient({
   const refreshDashboard = async () => {
     if (!isAuthorized) return
 
-    setDashboardLoading(true)
     try {
       const response = await fetch('/api/seeding')
       const payload = (await response.json().catch(() => null)) as SeedingResponse | null
 
       if (!response.ok) {
-        setErrorMessage(payload?.error || 'Failed to load dashboard.')
+        setErrorMessage(payload?.error || 'Failed to load seeding runs.')
         return
       }
 
       setRuns(sortRuns(payload?.runs || []))
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to load dashboard.')
-    } finally {
-      setDashboardLoading(false)
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to load seeding runs.')
     }
   }
 
@@ -673,32 +677,12 @@ export default function SeedingClient({
     }
   }
 
-  const canCreateRun = useMemo(() => {
-    return isAuthorized && !actionPending
-  }, [actionPending, isAuthorized])
-
-  const activeRuns = useMemo(() => {
-    return runs
-      .filter((run) => run.status !== 'completed')
-      .sort((left, right) =>
-        (left.scheduled_for || left.created_at || '').localeCompare(
-          right.scheduled_for || right.created_at || ''
-        )
-      )
-  }, [runs])
-
-  const completedRuns = useMemo(() => {
-    return runs
-      .filter((run) => run.status === 'completed')
-      .sort((left, right) =>
-        (right.completed_at || '').localeCompare(left.completed_at || '')
-      )
-  }, [runs])
+  const canCreateRun = isAuthorized && !actionPending
 
   return (
     <main style={pageStyle}>
       <div style={shellStyle}>
-        <div style={{ marginBottom: '18px' }}>
+        <div style={{ marginBottom: '22px' }}>
           <div
             style={{
               display: 'inline-flex',
@@ -706,29 +690,31 @@ export default function SeedingClient({
               gap: '8px',
               padding: '8px 12px',
               borderRadius: '999px',
-              background: 'rgba(124,255,183,0.1)',
-              border: '1px solid rgba(124,255,183,0.16)',
-              color: '#b9ffd4',
+              background: 'rgba(255, 87, 87, 0.12)',
+              border: '1px solid rgba(255, 87, 87, 0.2)',
+              color: '#ff9b9b',
               fontSize: '12px',
               fontWeight: 700,
-              letterSpacing: '0.08em',
+              letterSpacing: '0.12em',
               textTransform: 'uppercase',
             }}
           >
-            SpreadZ Admin
+            SpreadZ Seeding
           </div>
           <h1
             style={{
-              fontSize: '34px',
-              lineHeight: 1.05,
+              fontSize: 'clamp(2.5rem, 5vw, 4.5rem)',
+              lineHeight: 0.96,
               letterSpacing: '-0.04em',
-              margin: '16px 0 10px',
+              margin: '18px 0 12px',
+              color: '#ff4d4d',
             }}
           >
-            Seed Rooms and Conversations
+            Welcome to Hell
           </h1>
-          <p style={{ color: '#aab3bf', fontSize: '15px', lineHeight: 1.6, margin: 0 }}>
-            Create a room, bulk-load messages, and schedule it from one admin panel.
+          <p style={{ color: '#c9b4b4', fontSize: '15px', lineHeight: 1.65, margin: 0 }}>
+            Same seeding flow, stripped down for desktop: cleaner spacing, wider layout, no
+            dashboard noise.
           </p>
         </div>
 
@@ -737,9 +723,9 @@ export default function SeedingClient({
             <div
               style={{
                 borderRadius: '16px',
-                border: '1px solid rgba(255, 160, 122, 0.24)',
-                background: 'rgba(255, 160, 122, 0.1)',
-                color: '#ffd4c4',
+                border: '1px solid rgba(255, 108, 108, 0.24)',
+                background: 'rgba(255, 108, 108, 0.12)',
+                color: '#ffd2d2',
                 padding: '14px 16px',
                 fontSize: '14px',
                 lineHeight: 1.5,
@@ -750,7 +736,11 @@ export default function SeedingClient({
           )}
 
           {secretConfigured && !isAuthorized && (
-            <form onSubmit={handleUnlock}>
+            <form onSubmit={handleUnlock} style={{ maxWidth: '460px' }}>
+              <div style={{ marginBottom: '10px', color: '#e2c3c3', fontSize: '14px' }}>
+                Unlock the seeding panel.
+              </div>
+
               <div style={{ marginBottom: '18px' }}>
                 <label htmlFor="admin-key" style={labelStyle}>
                   Admin Secret
@@ -766,18 +756,20 @@ export default function SeedingClient({
                 />
               </div>
 
+              {errorMessage ? <div style={{ ...errorBoxStyle, marginBottom: '16px' }}>{errorMessage}</div> : null}
+
               <button
                 type="submit"
                 disabled={authPending}
                 style={{
                   ...buttonStyle,
                   width: '100%',
-                  background: 'linear-gradient(135deg, #9af7b2, #6dd6ff)',
-                  color: '#071017',
+                  background: 'linear-gradient(135deg, #ff5f5f, #ff2f2f)',
+                  color: '#210404',
                   opacity: authPending ? 0.75 : 1,
                 }}
               >
-                {authPending ? 'Unlocking...' : 'Unlock Seeding Panel'}
+                {authPending ? 'Unlocking...' : 'Unlock Panel'}
               </button>
             </form>
           )}
@@ -790,13 +782,18 @@ export default function SeedingClient({
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   gap: '12px',
+                  flexWrap: 'wrap' as const,
                 }}
               >
                 <div>
-                  <div style={labelStyle}>Status</div>
-                  <div style={{ fontSize: '15px', color: '#dbe2ea', marginTop: '-2px' }}>
-                    Authorized
+                  <div style={labelStyle}>Access</div>
+                  <div style={{ fontSize: '15px', color: '#f6e9e9', marginTop: '-2px' }}>
+                    Authorized and ready to seed
                   </div>
+                </div>
+
+                <div style={{ color: '#b89a9a', fontSize: '13px' }}>
+                  Existing scheduled runs still attach in the background.
                 </div>
 
                 <button
@@ -804,239 +801,184 @@ export default function SeedingClient({
                   onClick={handleLogout}
                   style={{
                     ...buttonStyle,
-                    background: 'rgba(255,255,255,0.08)',
-                    color: '#f5f7fa',
+                    background: 'rgba(255,255,255,0.06)',
+                    color: '#f7efef',
                     padding: '12px 14px',
                   }}
                 >
-                  Lock
+                  Lock Panel
                 </button>
               </div>
 
-              <div style={{ marginTop: '24px' }}>
-                <h2 style={sectionTitleStyle}>Section 1 — Room Setup</h2>
+              {errorMessage ? <div style={{ ...errorBoxStyle, marginTop: '22px' }}>{errorMessage}</div> : null}
 
-                <div style={{ marginTop: '18px' }}>
-                  <label htmlFor="feed-position" style={labelStyle}>
-                    Feed Position Number
-                  </label>
-                  <input
-                    id="feed-position"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={feedPosition}
-                    onChange={(event) => setFeedPosition(event.target.value)}
-                    placeholder="1"
-                    style={inputStyle}
-                  />
-                </div>
+              <div
+                style={{
+                  marginTop: '24px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                  gap: '24px',
+                  alignItems: 'start',
+                }}
+              >
+                <div style={{ display: 'grid', gap: '18px' }}>
+                  <div style={panelStyle}>
+                    <h2 style={sectionTitleStyle}>Room Setup</h2>
 
-                <div style={{ marginTop: '18px' }}>
-                  <label htmlFor="room-name" style={labelStyle}>
-                    Room Name
-                  </label>
-                  <input
-                    id="room-name"
-                    type="text"
-                    value={roomName}
-                    onChange={(event) => setRoomName(event.target.value)}
-                    placeholder="Placement talk"
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginTop: '28px' }}>
-                <h2 style={sectionTitleStyle}>Section 2 — Bulk Message Input</h2>
-
-                <label htmlFor="bulk-messages" style={labelStyle}>
-                  Messages
-                </label>
-                <textarea
-                  id="bulk-messages"
-                  value={messagesInput}
-                  onChange={(event) => setMessagesInput(event.target.value)}
-                  placeholder={
-                    'Rahul - IIT Bombay - anyone else getting placed? - 00:00:10\nPriya - BITS Pilani - heard Flipkart is coming - 00:01:30\nArjun - VIT - bro same, super nervous - 00:02:00'
-                  }
-                  rows={12}
-                  style={{
-                    ...inputStyle,
-                    resize: 'vertical' as const,
-                    minHeight: '240px',
-                  }}
-                />
-              </div>
-
-              <div style={{ marginTop: '28px' }}>
-                <h2 style={sectionTitleStyle}>Section 3 — Launch</h2>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                    gap: '12px',
-                    alignItems: 'end',
-                  }}
-                >
-                  <div>
-                    <label htmlFor="schedule-at" style={labelStyle}>
-                      Schedule
-                    </label>
-                    <input
-                      id="schedule-at"
-                      type="datetime-local"
-                      value={scheduledFor}
-                      onChange={(event) => setScheduledFor(event.target.value)}
-                      style={inputStyle}
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={!canCreateRun}
-                    onClick={() => void handleCreateRun('now')}
-                    style={{
-                      ...buttonStyle,
-                      background: 'linear-gradient(135deg, #9af7b2, #6dd6ff)',
-                      color: '#071017',
-                      opacity: canCreateRun ? 1 : 0.6,
-                    }}
-                  >
-                    {actionPending === 'now' ? 'Launching...' : 'Go Live Now'}
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={!canCreateRun}
-                    onClick={() => void handleCreateRun('schedule')}
-                    style={{
-                      ...buttonStyle,
-                      background: 'rgba(255,255,255,0.08)',
-                      color: '#f5f7fa',
-                      opacity: canCreateRun ? 1 : 0.6,
-                    }}
-                  >
-                    {actionPending === 'schedule' ? 'Scheduling...' : 'Schedule'}
-                  </button>
-                </div>
-
-                <div
-                  style={{
-                    marginTop: '18px',
-                    borderRadius: '16px',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    background: 'rgba(255,255,255,0.03)',
-                    padding: '14px 16px',
-                  }}
-                >
-                  <div style={labelStyle}>Status Log</div>
-                  <div style={{ color: '#dce2ea', fontSize: '14px', lineHeight: 1.55 }}>
-                    {statusLogs.map((log, index) => (
-                      <div key={`${log}-${index}`}>{log}</div>
-                    ))}
-                  </div>
-                  {errorMessage && (
                     <div
                       style={{
-                        marginTop: '10px',
-                        color: '#ffb8b8',
-                        fontSize: '13px',
-                        lineHeight: 1.5,
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                        gap: '14px',
                       }}
                     >
-                      {errorMessage}
+                      <div>
+                        <label htmlFor="feed-position" style={labelStyle}>
+                          Feed Position
+                        </label>
+                        <input
+                          id="feed-position"
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={feedPosition}
+                          onChange={(event) => setFeedPosition(event.target.value)}
+                          placeholder="1"
+                          style={inputStyle}
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="room-name" style={labelStyle}>
+                          Room Name
+                        </label>
+                        <input
+                          id="room-name"
+                          type="text"
+                          value={roomName}
+                          onChange={(event) => setRoomName(event.target.value)}
+                          placeholder="Placement talk"
+                          style={inputStyle}
+                        />
+                      </div>
                     </div>
-                  )}
+                  </div>
+
+                  <div style={panelStyle}>
+                    <h2 style={sectionTitleStyle}>Launch</h2>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                        gap: '12px',
+                        alignItems: 'end',
+                      }}
+                    >
+                      <div>
+                        <label htmlFor="schedule-at" style={labelStyle}>
+                          Schedule
+                        </label>
+                        <input
+                          id="schedule-at"
+                          type="datetime-local"
+                          value={scheduledFor}
+                          onChange={(event) => setScheduledFor(event.target.value)}
+                          style={inputStyle}
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={!canCreateRun}
+                        onClick={() => void handleCreateRun('now')}
+                        style={{
+                          ...buttonStyle,
+                          background: 'linear-gradient(135deg, #ff5f5f, #ff2f2f)',
+                          color: '#210404',
+                          opacity: canCreateRun ? 1 : 0.6,
+                        }}
+                      >
+                        {actionPending === 'now' ? 'Launching...' : 'Go Live Now'}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={!canCreateRun}
+                        onClick={() => void handleCreateRun('schedule')}
+                        style={{
+                          ...buttonStyle,
+                          background: 'rgba(255,255,255,0.06)',
+                          color: '#f7efef',
+                          opacity: canCreateRun ? 1 : 0.6,
+                        }}
+                      >
+                        {actionPending === 'schedule' ? 'Scheduling...' : 'Schedule'}
+                      </button>
+                    </div>
+
+                    <p
+                      style={{
+                        margin: '14px 0 0',
+                        color: '#ae9393',
+                        fontSize: '13px',
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      Go live immediately or pick a time. The backend seeding flow stays the same.
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ ...panelStyle, minWidth: 0 }}>
+                  <h2 style={sectionTitleStyle}>Message Script</h2>
+
+                  <div
+                    style={{
+                      color: '#ae9393',
+                      fontSize: '13px',
+                      lineHeight: 1.6,
+                      marginBottom: '14px',
+                    }}
+                  >
+                    Format each line like:
+                    <br />
+                    <code
+                      style={{
+                        display: 'inline-block',
+                        marginTop: '6px',
+                        color: '#ffd2d2',
+                        fontSize: '12px',
+                      }}
+                    >
+                      Name - College - message - HH:MM:SS
+                    </code>
+                  </div>
+
+                  <label htmlFor="bulk-messages" style={labelStyle}>
+                    Messages
+                  </label>
+                  <textarea
+                    id="bulk-messages"
+                    value={messagesInput}
+                    onChange={(event) => setMessagesInput(event.target.value)}
+                    placeholder={
+                      'Rahul - IIT Bombay - anyone else getting placed? - 00:00:10\nPriya - BITS Pilani - heard Flipkart is coming - 00:01:30\nArjun - VIT - bro same, super nervous - 00:02:00'
+                    }
+                    rows={16}
+                    style={{
+                      ...inputStyle,
+                      resize: 'vertical' as const,
+                      minHeight: '420px',
+                      lineHeight: 1.6,
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                    }}
+                  />
                 </div>
               </div>
             </>
           )}
         </section>
-
-        {secretConfigured && isAuthorized && (
-          <section style={{ ...cardStyle, marginTop: '18px' }}>
-            <h2 style={{ ...sectionTitleStyle, marginBottom: '12px' }}>Section 4 — Dashboard</h2>
-
-            <div style={{ color: '#aab3bf', fontSize: '14px', marginBottom: '16px' }}>
-              {dashboardLoading ? 'Loading dashboard...' : 'Pulled from Supabase.'}
-            </div>
-
-            <div style={{ marginTop: '12px' }}>
-              <div style={{ ...labelStyle, marginBottom: '10px' }}>Scheduled Rooms</div>
-              <div style={{ overflowX: 'auto' as const }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th style={tableCellStyle}>Name</th>
-                      <th style={tableCellStyle}>Feed Position</th>
-                      <th style={tableCellStyle}>Scheduled Time</th>
-                      <th style={tableCellStyle}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeRuns.length === 0 && (
-                      <tr>
-                        <td colSpan={4} style={tableCellStyle}>
-                          No scheduled rooms yet.
-                        </td>
-                      </tr>
-                    )}
-                    {activeRuns.map((run) => (
-                      <tr key={run.id}>
-                        <td style={tableCellStyle}>{run.room_name || '—'}</td>
-                        <td style={tableCellStyle}>{run.feed_position ?? '—'}</td>
-                        <td style={tableCellStyle}>{formatDateTime(run.scheduled_for)}</td>
-                        <td style={tableCellStyle}>
-                          {run.status || '—'}
-                          {run.last_error ? (
-                            <div style={{ marginTop: '6px', color: '#ffb8b8', fontSize: '12px' }}>
-                              {run.last_error}
-                            </div>
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '24px' }}>
-              <div style={{ ...labelStyle, marginBottom: '10px' }}>Completed Rooms</div>
-              <div style={{ overflowX: 'auto' as const }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th style={tableCellStyle}>Name</th>
-                      <th style={tableCellStyle}>Feed Position</th>
-                      <th style={tableCellStyle}>Scheduled Time</th>
-                      <th style={tableCellStyle}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {completedRuns.length === 0 && (
-                      <tr>
-                        <td colSpan={4} style={tableCellStyle}>
-                          No completed rooms yet.
-                        </td>
-                      </tr>
-                    )}
-                    {completedRuns.map((run) => (
-                      <tr key={run.id}>
-                        <td style={tableCellStyle}>{run.room_name || '—'}</td>
-                        <td style={tableCellStyle}>{run.feed_position ?? '—'}</td>
-                        <td style={tableCellStyle}>{formatDateTime(run.scheduled_for)}</td>
-                        <td style={tableCellStyle}>{run.status || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-        )}
       </div>
     </main>
   )

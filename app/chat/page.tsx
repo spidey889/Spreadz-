@@ -409,6 +409,8 @@ export default function GlobalChat() {
   const displayNameToUsernameRef = useRef<Record<string, string>>({})
   const displayNameToAvatarUrlRef = useRef<Record<string, string>>({})
   const roomIdsRef = useRef<Set<string>>(new Set())
+  const roomFeedFetchRequestIdRef = useRef(0)
+  const roomMessageFetchRequestIdByRoomRef = useRef<Record<string, number>>({})
   const sentRoomIdsRef = useRef<Set<string>>(new Set())
   const roomPanelRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -442,6 +444,7 @@ export default function GlobalChat() {
   const profileSheetRef = useRef<HTMLFormElement>(null)
   const currentRoomIndexRef = useRef(0)
   const activeRoomIdRef = useRef<string | null>(null)
+  const realtimeMessageHandlerRef = useRef<(messageRow: any) => void>(() => {})
   const dragStartYRef = useRef<number | null>(null)
   const dragCurrentYRef = useRef<number | null>(null)
   const dragOffsetYRef = useRef(0)
@@ -1825,7 +1828,31 @@ export default function GlobalChat() {
   }, [])
 
   const fetchRooms = useCallback(async (reason = 'unknown') => {
-    console.log('[Rooms] fetchRooms', { reason })
+    const requestId = roomFeedFetchRequestIdRef.current + 1
+    roomFeedFetchRequestIdRef.current = requestId
+
+    const applyLatestRoomFeed = (nextRooms: Room[], source: 'ordered' | 'fallback') => {
+      if (requestId !== roomFeedFetchRequestIdRef.current) {
+        console.log('[Rooms] fetchRooms discard stale', {
+          reason,
+          source,
+          requestId,
+          latestRequestId: roomFeedFetchRequestIdRef.current,
+        })
+        return
+      }
+
+      console.log('[Rooms] fetchRooms apply', {
+        reason,
+        source,
+        requestId,
+        roomCount: nextRooms.length,
+      })
+
+      applyRoomFeed(nextRooms, source === 'ordered' ? reason : `${reason}:fallback`)
+    }
+
+    console.log('[Rooms] fetchRooms start', { reason, requestId })
 
     const orderedRoomsQuery = await (supabase.from('rooms') as any)
       .select('id, headline, created_at, feed_position, message_count')
@@ -1851,11 +1878,11 @@ export default function GlobalChat() {
         return
       }
 
-      applyRoomFeed((data || []) as Room[], `${reason}:fallback`)
+      applyLatestRoomFeed((data || []) as Room[], 'fallback')
       return
     }
 
-    applyRoomFeed((orderedRoomsQuery.data || []) as Room[], reason)
+    applyLatestRoomFeed((orderedRoomsQuery.data || []) as Room[], 'ordered')
   }, [applyRoomFeed])
 
   useEffect(() => {
@@ -2093,14 +2120,51 @@ export default function GlobalChat() {
     const force = options?.force ?? false
     const revealMode = options?.revealMode ?? 'schedule'
 
-    if (!force && fetchedRoomsRef.current.has(room.id)) return
-    fetchedRoomsRef.current.add(room.id)
+    if (!force && fetchedRoomsRef.current.has(room.id)) {
+      console.log('[Messages] fetch skipped cached room', {
+        roomId: room.id,
+        revealMode,
+      })
+      return
+    }
 
-    const { data } = await supabase
+    fetchedRoomsRef.current.add(room.id)
+    const requestId = (roomMessageFetchRequestIdByRoomRef.current[room.id] || 0) + 1
+    roomMessageFetchRequestIdByRoomRef.current[room.id] = requestId
+
+    const isStaleRequest = () => requestId !== roomMessageFetchRequestIdByRoomRef.current[room.id]
+
+    console.log('[Messages] fetch start', {
+      roomId: room.id,
+      requestId,
+      force,
+      revealMode,
+    })
+
+    const { data, error } = await supabase
       .from('messages')
       .select(MESSAGE_SELECT_COLUMNS)
       .eq('room_id', room.id)
       .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error('[Messages] fetch failed', {
+        roomId: room.id,
+        requestId,
+        error,
+      })
+      return
+    }
+
+    if (isStaleRequest()) {
+      console.log('[Messages] fetch discard stale', {
+        roomId: room.id,
+        requestId,
+        latestRequestId: roomMessageFetchRequestIdByRoomRef.current[room.id],
+        phase: 'query',
+      })
+      return
+    }
 
     if (data) {
       const messageRows = data
@@ -2108,7 +2172,23 @@ export default function GlobalChat() {
         .filter((message): message is MessageRow => Boolean(message))
 
       await cacheUsernamesForDisplayNames(messageRows.map(message => message.display_name))
+
+      if (isStaleRequest()) {
+        console.log('[Messages] fetch discard stale', {
+          roomId: room.id,
+          requestId,
+          latestRequestId: roomMessageFetchRequestIdByRoomRef.current[room.id],
+          phase: 'hydrate',
+        })
+        return
+      }
+
       const msgs = messageRows.map((message) => buildMessageFromRow(message))
+      console.log('[Messages] apply fetched state', {
+        roomId: room.id,
+        requestId,
+        messageCount: msgs.length,
+      })
       setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
 
       if (revealMode === 'instant') {
@@ -2176,14 +2256,23 @@ export default function GlobalChat() {
 
     const roomId = normalizedMessage.room_id
     if (!roomId) return
+
+    roomMessageFetchRequestIdByRoomRef.current[roomId] =
+      (roomMessageFetchRequestIdByRoomRef.current[roomId] || 0) + 1
+
     console.log('[Realtime][messages] event', {
       id: normalizedMessage.id,
       roomId,
       displayName: normalizedMessage.display_name,
+      invalidatedFetchRequestId: roomMessageFetchRequestIdByRoomRef.current[roomId],
     })
+
     if (!roomIdsRef.current.has(roomId)) {
+      console.log('[Realtime][messages] unknown room received, refreshing room feed', {
+        id: normalizedMessage.id,
+        roomId,
+      })
       void fetchRooms('unknown-room-message')
-      return
     }
 
     const messageAuthorId = typeof normalizedMessage.user_uuid === 'string' ? normalizedMessage.user_uuid : ''
@@ -2260,6 +2349,10 @@ export default function GlobalChat() {
   }, [buildMessageFromRow, cacheUsernamesForDisplayNames, fetchRooms, getCurrentUserId, getPendingMessageKey, handleIncomingMessageNotification, isMutedUser, normalizeMessageRow, replaceVisibleMessageId, scheduleReveal])
 
   useEffect(() => {
+    realtimeMessageHandlerRef.current = handleRealtimeMessage
+  }, [handleRealtimeMessage])
+
+  useEffect(() => {
     if (!authReady) return
 
     console.log('[Realtime][rooms] starting subscription')
@@ -2303,6 +2396,7 @@ export default function GlobalChat() {
 
     return () => {
       if (roomsChannelRef.current) {
+        console.log('[Realtime][rooms] cleanup subscription')
         supabase.removeChannel(roomsChannelRef.current)
         roomsChannelRef.current = null
       }
@@ -2334,7 +2428,7 @@ export default function GlobalChat() {
 
   // Keep one long-lived messages subscription so room changes do not interrupt realtime inserts.
   useEffect(() => {
-    if (!authReady || !muteStateReady || rooms.length === 0) return
+    if (!authReady || !muteStateReady) return
 
     console.log('[Realtime][messages] starting subscription')
 
@@ -2349,7 +2443,7 @@ export default function GlobalChat() {
             id: payload.new?.id ?? null,
             roomId: payload.new?.room_id ?? null,
           })
-          handleRealtimeMessage(payload.new)
+          realtimeMessageHandlerRef.current(payload.new)
         }
       )
       .subscribe((status) => {
@@ -2360,11 +2454,12 @@ export default function GlobalChat() {
 
     return () => {
       if (channelRef.current) {
+        console.log('[Realtime][messages] cleanup subscription')
         supabase.removeChannel(channelRef.current)
         channelRef.current = null
       }
     }
-  }, [authReady, muteStateReady, rooms.length, handleRealtimeMessage])
+  }, [authReady, muteStateReady])
 
   useEffect(() => {
     if (!activeRoomId) {
@@ -2980,6 +3075,13 @@ export default function GlobalChat() {
     if (shouldUseOptimisticMessage && pendingMessageKey) {
       pendingOutgoingMessageIdsRef.current.set(pendingMessageKey, tempId)
     }
+
+    roomMessageFetchRequestIdByRoomRef.current[roomId] =
+      (roomMessageFetchRequestIdByRoomRef.current[roomId] || 0) + 1
+    console.log('[Messages] invalidate pending fetch for outgoing message', {
+      roomId,
+      requestId: roomMessageFetchRequestIdByRoomRef.current[roomId],
+    })
 
     if (shouldUseOptimisticMessage) {
       scheduleReveal(roomId, tempId, 0)

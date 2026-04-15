@@ -197,6 +197,63 @@ const getAnchoredRoomFeedState = (
   return { normalizedRooms, nextRoomIndex }
 }
 
+const mergeRoomFeed = (currentRooms: Room[], incomingRooms: Room[]) => {
+  const roomsById = new Map<string, Room>()
+
+  currentRooms.forEach((room) => {
+    if (!room?.id) return
+    roomsById.set(room.id, room)
+  })
+
+  incomingRooms.forEach((room) => {
+    if (!room?.id) return
+    const currentRoom = roomsById.get(room.id)
+    roomsById.set(room.id, currentRoom ? { ...currentRoom, ...room } : room)
+  })
+
+  return Array.from(roomsById.values())
+}
+
+const getMessageCreatedAtSortValue = (message: Message) => {
+  const createdAt = typeof message.created_at === 'string' ? Date.parse(message.created_at) : Number.NaN
+  return Number.isNaN(createdAt) ? Number.MAX_SAFE_INTEGER : createdAt
+}
+
+const mergeRoomMessageFeed = (currentMessages: Message[], incomingMessages: Message[]) => {
+  const messageOrder = new Map<string, number>()
+  const messagesById = new Map<string, Message>()
+
+  currentMessages.forEach((message, index) => {
+    messageOrder.set(message.id, index)
+    messagesById.set(message.id, message)
+  })
+
+  incomingMessages.forEach((message) => {
+    const currentMessage = messagesById.get(message.id)
+    const mergedMessage = currentMessage
+      ? { ...message, renderKey: currentMessage.renderKey ?? message.renderKey }
+      : message
+
+    messagesById.set(message.id, mergedMessage)
+
+    if (!messageOrder.has(message.id)) {
+      messageOrder.set(message.id, currentMessages.length + messageOrder.size)
+    }
+  })
+
+  return Array.from(messagesById.values()).sort((left, right) => {
+    const leftCreatedAt = getMessageCreatedAtSortValue(left)
+    const rightCreatedAt = getMessageCreatedAtSortValue(right)
+
+    if (leftCreatedAt !== rightCreatedAt) {
+      return leftCreatedAt - rightCreatedAt
+    }
+
+    return (messageOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+      (messageOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER)
+  })
+}
+
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (text: string) => text.startsWith(GIF_MESSAGE_PREFIX)
 const getGifUrlFromMessage = (text: string) => isGifMessage(text) ? text.slice(GIF_MESSAGE_PREFIX.length).trim() : ''
@@ -1834,15 +1891,19 @@ export default function GlobalChat() {
   }, [rooms])
 
   const applyRoomFeed = useCallback((nextRooms: Room[]) => {
-    const { normalizedRooms, nextRoomIndex } = getAnchoredRoomFeedState(
-      nextRooms,
-      activeRoomIdRef.current,
-      currentRoomIndexRef.current
-    )
+    setRooms((previousRooms) => {
+      const mergedRooms = mergeRoomFeed(previousRooms, nextRooms)
+      const { normalizedRooms, nextRoomIndex } = getAnchoredRoomFeedState(
+        mergedRooms,
+        activeRoomIdRef.current,
+        currentRoomIndexRef.current
+      )
 
-    currentRoomIndexRef.current = nextRoomIndex
-    setCurrentRoomIndex((currentIndex) => (currentIndex === nextRoomIndex ? currentIndex : nextRoomIndex))
-    setRooms(normalizedRooms)
+      currentRoomIndexRef.current = nextRoomIndex
+      setCurrentRoomIndex((currentIndex) => (currentIndex === nextRoomIndex ? currentIndex : nextRoomIndex))
+
+      return normalizedRooms
+    })
   }, [])
 
   const fetchRooms = useCallback(async (_reason = 'unknown') => {
@@ -2182,7 +2243,10 @@ export default function GlobalChat() {
       }
 
       const msgs = messageRows.map((message) => buildMessageFromRow(message))
-      setRoomMessages(prev => ({ ...prev, [room.id]: msgs }))
+      setRoomMessages(prev => ({
+        ...prev,
+        [room.id]: mergeRoomMessageFeed(prev[room.id] || [], msgs),
+      }))
 
       if (revealMode === 'instant') {
         setInstantVisibleMessageIds(room.id, msgs)

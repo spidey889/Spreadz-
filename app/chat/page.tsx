@@ -16,6 +16,7 @@ interface Room {
   id: string
   headline: string
   created_at: string
+  feed_position?: number | null
 }
 
 interface Message {
@@ -1937,12 +1938,34 @@ export default function GlobalChat() {
   useEffect(() => {
     if (!authReady) return
     const fetchRooms = async () => {
-      const { data } = await supabase
-        .from('rooms')
-        .select('*')
+      const orderedRoomsQuery = await (supabase.from('rooms') as any)
+        .select('id, headline, created_at, feed_position')
+        .order('feed_position', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true })
 
-      if (data && data.length > 0) {
+      if (orderedRoomsQuery.error) {
+        console.error('[Rooms] feed_position fetch failed, falling back:', orderedRoomsQuery.error)
+
+        const { data, error } = await supabase
+          .from('rooms')
+          .select('*')
+          .order('created_at', { ascending: true })
+
+        if (error) {
+          console.error('[Rooms] fetch failed:', error)
+          return
+        }
+
+        if (data && data.length > 0) {
+          setRooms(data)
+        }
+
+        return
+      }
+
+      const data = (orderedRoomsQuery.data || []) as Room[]
+
+      if (data.length > 0) {
         // Set rooms in default order immediately
         setRooms(data)
       }

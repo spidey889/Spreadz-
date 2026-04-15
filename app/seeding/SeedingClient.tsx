@@ -7,95 +7,187 @@ type SeedingClientProps = {
   secretConfigured: boolean
 }
 
-type SeedMessage = {
+type SeedRun = {
   id: string
-  username: string
-  text: string
-  delaySeconds: number
+  room_name: string
+  feed_position: number | null
+  scheduled_for: string | null
+  status: string | null
+  messages_input: string | null
+  total_messages: number | null
+  posted_count: number | null
+  room_id: string | null
+  last_error: string | null
+  created_at: string | null
+  started_at: string | null
+  completed_at: string | null
 }
 
-type ApiResponse = {
+type ParsedSeedMessage = {
+  displayName: string
+  college: string
+  messageText: string
+  postAtSeconds: number
+  order: number
+}
+
+type SeedingResponse = {
   ok?: boolean
   error?: string
-  room?: {
-    id: string
-    headline: string
-  }
+  run?: SeedRun
+  runs?: SeedRun[]
 }
-
-const categories = [
-  'General',
-  'Tech',
-  'Sports',
-  'Entertainment',
-  'Business',
-  'Science',
-  'Gaming',
-  'Campus Life',
-]
 
 const pageStyle = {
   minHeight: '100dvh',
-  background: '#f5f5f5',
-  color: '#111',
-  padding: '24px 16px 48px',
+  overflowY: 'auto' as const,
+  background:
+    'radial-gradient(circle at top, rgba(124,255,183,0.12), transparent 24%), linear-gradient(180deg, #111214, #171a20)',
+  color: '#f5f7fa',
+  padding: '32px 16px 48px',
 }
 
 const shellStyle = {
   width: '100%',
-  maxWidth: '760px',
+  maxWidth: '720px',
   margin: '0 auto',
 }
 
-const sectionStyle = {
-  background: '#fff',
-  border: '1px solid #dcdcdc',
-  borderRadius: '12px',
-  padding: '18px',
-  marginTop: '14px',
+const cardStyle = {
+  background: 'rgba(19, 22, 27, 0.96)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: '24px',
+  padding: '24px',
+  boxShadow: '0 24px 48px rgba(0,0,0,0.28)',
+  backdropFilter: 'blur(16px)',
 }
 
 const labelStyle = {
   display: 'block',
-  fontSize: '13px',
-  fontWeight: 600,
-  marginBottom: '6px',
+  fontSize: '12px',
+  fontWeight: 700,
+  letterSpacing: '0.08em',
+  textTransform: 'uppercase' as const,
+  color: '#9da7b5',
+  marginBottom: '8px',
 }
 
 const inputStyle = {
   width: '100%',
-  border: '1px solid #cfcfcf',
-  borderRadius: '8px',
-  padding: '10px 12px',
-  fontSize: '14px',
-  background: '#fff',
-  color: '#111',
+  borderRadius: '16px',
+  border: '1px solid rgba(255,255,255,0.1)',
+  background: 'rgba(8, 10, 13, 0.8)',
+  color: '#f5f7fa',
+  padding: '14px 16px',
+  fontSize: '15px',
+  outline: 'none',
   fontFamily: 'inherit',
 }
 
 const buttonStyle = {
-  border: '1px solid #cfcfcf',
-  borderRadius: '8px',
-  padding: '10px 14px',
-  fontSize: '14px',
-  background: '#fff',
-  color: '#111',
+  border: 'none',
+  borderRadius: '16px',
+  padding: '14px 18px',
+  fontSize: '15px',
+  fontWeight: 700,
   cursor: 'pointer',
   fontFamily: 'inherit',
 }
 
-const createLocalId = () => {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+const sectionTitleStyle = {
+  fontSize: '18px',
+  fontWeight: 700,
+  margin: '0 0 16px',
+  color: '#f5f7fa',
 }
 
-const formatLaunchTime = (value: string) => {
-  const target = new Date(value)
-  if (Number.isNaN(target.getTime())) return value
-  return target.toLocaleString()
+const tableCellStyle = {
+  padding: '12px 10px',
+  borderBottom: '1px solid rgba(255,255,255,0.08)',
+  textAlign: 'left' as const,
+  verticalAlign: 'top' as const,
+  fontSize: '14px',
+  color: '#dce2ea',
+}
+
+const parseClockToSeconds = (value: string) => {
+  const match = value.trim().match(/^(\d{2}):(\d{2}):(\d{2})$/)
+  if (!match) return null
+
+  const hours = Number(match[1])
+  const minutes = Number(match[2])
+  const seconds = Number(match[3])
+
+  if (minutes >= 60 || seconds >= 60) {
+    return null
+  }
+
+  return hours * 3600 + minutes * 60 + seconds
+}
+
+const parseMessagesInput = (value: string) => {
+  const lines = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const messages: ParsedSeedMessage[] = []
+  const errors: string[] = []
+
+  lines.forEach((line, index) => {
+    const parts = line.split(' - ')
+
+    if (parts.length < 4) {
+      errors.push(`Line ${index + 1} is invalid.`)
+      return
+    }
+
+    const displayName = parts[0]?.trim() || ''
+    const college = parts[1]?.trim() || ''
+    const timeValue = parts[parts.length - 1]?.trim() || ''
+    const messageText = parts.slice(2, -1).join(' - ').trim()
+    const postAtSeconds = parseClockToSeconds(timeValue)
+
+    if (!displayName || !college || !messageText || postAtSeconds === null) {
+      errors.push(`Line ${index + 1} is invalid.`)
+      return
+    }
+
+    messages.push({
+      displayName,
+      college,
+      messageText,
+      postAtSeconds,
+      order: index,
+    })
+  })
+
+  messages.sort((left, right) => {
+    if (left.postAtSeconds !== right.postAtSeconds) {
+      return left.postAtSeconds - right.postAtSeconds
+    }
+
+    return left.order - right.order
+  })
+
+  return { messages, errors }
+}
+
+const formatDateTime = (value: string | null | undefined) => {
+  if (!value) return '—'
+
+  const dateValue = new Date(value)
+  if (Number.isNaN(dateValue.getTime())) return value
+
+  return dateValue.toLocaleString()
+}
+
+const sortRuns = (runs: SeedRun[]) => {
+  return [...runs].sort((left, right) => {
+    const leftPrimary = left.completed_at || left.scheduled_for || left.created_at || ''
+    const rightPrimary = right.completed_at || right.scheduled_for || right.created_at || ''
+    return rightPrimary.localeCompare(leftPrimary)
+  })
 }
 
 export default function SeedingClient({
@@ -104,72 +196,329 @@ export default function SeedingClient({
 }: SeedingClientProps) {
   const [isAuthorized, setIsAuthorized] = useState(isInitiallyAuthorized)
   const [adminKey, setAdminKey] = useState('')
-  const [topic, setTopic] = useState('')
-  const [college, setCollege] = useState('')
-  const [category, setCategory] = useState('General')
-  const [draftUsername, setDraftUsername] = useState('')
-  const [draftText, setDraftText] = useState('')
-  const [draftDelay, setDraftDelay] = useState('0')
-  const [messages, setMessages] = useState<SeedMessage[]>([])
-  const [scheduledAt, setScheduledAt] = useState('')
-  const [goLiveNow, setGoLiveNow] = useState(true)
+  const [feedPosition, setFeedPosition] = useState('1')
+  const [roomName, setRoomName] = useState('')
+  const [messagesInput, setMessagesInput] = useState('')
+  const [scheduledFor, setScheduledFor] = useState('')
   const [authPending, setAuthPending] = useState(false)
-  const [launchState, setLaunchState] = useState<'idle' | 'scheduled' | 'running'>('idle')
-  const [errorMessage, setErrorMessage] = useState('')
-  const [logs, setLogs] = useState<string[]>([
+  const [actionPending, setActionPending] = useState<'now' | 'schedule' | null>(null)
+  const [dashboardLoading, setDashboardLoading] = useState(false)
+  const [runs, setRuns] = useState<SeedRun[]>([])
+  const [statusLogs, setStatusLogs] = useState<string[]>([
     secretConfigured
       ? isInitiallyAuthorized
         ? 'Seeding access unlocked.'
         : 'Enter the admin secret to unlock this page.'
       : 'Set ADMIN_BROADCAST_SECRET or ADMIN_SECRET_KEY first.',
   ])
-  const timeoutIdsRef = useRef<number[]>([])
+  const [errorMessage, setErrorMessage] = useState('')
+  const startTimeoutsRef = useRef<Map<string, number>>(new Map())
+  const runTimeoutsRef = useRef<Map<string, number>>(new Map())
+  const runningRunIdsRef = useRef<Set<string>>(new Set())
+
+  const appendLog = (message: string) => {
+    setStatusLogs((currentLogs) => [...currentLogs, message])
+  }
+
+  const clearRunTimers = (runId: string) => {
+    const startTimeoutId = startTimeoutsRef.current.get(runId)
+    if (startTimeoutId !== undefined) {
+      window.clearTimeout(startTimeoutId)
+      startTimeoutsRef.current.delete(runId)
+    }
+
+    const runTimeoutId = runTimeoutsRef.current.get(runId)
+    if (runTimeoutId !== undefined) {
+      window.clearTimeout(runTimeoutId)
+      runTimeoutsRef.current.delete(runId)
+    }
+
+    runningRunIdsRef.current.delete(runId)
+  }
+
+  const clearAllTimers = () => {
+    startTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+    runTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+    startTimeoutsRef.current.clear()
+    runTimeoutsRef.current.clear()
+    runningRunIdsRef.current.clear()
+  }
 
   useEffect(() => {
     return () => {
-      timeoutIdsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
-      timeoutIdsRef.current = []
+      clearAllTimers()
     }
   }, [])
 
-  const canAddMessage = useMemo(() => {
-    return (
-      draftUsername.trim().length > 0 &&
-      draftText.trim().length > 0 &&
-      draftDelay.trim().length > 0 &&
-      Number.isFinite(Number(draftDelay)) &&
-      Number(draftDelay) >= 0
+  const upsertRun = (nextRun: SeedRun) => {
+    setRuns((currentRuns) =>
+      sortRuns([nextRun, ...currentRuns.filter((run) => run.id !== nextRun.id)])
     )
-  }, [draftDelay, draftText, draftUsername])
-
-  const canStart = useMemo(() => {
-    return (
-      isAuthorized &&
-      topic.trim().length > 0 &&
-      college.trim().length > 0 &&
-      messages.length > 0 &&
-      launchState === 'idle' &&
-      (goLiveNow || scheduledAt.trim().length > 0)
-    )
-  }, [college, goLiveNow, isAuthorized, launchState, messages.length, scheduledAt, topic])
-
-  const appendLog = (message: string) => {
-    setLogs((currentLogs) => [...currentLogs, message])
   }
 
-  const clearTimers = () => {
-    timeoutIdsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
-    timeoutIdsRef.current = []
+  const refreshDashboard = async () => {
+    if (!isAuthorized) return
+
+    setDashboardLoading(true)
+    try {
+      const response = await fetch('/api/seeding')
+      const payload = (await response.json().catch(() => null)) as SeedingResponse | null
+
+      if (!response.ok) {
+        setErrorMessage(payload?.error || 'Failed to load dashboard.')
+        return
+      }
+
+      setRuns(sortRuns(payload?.runs || []))
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to load dashboard.')
+    } finally {
+      setDashboardLoading(false)
+    }
   }
 
-  const scheduleTask = (callback: () => void, delayMs: number) => {
+  useEffect(() => {
+    if (!isAuthorized) return
+    void refreshDashboard()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthorized])
+
+  const markRunFailed = async (runId: string, nextErrorMessage: string) => {
+    clearRunTimers(runId)
+    setErrorMessage(nextErrorMessage)
+    appendLog(nextErrorMessage)
+
+    try {
+      const response = await fetch('/api/seeding', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'fail-run',
+          runId,
+          errorMessage: nextErrorMessage,
+        }),
+      })
+
+      const payload = (await response.json().catch(() => null)) as SeedingResponse | null
+      if (payload?.run) {
+        upsertRun(payload.run)
+      } else if (!response.ok) {
+        setRuns((currentRuns) =>
+          currentRuns.map((run) =>
+            run.id === runId
+              ? { ...run, status: 'failed', last_error: nextErrorMessage }
+              : run
+          )
+        )
+      }
+    } catch {
+      setRuns((currentRuns) =>
+        currentRuns.map((run) =>
+          run.id === runId
+            ? { ...run, status: 'failed', last_error: nextErrorMessage }
+            : run
+        )
+      )
+    }
+  }
+
+  const postRunMessage = async (
+    run: SeedRun,
+    message: ParsedSeedMessage,
+    ordinal: number,
+    shouldIncrementUserCount: boolean
+  ) => {
+    appendLog(`Posting ${ordinal}/${run.total_messages || 0}: ${message.displayName}`)
+
+    const response = await fetch('/api/seeding', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'create-message',
+        runId: run.id,
+        roomId: run.room_id,
+        displayName: message.displayName,
+        college: message.college,
+        messageText: message.messageText,
+        shouldIncrementUserCount,
+      }),
+    })
+
+    const payload = (await response.json().catch(() => null)) as SeedingResponse | null
+
+    if (!response.ok || !payload?.run) {
+      throw new Error(payload?.error || 'Message post failed.')
+    }
+
+    appendLog(`Posted ${ordinal}/${payload.run.total_messages || 0}: ${message.messageText}`)
+    return payload.run
+  }
+
+  const scheduleRunMessages = (run: SeedRun) => {
+    if (!run.room_id || runningRunIdsRef.current.has(run.id)) {
+      return
+    }
+
+    const parsed = parseMessagesInput(run.messages_input || '')
+    if (parsed.errors.length > 0) {
+      void markRunFailed(run.id, parsed.errors[0])
+      return
+    }
+
+    const messages = parsed.messages
+    const postedCount = Math.max(0, run.posted_count || 0)
+    const startedAtMs = run.started_at ? new Date(run.started_at).getTime() : Date.now()
+
+    if (Number.isNaN(startedAtMs)) {
+      void markRunFailed(run.id, 'Run start time is invalid.')
+      return
+    }
+
+    if (postedCount >= messages.length) {
+      clearRunTimers(run.id)
+      return
+    }
+
+    const firstMessageIndexByUser = new Map<string, number>()
+    messages.forEach((message, index) => {
+      const key = `${message.displayName.toLowerCase()}::${message.college.toLowerCase()}`
+      if (!firstMessageIndexByUser.has(key)) {
+        firstMessageIndexByUser.set(key, index)
+      }
+    })
+
+    runningRunIdsRef.current.add(run.id)
+
+    const scheduleNextMessage = (nextIndex: number) => {
+      const message = messages[nextIndex]
+
+      if (!message) {
+        clearRunTimers(run.id)
+        return
+      }
+
+      const nextTargetTime = startedAtMs + message.postAtSeconds * 1000
+      const delayMs = Math.max(0, nextTargetTime - Date.now())
+
+      const timeoutId = window.setTimeout(() => {
+        runTimeoutsRef.current.delete(run.id)
+
+        void (async () => {
+          const userKey = `${message.displayName.toLowerCase()}::${message.college.toLowerCase()}`
+
+          try {
+            const updatedRun = await postRunMessage(
+              run,
+              message,
+              nextIndex + 1,
+              firstMessageIndexByUser.get(userKey) === nextIndex
+            )
+
+            upsertRun(updatedRun)
+
+            if (updatedRun.status === 'completed') {
+              appendLog(`Completed room: ${updatedRun.room_name}`)
+              clearRunTimers(updatedRun.id)
+              return
+            }
+
+            scheduleNextMessage(nextIndex + 1)
+          } catch (error) {
+            await markRunFailed(
+              run.id,
+              error instanceof Error ? error.message : 'Message post failed.'
+            )
+          }
+        })()
+      }, delayMs)
+
+      runTimeoutsRef.current.set(run.id, timeoutId)
+    }
+
+    scheduleNextMessage(postedCount)
+  }
+
+  const startRun = async (runId: string) => {
+    if (runningRunIdsRef.current.has(runId)) {
+      return
+    }
+
+    appendLog(`Starting run ${runId}...`)
+
+    try {
+      const response = await fetch('/api/seeding', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'start-run',
+          runId,
+        }),
+      })
+
+      const payload = (await response.json().catch(() => null)) as SeedingResponse | null
+
+      if (!response.ok || !payload?.run) {
+        await markRunFailed(runId, payload?.error || 'Run start failed.')
+        return
+      }
+
+      upsertRun(payload.run)
+      appendLog(`Room live: ${payload.run.room_name}`)
+      scheduleRunMessages(payload.run)
+    } catch (error) {
+      await markRunFailed(
+        runId,
+        error instanceof Error ? error.message : 'Run start failed.'
+      )
+    }
+  }
+
+  const attachRun = (run: SeedRun) => {
+    if (!run.id) return
+
+    if (run.status === 'completed' || run.status === 'failed') {
+      clearRunTimers(run.id)
+      return
+    }
+
+    if (run.status === 'running') {
+      scheduleRunMessages(run)
+      return
+    }
+
+    if (run.status !== 'scheduled') {
+      return
+    }
+
+    if (startTimeoutsRef.current.has(run.id)) {
+      return
+    }
+
+    const scheduledAt = run.scheduled_for ? new Date(run.scheduled_for).getTime() : Date.now()
+    const delayMs = Math.max(0, scheduledAt - Date.now())
+
     const timeoutId = window.setTimeout(() => {
-      timeoutIdsRef.current = timeoutIdsRef.current.filter((item) => item !== timeoutId)
-      callback()
+      startTimeoutsRef.current.delete(run.id)
+      void startRun(run.id)
     }, delayMs)
 
-    timeoutIdsRef.current.push(timeoutId)
+    startTimeoutsRef.current.set(run.id, timeoutId)
   }
+
+  useEffect(() => {
+    if (!isAuthorized) return
+
+    runs.forEach((run) => {
+      attachRun(run)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthorized, runs])
 
   const handleUnlock = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -181,7 +530,7 @@ export default function SeedingClient({
 
     setAuthPending(true)
     setErrorMessage('')
-    setLogs(['Verifying admin key...'])
+    setStatusLogs(['Verifying admin key...'])
 
     try {
       const response = await fetch('/api/admin-auth', {
@@ -192,29 +541,30 @@ export default function SeedingClient({
         body: JSON.stringify({ admin_key: adminKey.trim() }),
       })
 
-      const payload = (await response.json().catch(() => null)) as ApiResponse | null
+      const payload = (await response.json().catch(() => null)) as SeedingResponse | null
 
       if (!response.ok) {
         setErrorMessage(payload?.error || 'Admin key verification failed.')
-        setLogs(['Unlock failed.'])
+        setStatusLogs(['Unlock failed.'])
         return
       }
 
-      setAdminKey('')
       setIsAuthorized(true)
-      setLogs(['Seeding access unlocked.'])
+      setAdminKey('')
+      setStatusLogs(['Seeding access unlocked.'])
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Admin key verification failed.')
-      setLogs(['Unlock failed.'])
+      setStatusLogs(['Unlock failed.'])
     } finally {
       setAuthPending(false)
     }
   }
 
   const handleLogout = async () => {
-    clearTimers()
-    setLaunchState('idle')
+    clearAllTimers()
+    setRuns([])
     setErrorMessage('')
+    setStatusLogs(['Signing out...'])
 
     try {
       await fetch('/api/admin-auth', { method: 'DELETE' })
@@ -224,117 +574,53 @@ export default function SeedingClient({
 
     setIsAuthorized(false)
     setAdminKey('')
-    setLogs(['Enter the admin secret to unlock this page.'])
+    setStatusLogs(['Enter the admin secret to unlock this page.'])
   }
 
-  const handleAddMessage = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const handleCreateRun = async (mode: 'now' | 'schedule') => {
+    const parsedFeedPosition = Number(feedPosition)
+    const parsedMessages = parseMessagesInput(messagesInput)
 
-    const delaySeconds = Number(draftDelay)
-    if (!canAddMessage || !Number.isInteger(delaySeconds)) {
-      setErrorMessage('Add a username, message, and a whole-number delay in seconds.')
+    if (!Number.isInteger(parsedFeedPosition) || parsedFeedPosition < 1) {
+      setErrorMessage('Feed position number must be 1 or higher.')
       return
     }
 
-    setMessages((currentMessages) => [
-      ...currentMessages,
-      {
-        id: createLocalId(),
-        username: draftUsername.trim(),
-        text: draftText.trim(),
-        delaySeconds,
-      },
-    ])
-    setDraftUsername('')
-    setDraftText('')
-    setDraftDelay('0')
-    setErrorMessage('')
-  }
-
-  const handleDeleteMessage = (messageId: string) => {
-    setMessages((currentMessages) => currentMessages.filter((message) => message.id !== messageId))
-  }
-
-  const postSeedMessage = async (
-    roomId: string,
-    roomName: string,
-    message: SeedMessage,
-    shouldIncrementUserCount: boolean
-  ) => {
-    const response = await fetch('/api/seeding', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        action: 'create-message',
-        roomId,
-        roomName,
-        username: message.username,
-        text: message.text,
-        college: college.trim(),
-        shouldIncrementUserCount,
-      }),
-    })
-
-    const payload = (await response.json().catch(() => null)) as ApiResponse | null
-
-    if (!response.ok || !payload?.ok) {
-      throw new Error(payload?.error || 'Message seeding failed.')
+    if (!roomName.trim()) {
+      setErrorMessage('Room name is required.')
+      return
     }
-  }
 
-  const runMessageChain = (roomId: string, roomName: string, roomMessages: SeedMessage[]) => {
-    const firstMessageIndexByUser = new Map<string, number>()
-    roomMessages.forEach((message, index) => {
-      if (!firstMessageIndexByUser.has(message.username)) {
-        firstMessageIndexByUser.set(message.username, index)
-      }
-    })
+    if (parsedMessages.errors.length > 0) {
+      setErrorMessage(parsedMessages.errors[0])
+      return
+    }
 
-    const seedNextMessage = (index: number) => {
-      const message = roomMessages[index]
-      if (!message) {
-        appendLog('Seeding complete.')
-        setLaunchState('idle')
+    if (parsedMessages.messages.length === 0) {
+      setErrorMessage('Add at least one valid message line.')
+      return
+    }
+
+    let scheduledForIso = new Date().toISOString()
+
+    if (mode === 'schedule') {
+      if (!scheduledFor.trim()) {
+        setErrorMessage('Pick a schedule time first.')
         return
       }
 
-      const waitMs = Math.max(0, message.delaySeconds * 1000)
-      appendLog(
-        index === 0
-          ? `Waiting ${message.delaySeconds}s before the first message.`
-          : `Waiting ${message.delaySeconds}s before message ${index + 1}.`
-      )
+      const scheduledDate = new Date(scheduledFor)
+      if (Number.isNaN(scheduledDate.getTime())) {
+        setErrorMessage('Schedule time is invalid.')
+        return
+      }
 
-      scheduleTask(() => {
-        void (async () => {
-          try {
-            appendLog(`Posting ${index + 1}/${roomMessages.length}: ${message.username}`)
-            await postSeedMessage(
-              roomId,
-              roomName,
-              message,
-              firstMessageIndexByUser.get(message.username) === index
-            )
-            appendLog(`Posted: ${message.text}`)
-            seedNextMessage(index + 1)
-          } catch (error) {
-            setLaunchState('idle')
-            setErrorMessage(error instanceof Error ? error.message : 'Message seeding failed.')
-            appendLog('Seeding stopped because a message failed.')
-          }
-        })()
-      }, waitMs)
+      scheduledForIso = scheduledDate.toISOString()
     }
 
-    seedNextMessage(0)
-  }
-
-  const createRoomAndSeed = async () => {
-    setLaunchState('running')
+    setActionPending(mode)
     setErrorMessage('')
-    appendLog('Creating room...')
+    appendLog(mode === 'now' ? 'Saving run for immediate launch...' : 'Saving scheduled run...')
 
     try {
       const response = await fetch('/api/seeding', {
@@ -343,344 +629,399 @@ export default function SeedingClient({
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          action: 'create-room',
-          topic: topic.trim(),
-          college: college.trim(),
-          category,
+          action: 'create-run',
+          roomName: roomName.trim(),
+          feedPosition: parsedFeedPosition,
+          scheduledFor: scheduledForIso,
+          messagesInput,
+          totalMessages: parsedMessages.messages.length,
         }),
       })
 
-      const payload = (await response.json().catch(() => null)) as ApiResponse | null
+      const payload = (await response.json().catch(() => null)) as SeedingResponse | null
 
-      if (!response.ok || !payload?.ok || !payload.room) {
-        throw new Error(payload?.error || 'Room creation failed.')
+      if (!response.ok || !payload?.run) {
+        setErrorMessage(payload?.error || 'Failed to create run.')
+        return
       }
 
-      appendLog(`Room created: ${payload.room.headline}`)
-      runMessageChain(payload.room.id, payload.room.headline, messages)
+      upsertRun(payload.run)
+      appendLog(
+        mode === 'now'
+          ? `Run queued for ${payload.run.room_name}.`
+          : `Scheduled ${payload.run.room_name} for ${formatDateTime(payload.run.scheduled_for)}.`
+      )
+      attachRun(payload.run)
     } catch (error) {
-      setLaunchState('idle')
-      setErrorMessage(error instanceof Error ? error.message : 'Room creation failed.')
-      appendLog('Seeding stopped before messages started.')
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to create run.')
+    } finally {
+      setActionPending(null)
     }
   }
 
-  const handleStartSeeding = async () => {
-    if (!canStart) {
-      setErrorMessage('Fill out the room details and add at least one message.')
-      return
-    }
+  const canCreateRun = useMemo(() => {
+    return isAuthorized && !actionPending
+  }, [actionPending, isAuthorized])
 
-    clearTimers()
-    setErrorMessage('')
-    setLogs([])
+  const activeRuns = useMemo(() => {
+    return runs
+      .filter((run) => run.status !== 'completed')
+      .sort((left, right) =>
+        (left.scheduled_for || left.created_at || '').localeCompare(
+          right.scheduled_for || right.created_at || ''
+        )
+      )
+  }, [runs])
 
-    if (goLiveNow) {
-      await createRoomAndSeed()
-      return
-    }
-
-    const launchTime = new Date(scheduledAt)
-    const delayMs = launchTime.getTime() - Date.now()
-
-    if (Number.isNaN(launchTime.getTime()) || delayMs <= 0) {
-      appendLog('Scheduled time is in the past, starting now.')
-      await createRoomAndSeed()
-      return
-    }
-
-    setLaunchState('scheduled')
-    appendLog(`Seeding scheduled for ${formatLaunchTime(scheduledAt)}.`)
-    scheduleTask(() => {
-      void createRoomAndSeed()
-    }, delayMs)
-  }
+  const completedRuns = useMemo(() => {
+    return runs
+      .filter((run) => run.status === 'completed')
+      .sort((left, right) =>
+        (right.completed_at || '').localeCompare(left.completed_at || '')
+      )
+  }, [runs])
 
   return (
     <main style={pageStyle}>
       <div style={shellStyle}>
-        <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 700 }}>SpreadZ Seeding</h1>
-        <p style={{ margin: '8px 0 0', color: '#555', fontSize: '14px' }}>
-          Create a room, line up a conversation, then seed it on a timer.
-        </p>
+        <div style={{ marginBottom: '18px' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 12px',
+              borderRadius: '999px',
+              background: 'rgba(124,255,183,0.1)',
+              border: '1px solid rgba(124,255,183,0.16)',
+              color: '#b9ffd4',
+              fontSize: '12px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            SpreadZ Admin
+          </div>
+          <h1
+            style={{
+              fontSize: '34px',
+              lineHeight: 1.05,
+              letterSpacing: '-0.04em',
+              margin: '16px 0 10px',
+            }}
+          >
+            Seed Rooms and Conversations
+          </h1>
+          <p style={{ color: '#aab3bf', fontSize: '15px', lineHeight: 1.6, margin: 0 }}>
+            Create a room, bulk-load messages, and schedule it from one admin panel.
+          </p>
+        </div>
 
-        <section style={sectionStyle}>
+        <section style={cardStyle}>
           {!secretConfigured && (
-            <div style={{ fontSize: '14px', color: '#a33' }}>
-              Add <code>ADMIN_BROADCAST_SECRET</code> to enable this page.
+            <div
+              style={{
+                borderRadius: '16px',
+                border: '1px solid rgba(255, 160, 122, 0.24)',
+                background: 'rgba(255, 160, 122, 0.1)',
+                color: '#ffd4c4',
+                padding: '14px 16px',
+                fontSize: '14px',
+                lineHeight: 1.5,
+              }}
+            >
+              Add `ADMIN_BROADCAST_SECRET` to your environment to enable this page.
             </div>
           )}
 
           {secretConfigured && !isAuthorized && (
             <form onSubmit={handleUnlock}>
-              <label htmlFor="admin-key" style={labelStyle}>
-                Admin Secret
-              </label>
-              <input
-                id="admin-key"
-                type="password"
-                value={adminKey}
-                onChange={(event) => setAdminKey(event.target.value)}
-                autoComplete="current-password"
-                placeholder="Enter admin secret"
-                style={inputStyle}
-              />
+              <div style={{ marginBottom: '18px' }}>
+                <label htmlFor="admin-key" style={labelStyle}>
+                  Admin Secret
+                </label>
+                <input
+                  id="admin-key"
+                  type="password"
+                  value={adminKey}
+                  onChange={(event) => setAdminKey(event.target.value)}
+                  placeholder="Enter your admin secret"
+                  autoComplete="current-password"
+                  style={inputStyle}
+                />
+              </div>
+
               <button
                 type="submit"
                 disabled={authPending}
-                style={{ ...buttonStyle, marginTop: '12px', width: '100%' }}
+                style={{
+                  ...buttonStyle,
+                  width: '100%',
+                  background: 'linear-gradient(135deg, #9af7b2, #6dd6ff)',
+                  color: '#071017',
+                  opacity: authPending ? 0.75 : 1,
+                }}
               >
-                {authPending ? 'Unlocking...' : 'Unlock'}
+                {authPending ? 'Unlocking...' : 'Unlock Seeding Panel'}
               </button>
             </form>
           )}
 
           {secretConfigured && isAuthorized && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-              <div style={{ fontSize: '14px' }}>Unlocked</div>
-              <button type="button" onClick={handleLogout} style={buttonStyle}>
-                Lock
-              </button>
-            </div>
-          )}
-        </section>
-
-        {secretConfigured && isAuthorized && (
-          <>
-            <section style={sectionStyle}>
-              <h2 style={{ margin: 0, fontSize: '18px' }}>Section 1 — Create Room</h2>
-
-              <div style={{ marginTop: '14px' }}>
-                <label htmlFor="room-topic" style={labelStyle}>
-                  Room topic or name
-                </label>
-                <input
-                  id="room-topic"
-                  type="text"
-                  value={topic}
-                  onChange={(event) => setTopic(event.target.value)}
-                  placeholder="AI placement rumors"
-                  style={inputStyle}
-                />
-              </div>
-
-              <div style={{ marginTop: '14px' }}>
-                <label htmlFor="college-name" style={labelStyle}>
-                  College name
-                </label>
-                <input
-                  id="college-name"
-                  type="text"
-                  value={college}
-                  onChange={(event) => setCollege(event.target.value)}
-                  placeholder="Stanford"
-                  style={inputStyle}
-                />
-              </div>
-
-              <div style={{ marginTop: '14px' }}>
-                <label htmlFor="room-category" style={labelStyle}>
-                  Category
-                </label>
-                <select
-                  id="room-category"
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value)}
-                  style={inputStyle}
-                >
-                  {categories.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </section>
-
-            <section style={sectionStyle}>
-              <h2 style={{ margin: 0, fontSize: '18px' }}>Section 2 — Build Conversation</h2>
-
-              <form onSubmit={handleAddMessage} style={{ marginTop: '14px' }}>
+            <>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}
+              >
                 <div>
-                  <label htmlFor="seed-username" style={labelStyle}>
-                    Username
-                  </label>
-                  <input
-                    id="seed-username"
-                    type="text"
-                    value={draftUsername}
-                    onChange={(event) => setDraftUsername(event.target.value)}
-                    placeholder="alex"
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div style={{ marginTop: '12px' }}>
-                  <label htmlFor="seed-message" style={labelStyle}>
-                    Message text
-                  </label>
-                  <textarea
-                    id="seed-message"
-                    value={draftText}
-                    onChange={(event) => setDraftText(event.target.value)}
-                    placeholder="Anyone else hearing this?"
-                    rows={4}
-                    style={{ ...inputStyle, resize: 'vertical' as const }}
-                  />
-                </div>
-
-                <div style={{ marginTop: '12px' }}>
-                  <label htmlFor="seed-delay" style={labelStyle}>
-                    Delay after previous message (seconds)
-                  </label>
-                  <input
-                    id="seed-delay"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={draftDelay}
-                    onChange={(event) => setDraftDelay(event.target.value)}
-                    style={inputStyle}
-                  />
-                </div>
-
-                <button type="submit" style={{ ...buttonStyle, marginTop: '12px' }}>
-                  Add Message
-                </button>
-              </form>
-
-              <div style={{ marginTop: '18px' }}>
-                {messages.length === 0 && (
-                  <div style={{ fontSize: '14px', color: '#666' }}>No messages added yet.</div>
-                )}
-
-                {messages.map((message, index) => (
-                  <div key={message.id}>
-                    {index > 0 && (
-                      <div style={{ fontSize: '13px', color: '#666', padding: '8px 0' }}>
-                        ↓ {message.delaySeconds}s later
-                      </div>
-                    )}
-                    <div
-                      style={{
-                        borderLeft: '2px solid #ddd',
-                        padding: '10px 12px',
-                        background: '#fafafa',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'flex-start',
-                          gap: '12px',
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontWeight: 600, fontSize: '14px' }}>{message.username}</div>
-                          <div style={{ marginTop: '6px', fontSize: '14px', whiteSpace: 'pre-wrap' }}>
-                            {message.text}
-                          </div>
-                          {index === 0 && message.delaySeconds > 0 && (
-                            <div style={{ marginTop: '6px', fontSize: '12px', color: '#666' }}>
-                              Starts after {message.delaySeconds}s
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteMessage(message.id)}
-                          style={buttonStyle}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
+                  <div style={labelStyle}>Status</div>
+                  <div style={{ fontSize: '15px', color: '#dbe2ea', marginTop: '-2px' }}>
+                    Authorized
                   </div>
-                ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  style={{
+                    ...buttonStyle,
+                    background: 'rgba(255,255,255,0.08)',
+                    color: '#f5f7fa',
+                    padding: '12px 14px',
+                  }}
+                >
+                  Lock
+                </button>
               </div>
-            </section>
 
-            <section style={sectionStyle}>
-              <h2 style={{ margin: 0, fontSize: '18px' }}>Section 3 — Launch</h2>
+              <div style={{ marginTop: '24px' }}>
+                <h2 style={sectionTitleStyle}>Section 1 — Room Setup</h2>
 
-              <div style={{ marginTop: '14px' }}>
-                <label htmlFor="seed-schedule" style={labelStyle}>
-                  Schedule
+                <div style={{ marginTop: '18px' }}>
+                  <label htmlFor="feed-position" style={labelStyle}>
+                    Feed Position Number
+                  </label>
+                  <input
+                    id="feed-position"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={feedPosition}
+                    onChange={(event) => setFeedPosition(event.target.value)}
+                    placeholder="1"
+                    style={inputStyle}
+                  />
+                </div>
+
+                <div style={{ marginTop: '18px' }}>
+                  <label htmlFor="room-name" style={labelStyle}>
+                    Room Name
+                  </label>
+                  <input
+                    id="room-name"
+                    type="text"
+                    value={roomName}
+                    onChange={(event) => setRoomName(event.target.value)}
+                    placeholder="Placement talk"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginTop: '28px' }}>
+                <h2 style={sectionTitleStyle}>Section 2 — Bulk Message Input</h2>
+
+                <label htmlFor="bulk-messages" style={labelStyle}>
+                  Messages
                 </label>
-                <input
-                  id="seed-schedule"
-                  type="datetime-local"
-                  value={scheduledAt}
-                  onChange={(event) => setScheduledAt(event.target.value)}
-                  disabled={goLiveNow}
+                <textarea
+                  id="bulk-messages"
+                  value={messagesInput}
+                  onChange={(event) => setMessagesInput(event.target.value)}
+                  placeholder={
+                    'Rahul - IIT Bombay - anyone else getting placed? - 00:00:10\nPriya - BITS Pilani - heard Flipkart is coming - 00:01:30\nArjun - VIT - bro same, super nervous - 00:02:00'
+                  }
+                  rows={12}
                   style={{
                     ...inputStyle,
-                    background: goLiveNow ? '#f1f1f1' : '#fff',
+                    resize: 'vertical' as const,
+                    minHeight: '240px',
                   }}
                 />
               </div>
 
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginTop: '12px',
-                  fontSize: '14px',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={goLiveNow}
-                  onChange={(event) => setGoLiveNow(event.target.checked)}
-                />
-                Go Live Now
-              </label>
+              <div style={{ marginTop: '28px' }}>
+                <h2 style={sectionTitleStyle}>Section 3 — Launch</h2>
 
-              <button
-                type="button"
-                onClick={() => void handleStartSeeding()}
-                disabled={!canStart}
-                style={{ ...buttonStyle, marginTop: '14px', width: '100%' }}
-              >
-                {launchState === 'running'
-                  ? 'Seeding...'
-                  : launchState === 'scheduled'
-                    ? 'Scheduled'
-                    : 'Start Seeding'}
-              </button>
-            </section>
-
-            <section style={sectionStyle}>
-              <h2 style={{ margin: 0, fontSize: '18px' }}>Status</h2>
-              <div
-                style={{
-                  marginTop: '12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  background: '#fafafa',
-                  padding: '12px',
-                  minHeight: '120px',
-                }}
-              >
-                {logs.length === 0 ? (
-                  <div style={{ fontSize: '14px', color: '#666' }}>Nothing yet.</div>
-                ) : (
-                  logs.map((log, index) => (
-                    <div key={`${log}-${index}`} style={{ fontSize: '14px', lineHeight: 1.5 }}>
-                      {log}
-                    </div>
-                  ))
-                )}
-                {errorMessage && (
-                  <div style={{ marginTop: '10px', fontSize: '14px', color: '#b42318' }}>
-                    {errorMessage}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: '12px',
+                    alignItems: 'end',
+                  }}
+                >
+                  <div>
+                    <label htmlFor="schedule-at" style={labelStyle}>
+                      Schedule
+                    </label>
+                    <input
+                      id="schedule-at"
+                      type="datetime-local"
+                      value={scheduledFor}
+                      onChange={(event) => setScheduledFor(event.target.value)}
+                      style={inputStyle}
+                    />
                   </div>
-                )}
+
+                  <button
+                    type="button"
+                    disabled={!canCreateRun}
+                    onClick={() => void handleCreateRun('now')}
+                    style={{
+                      ...buttonStyle,
+                      background: 'linear-gradient(135deg, #9af7b2, #6dd6ff)',
+                      color: '#071017',
+                      opacity: canCreateRun ? 1 : 0.6,
+                    }}
+                  >
+                    {actionPending === 'now' ? 'Launching...' : 'Go Live Now'}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!canCreateRun}
+                    onClick={() => void handleCreateRun('schedule')}
+                    style={{
+                      ...buttonStyle,
+                      background: 'rgba(255,255,255,0.08)',
+                      color: '#f5f7fa',
+                      opacity: canCreateRun ? 1 : 0.6,
+                    }}
+                  >
+                    {actionPending === 'schedule' ? 'Scheduling...' : 'Schedule'}
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: '18px',
+                    borderRadius: '16px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'rgba(255,255,255,0.03)',
+                    padding: '14px 16px',
+                  }}
+                >
+                  <div style={labelStyle}>Status Log</div>
+                  <div style={{ color: '#dce2ea', fontSize: '14px', lineHeight: 1.55 }}>
+                    {statusLogs.map((log, index) => (
+                      <div key={`${log}-${index}`}>{log}</div>
+                    ))}
+                  </div>
+                  {errorMessage && (
+                    <div
+                      style={{
+                        marginTop: '10px',
+                        color: '#ffb8b8',
+                        fontSize: '13px',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {errorMessage}
+                    </div>
+                  )}
+                </div>
               </div>
-            </section>
-          </>
+            </>
+          )}
+        </section>
+
+        {secretConfigured && isAuthorized && (
+          <section style={{ ...cardStyle, marginTop: '18px' }}>
+            <h2 style={{ ...sectionTitleStyle, marginBottom: '12px' }}>Section 4 — Dashboard</h2>
+
+            <div style={{ color: '#aab3bf', fontSize: '14px', marginBottom: '16px' }}>
+              {dashboardLoading ? 'Loading dashboard...' : 'Pulled from Supabase.'}
+            </div>
+
+            <div style={{ marginTop: '12px' }}>
+              <div style={{ ...labelStyle, marginBottom: '10px' }}>Scheduled Rooms</div>
+              <div style={{ overflowX: 'auto' as const }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={tableCellStyle}>Name</th>
+                      <th style={tableCellStyle}>Feed Position</th>
+                      <th style={tableCellStyle}>Scheduled Time</th>
+                      <th style={tableCellStyle}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeRuns.length === 0 && (
+                      <tr>
+                        <td colSpan={4} style={tableCellStyle}>
+                          No scheduled rooms yet.
+                        </td>
+                      </tr>
+                    )}
+                    {activeRuns.map((run) => (
+                      <tr key={run.id}>
+                        <td style={tableCellStyle}>{run.room_name || '—'}</td>
+                        <td style={tableCellStyle}>{run.feed_position ?? '—'}</td>
+                        <td style={tableCellStyle}>{formatDateTime(run.scheduled_for)}</td>
+                        <td style={tableCellStyle}>
+                          {run.status || '—'}
+                          {run.last_error ? (
+                            <div style={{ marginTop: '6px', color: '#ffb8b8', fontSize: '12px' }}>
+                              {run.last_error}
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '24px' }}>
+              <div style={{ ...labelStyle, marginBottom: '10px' }}>Completed Rooms</div>
+              <div style={{ overflowX: 'auto' as const }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      <th style={tableCellStyle}>Name</th>
+                      <th style={tableCellStyle}>Feed Position</th>
+                      <th style={tableCellStyle}>Scheduled Time</th>
+                      <th style={tableCellStyle}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {completedRuns.length === 0 && (
+                      <tr>
+                        <td colSpan={4} style={tableCellStyle}>
+                          No completed rooms yet.
+                        </td>
+                      </tr>
+                    )}
+                    {completedRuns.map((run) => (
+                      <tr key={run.id}>
+                        <td style={tableCellStyle}>{run.room_name || '—'}</td>
+                        <td style={tableCellStyle}>{run.feed_position ?? '—'}</td>
+                        <td style={tableCellStyle}>{formatDateTime(run.scheduled_for)}</td>
+                        <td style={tableCellStyle}>{run.status || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
         )}
       </div>
     </main>

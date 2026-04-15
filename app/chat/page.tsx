@@ -1938,8 +1938,27 @@ export default function GlobalChat() {
   useEffect(() => {
     if (!authReady) return
     const fetchRooms = async () => {
+      const normalizeRooms = (rooms: Room[]) => {
+        return [...rooms]
+          .filter((room) => typeof room.headline === 'string' && room.headline.trim().length > 0)
+          .sort((left, right) => {
+            const leftPosition =
+              typeof left.feed_position === 'number' ? left.feed_position : Number.MAX_SAFE_INTEGER
+            const rightPosition =
+              typeof right.feed_position === 'number' ? right.feed_position : Number.MAX_SAFE_INTEGER
+
+            if (leftPosition !== rightPosition) {
+              return leftPosition - rightPosition
+            }
+
+            return new Date(left.created_at).getTime() - new Date(right.created_at).getTime()
+          })
+      }
+
       const orderedRoomsQuery = await (supabase.from('rooms') as any)
         .select('id, headline, created_at, feed_position')
+        .not('headline', 'is', null)
+        .neq('headline', '')
         .order('feed_position', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true })
 
@@ -1949,6 +1968,8 @@ export default function GlobalChat() {
         const { data, error } = await supabase
           .from('rooms')
           .select('*')
+          .not('headline', 'is', null)
+          .neq('headline', '')
           .order('created_at', { ascending: true })
 
         if (error) {
@@ -1957,13 +1978,13 @@ export default function GlobalChat() {
         }
 
         if (data && data.length > 0) {
-          setRooms(data)
+          setRooms(normalizeRooms(data as Room[]))
         }
 
         return
       }
 
-      const data = (orderedRoomsQuery.data || []) as Room[]
+      const data = normalizeRooms((orderedRoomsQuery.data || []) as Room[])
 
       if (data.length > 0) {
         // Set rooms in default order immediately

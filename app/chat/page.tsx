@@ -1801,7 +1801,7 @@ export default function GlobalChat() {
     roomIdsRef.current = new Set(rooms.map((room) => room.id))
   }, [rooms])
 
-  const applyRoomFeed = useCallback((nextRooms: Room[]) => {
+  const applyRoomFeed = useCallback((nextRooms: Room[], reason: string) => {
     const normalizedRooms = normalizeRoomFeed(nextRooms)
     const previousActiveRoomId = activeRoomIdRef.current
     const matchedRoomIndex = previousActiveRoomId
@@ -1814,11 +1814,19 @@ export default function GlobalChat() {
         : Math.max(0, Math.min(currentRoomIndexRef.current, normalizedRooms.length - 1))
 
     currentRoomIndexRef.current = nextRoomIndex
+    console.log('[Rooms] applyRoomFeed', {
+      reason,
+      previousActiveRoomId,
+      nextRoomIndex,
+      roomIds: normalizedRooms.map((room) => room.id),
+    })
     setCurrentRoomIndex((currentIndex) => (currentIndex === nextRoomIndex ? currentIndex : nextRoomIndex))
     setRooms(normalizedRooms)
   }, [])
 
-  const fetchRooms = useCallback(async () => {
+  const fetchRooms = useCallback(async (reason = 'unknown') => {
+    console.log('[Rooms] fetchRooms', { reason })
+
     const orderedRoomsQuery = await (supabase.from('rooms') as any)
       .select('id, headline, created_at, feed_position, message_count')
       .not('headline', 'is', null)
@@ -1843,11 +1851,11 @@ export default function GlobalChat() {
         return
       }
 
-      applyRoomFeed((data || []) as Room[])
+      applyRoomFeed((data || []) as Room[], `${reason}:fallback`)
       return
     }
 
-    applyRoomFeed((orderedRoomsQuery.data || []) as Room[])
+    applyRoomFeed((orderedRoomsQuery.data || []) as Room[], reason)
   }, [applyRoomFeed])
 
   useEffect(() => {
@@ -2029,7 +2037,7 @@ export default function GlobalChat() {
   // Fetch rooms on mount
   useEffect(() => {
     if (!authReady) return
-    void fetchRooms()
+    void fetchRooms('initial-load')
   }, [authReady, fetchRooms])
 
   // FRIDAY: flush to Supabase on beforeunload + every 60s
@@ -2168,8 +2176,13 @@ export default function GlobalChat() {
 
     const roomId = normalizedMessage.room_id
     if (!roomId) return
+    console.log('[Realtime][messages] event', {
+      id: normalizedMessage.id,
+      roomId,
+      displayName: normalizedMessage.display_name,
+    })
     if (!roomIdsRef.current.has(roomId)) {
-      void fetchRooms()
+      void fetchRooms('unknown-room-message')
       return
     }
 
@@ -2249,16 +2262,42 @@ export default function GlobalChat() {
   useEffect(() => {
     if (!authReady) return
 
+    console.log('[Realtime][rooms] starting subscription')
+
     const channel = supabase
       .channel('rooms-realtime')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'rooms' },
-        () => {
-          void fetchRooms()
+        { event: 'INSERT', schema: 'public', table: 'rooms' },
+        (payload) => {
+          console.log('[Realtime][rooms] event', {
+            event: payload.eventType,
+            id: payload.new?.id ?? null,
+            feed_position: payload.new?.feed_position ?? null,
+            message_count: payload.new?.message_count ?? null,
+          })
+          void fetchRooms(`rooms-${payload.eventType.toLowerCase()}`)
         }
       )
-      .subscribe()
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'rooms' },
+        (payload) => {
+          console.log('[Realtime][rooms] event', {
+            event: payload.eventType,
+            id: payload.new?.id ?? null,
+            feed_position: payload.new?.feed_position ?? null,
+            message_count: payload.new?.message_count ?? null,
+          })
+          void fetchRooms(`rooms-${payload.eventType.toLowerCase()}`)
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Realtime][rooms] status', status)
+        if (status === 'SUBSCRIBED') {
+          void fetchRooms('rooms-subscribed')
+        }
+      })
 
     roomsChannelRef.current = channel
 
@@ -2297,16 +2336,25 @@ export default function GlobalChat() {
   useEffect(() => {
     if (!authReady || !muteStateReady || rooms.length === 0) return
 
+    console.log('[Realtime][messages] starting subscription')
+
     const channel = supabase
       .channel('messages-realtime')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
+          console.log('[Realtime][messages] raw event', {
+            event: payload.eventType,
+            id: payload.new?.id ?? null,
+            roomId: payload.new?.room_id ?? null,
+          })
           handleRealtimeMessage(payload.new)
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('[Realtime][messages] status', status)
+      })
 
     channelRef.current = channel
 

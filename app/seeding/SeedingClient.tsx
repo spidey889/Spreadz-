@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -1071,7 +1072,7 @@ export default function SeedingClient({
               fontStyle: 'italic',
             }}
           >
-            "Fake it till you make it."
+            &quot;Fake it till you make it.&quot;
           </p>
         </div>
 
@@ -1456,9 +1457,12 @@ export default function SeedingClient({
                       }}
                     >
                       {previewSource ? (
-                        <img
+                        <Image
                           src={previewSource}
                           alt={`${displayName} avatar preview`}
+                          width={54}
+                          height={54}
+                          unoptimized
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                       ) : (

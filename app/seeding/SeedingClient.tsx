@@ -292,6 +292,7 @@ export default function SeedingClient({
   const [scriptDisplayNames, setScriptDisplayNames] = useState<string[]>([])
   const [pendingLiveRunDraft, setPendingLiveRunDraft] = useState<LiveRunDraft | null>(null)
   const [avatarModalRun, setAvatarModalRun] = useState<SeedRun | null>(null)
+  const [currentRoomId, setCurrentRoomId] = useState('')
   const [avatarDrafts, setAvatarDrafts] = useState<Record<string, AvatarDraft>>({})
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false)
   const [avatarModalError, setAvatarModalError] = useState('')
@@ -559,9 +560,9 @@ export default function SeedingClient({
     scheduleNextMessage(postedCount)
   }
 
-  const startRun = async (runId: string) => {
+  const startRunRecord = async (runId: string) => {
     if (startingRunIdsRef.current.has(runId) || runningRunIdsRef.current.has(runId)) {
-      return
+      return { error: 'Run start already in progress.' }
     }
 
     startingRunIdsRef.current.add(runId)
@@ -582,21 +583,34 @@ export default function SeedingClient({
       const payload = (await response.json().catch(() => null)) as SeedingResponse | null
 
       if (!response.ok || !payload?.run) {
-        await markRunFailed(runId, payload?.error || 'Run start failed.')
-        return
+        const nextError = payload?.error || 'Run start failed.'
+        await markRunFailed(runId, nextError)
+        return { error: nextError }
       }
 
       startingRunIdsRef.current.delete(runId)
-      upsertRun(payload.run)
       appendLog(`Room live: ${payload.run.room_name}`)
-      scheduleRunMessages(payload.run)
+      return { run: payload.run }
     } catch (error) {
       startingRunIdsRef.current.delete(runId)
+      const nextError = error instanceof Error ? error.message : 'Run start failed.'
       await markRunFailed(
         runId,
-        error instanceof Error ? error.message : 'Run start failed.'
+        nextError
       )
+      return { error: nextError }
     }
+  }
+
+  const startRun = async (runId: string) => {
+    const result = await startRunRecord(runId)
+
+    if (!result.run) {
+      return
+    }
+
+    upsertRun(result.run)
+    scheduleRunMessages(result.run)
   }
 
   const attachRun = (run: SeedRun) => {
@@ -701,6 +715,7 @@ export default function SeedingClient({
     })
 
     setAvatarDrafts({})
+    setCurrentRoomId('')
     setAvatarModalError('')
     setAvatarModalRun(null)
     setPendingLiveRunDraft(null)
@@ -876,32 +891,13 @@ export default function SeedingClient({
   }
 
   const handleAvatarModalContinue = async () => {
-    if (!pendingLiveRunDraft) {
+    if (!pendingLiveRunDraft || !avatarModalRun || !currentRoomId) {
+      setAvatarModalError('Room id is missing for this run.')
       return
     }
 
     setAvatarModalError('')
-
-    let run = avatarModalRun
-
-    if (!run) {
-      const result = await createRunRecord('now', pendingLiveRunDraft)
-
-      if (!result.run) {
-        const nextError = result.error || 'Failed to create run.'
-        setErrorMessage(nextError)
-        setAvatarModalError(nextError)
-        return
-      }
-
-      run = result.run
-      setAvatarModalRun(result.run)
-    }
-
-    if (!run.room_id) {
-      setAvatarModalError('Room id is missing for this run.')
-      return
-    }
+    setActionPending('now')
 
     try {
       const avatarUrlsByName = new Map<string, string>()
@@ -922,7 +918,7 @@ export default function SeedingClient({
           continue
         }
 
-        const storagePath = buildAvatarStoragePath(run.room_id, displayName)
+        const storagePath = buildAvatarStoragePath(currentRoomId, displayName)
         const { error: uploadError } = await supabase.storage.from('avatars').upload(storagePath, draft.file, {
           upsert: true,
           contentType: draft.file.type || 'image/png',
@@ -954,24 +950,26 @@ export default function SeedingClient({
         })
 
         await saveSeededAvatars(
-          run.room_id,
+          currentRoomId,
           Array.from(avatarUrlsByName.entries()).map(([displayName, avatarUrl]) => ({
-            room_id: run!.room_id!,
+            room_id: currentRoomId,
             display_name: displayName,
             avatar_url: avatarUrl,
           }))
         )
       }
 
-      upsertRun(run)
-      appendLog(`Run queued for ${run.room_name}.`)
+      upsertRun(avatarModalRun)
+      appendLog(`Run queued for ${avatarModalRun.room_name}.`)
       closeAvatarModal()
-      attachRun(run)
+      attachRun(avatarModalRun)
     } catch (error) {
       const nextError =
         error instanceof Error ? error.message : 'Failed to save seeded avatars.'
       setErrorMessage(nextError)
       setAvatarModalError(nextError)
+    } finally {
+      setActionPending(null)
     }
   }
 
@@ -985,10 +983,35 @@ export default function SeedingClient({
     if (mode === 'now') {
       setErrorMessage('')
       setAvatarModalError('')
+      setCurrentRoomId('')
       setAvatarModalRun(null)
-      setPendingLiveRunDraft(draft)
-      setAvatarDrafts(createAvatarDrafts(draft.displayNames))
-      setIsAvatarModalOpen(true)
+      const createResult = await createRunRecord(mode, draft)
+
+      if (!createResult.run) {
+        setErrorMessage(createResult.error || 'Failed to create run.')
+        return
+      }
+
+      setActionPending('now')
+
+      try {
+        const startResult = await startRunRecord(createResult.run.id)
+
+        if (!startResult.run || !startResult.run.room_id) {
+          const nextError = startResult.error || 'Room id is missing for this run.'
+          setErrorMessage(nextError)
+          return
+        }
+
+        setPendingLiveRunDraft(draft)
+        setAvatarModalRun(startResult.run)
+        setCurrentRoomId(startResult.run.room_id)
+        setAvatarDrafts(createAvatarDrafts(draft.displayNames))
+        setIsAvatarModalOpen(true)
+      } finally {
+        setActionPending(null)
+      }
+
       return
     }
 

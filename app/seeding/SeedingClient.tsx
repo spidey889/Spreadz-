@@ -39,7 +39,8 @@ type SeedingResponse = {
 }
 
 const pageStyle = {
-  minHeight: '100dvh',
+  height: '100dvh',
+  boxSizing: 'border-box' as const,
   overflowY: 'auto' as const,
   background:
     'radial-gradient(circle at top, rgba(124,255,183,0.12), transparent 24%), linear-gradient(180deg, #111214, #171a20)',

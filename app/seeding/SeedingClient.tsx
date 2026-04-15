@@ -1062,9 +1062,16 @@ export default function SeedingClient({
           >
             Welcome to Hell
           </h1>
-          <p style={{ color: '#c9b4b4', fontSize: '15px', lineHeight: 1.65, margin: 0 }}>
-            Same seeding flow, stripped down for desktop: cleaner spacing, wider layout, no
-            dashboard noise.
+          <p
+            style={{
+              color: '#c9b4b4',
+              fontSize: '15px',
+              lineHeight: 1.65,
+              margin: 0,
+              fontStyle: 'italic',
+            }}
+          >
+            "Fake it till you make it."
           </p>
         </div>
 
@@ -1140,10 +1147,6 @@ export default function SeedingClient({
                   <div style={{ fontSize: '15px', color: '#f6e9e9', marginTop: '-2px' }}>
                     Authorized and ready to seed
                   </div>
-                </div>
-
-                <div style={{ color: '#b89a9a', fontSize: '13px' }}>
-                  Existing scheduled runs still attach in the background.
                 </div>
 
                 <button

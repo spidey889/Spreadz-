@@ -17,6 +17,7 @@ interface Room {
   headline: string
   created_at: string
   feed_position?: number | null
+  message_count?: number | null
 }
 
 interface Message {
@@ -151,6 +152,42 @@ const GIF_PICKER_CLOSE_DURATION_MS = 200
 const MESSAGE_MAX_LENGTH = 500
 const MESSAGE_COUNTER_THRESHOLD = 400
 const MESSAGE_SELECT_COLUMNS = 'id, content, created_at, display_name, college, room_name, room_id, user_uuid'
+
+const normalizeRoomFeed = (rooms: Room[]) => {
+  const uniqueRoomsById = new Map<string, Room>()
+
+  rooms.forEach((room) => {
+    if (!room?.id) return
+    if (typeof room.headline !== 'string' || room.headline.trim().length === 0) return
+    if (typeof room.message_count !== 'number' || room.message_count <= 0) return
+    uniqueRoomsById.set(room.id, room)
+  })
+
+  const normalizedRooms = Array.from(uniqueRoomsById.values()).sort((left, right) => {
+    const leftPosition =
+      typeof left.feed_position === 'number' ? left.feed_position : Number.MAX_SAFE_INTEGER
+    const rightPosition =
+      typeof right.feed_position === 'number' ? right.feed_position : Number.MAX_SAFE_INTEGER
+
+    if (leftPosition !== rightPosition) {
+      return leftPosition - rightPosition
+    }
+
+    return new Date(left.created_at).getTime() - new Date(right.created_at).getTime()
+  })
+
+  console.log(
+    '[Rooms] Final feed result',
+    normalizedRooms.map((room) => ({
+      id: room.id,
+      feed_position: room.feed_position ?? null,
+      message_count: room.message_count ?? null,
+      headline: room.headline,
+    }))
+  )
+
+  return normalizedRooms
+}
 
 const isGeneratedUsername = (value: string) => GENERATED_USERNAME_REGEX.test(value)
 const isGifMessage = (text: string) => text.startsWith(GIF_MESSAGE_PREFIX)
@@ -1938,27 +1975,11 @@ export default function GlobalChat() {
   useEffect(() => {
     if (!authReady) return
     const fetchRooms = async () => {
-      const normalizeRooms = (rooms: Room[]) => {
-        return [...rooms]
-          .filter((room) => typeof room.headline === 'string' && room.headline.trim().length > 0)
-          .sort((left, right) => {
-            const leftPosition =
-              typeof left.feed_position === 'number' ? left.feed_position : Number.MAX_SAFE_INTEGER
-            const rightPosition =
-              typeof right.feed_position === 'number' ? right.feed_position : Number.MAX_SAFE_INTEGER
-
-            if (leftPosition !== rightPosition) {
-              return leftPosition - rightPosition
-            }
-
-            return new Date(left.created_at).getTime() - new Date(right.created_at).getTime()
-          })
-      }
-
       const orderedRoomsQuery = await (supabase.from('rooms') as any)
-        .select('id, headline, created_at, feed_position')
+        .select('id, headline, created_at, feed_position, message_count')
         .not('headline', 'is', null)
         .neq('headline', '')
+        .gt('message_count', 0)
         .order('feed_position', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true })
 
@@ -1970,6 +1991,7 @@ export default function GlobalChat() {
           .select('*')
           .not('headline', 'is', null)
           .neq('headline', '')
+          .gt('message_count', 0)
           .order('created_at', { ascending: true })
 
         if (error) {
@@ -1978,13 +2000,13 @@ export default function GlobalChat() {
         }
 
         if (data && data.length > 0) {
-          setRooms(normalizeRooms(data as Room[]))
+          setRooms(normalizeRoomFeed(data as Room[]))
         }
 
         return
       }
 
-      const data = normalizeRooms((orderedRoomsQuery.data || []) as Room[])
+      const data = normalizeRoomFeed((orderedRoomsQuery.data || []) as Room[])
 
       if (data.length > 0) {
         // Set rooms in default order immediately

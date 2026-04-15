@@ -215,7 +215,9 @@ export default function SeedingClient({
   const [errorMessage, setErrorMessage] = useState('')
   const startTimeoutsRef = useRef<Map<string, number>>(new Map())
   const runTimeoutsRef = useRef<Map<string, number>>(new Map())
+  const startingRunIdsRef = useRef<Set<string>>(new Set())
   const runningRunIdsRef = useRef<Set<string>>(new Set())
+  const actionLockRef = useRef(false)
 
   const appendLog = (message: string) => {
     setStatusLogs((currentLogs) => [...currentLogs, message])
@@ -234,6 +236,7 @@ export default function SeedingClient({
       runTimeoutsRef.current.delete(runId)
     }
 
+    startingRunIdsRef.current.delete(runId)
     runningRunIdsRef.current.delete(runId)
   }
 
@@ -242,6 +245,7 @@ export default function SeedingClient({
     runTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
     startTimeoutsRef.current.clear()
     runTimeoutsRef.current.clear()
+    startingRunIdsRef.current.clear()
     runningRunIdsRef.current.clear()
   }
 
@@ -444,10 +448,11 @@ export default function SeedingClient({
   }
 
   const startRun = async (runId: string) => {
-    if (runningRunIdsRef.current.has(runId)) {
+    if (startingRunIdsRef.current.has(runId) || runningRunIdsRef.current.has(runId)) {
       return
     }
 
+    startingRunIdsRef.current.add(runId)
     appendLog(`Starting run ${runId}...`)
 
     try {
@@ -469,10 +474,12 @@ export default function SeedingClient({
         return
       }
 
+      startingRunIdsRef.current.delete(runId)
       upsertRun(payload.run)
       appendLog(`Room live: ${payload.run.room_name}`)
       scheduleRunMessages(payload.run)
     } catch (error) {
+      startingRunIdsRef.current.delete(runId)
       await markRunFailed(
         runId,
         error instanceof Error ? error.message : 'Run start failed.'
@@ -579,6 +586,10 @@ export default function SeedingClient({
   }
 
   const handleCreateRun = async (mode: 'now' | 'schedule') => {
+    if (actionLockRef.current) {
+      return
+    }
+
     const parsedFeedPosition = Number(feedPosition)
     const parsedMessages = parseMessagesInput(messagesInput)
 
@@ -619,6 +630,7 @@ export default function SeedingClient({
       scheduledForIso = scheduledDate.toISOString()
     }
 
+    actionLockRef.current = true
     setActionPending(mode)
     setErrorMessage('')
     appendLog(mode === 'now' ? 'Saving run for immediate launch...' : 'Saving scheduled run...')
@@ -656,6 +668,7 @@ export default function SeedingClient({
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Failed to create run.')
     } finally {
+      actionLockRef.current = false
       setActionPending(null)
     }
   }

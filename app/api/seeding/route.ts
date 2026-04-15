@@ -70,6 +70,10 @@ const normalizeText = (value: unknown) => {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+const isUniqueViolation = (error: { code?: string } | null | undefined) => {
+  return error?.code === '23505'
+}
+
 const normalizeInteger = (value: unknown) => {
   const parsed = Number(value)
   return Number.isInteger(parsed) ? parsed : null
@@ -117,6 +121,69 @@ const fetchSeedRun = async (adminDb: any, runId: string) => {
   }
 
   return { run: (data || null) as SeedRun | null, error: null }
+}
+
+const resolveSeedRoomId = (run: SeedRun) => {
+  return normalizeText(run.room_id) || run.id
+}
+
+const getOrCreateRoomForRun = async (adminDb: any, run: SeedRun) => {
+  const roomId = resolveSeedRoomId(run)
+
+  const { data: existingRoom, error: existingRoomError } = await adminDb
+    .from('rooms')
+    .select('id')
+    .eq('id', roomId)
+    .maybeSingle()
+
+  if (existingRoomError) {
+    return { roomId: '', error: existingRoomError }
+  }
+
+  if (existingRoom?.id) {
+    console.log('[Seeding] Reused room id', { runId: run.id, roomId: existingRoom.id })
+    return { roomId: existingRoom.id, error: null }
+  }
+
+  const { data: insertedRoom, error: insertRoomError } = await adminDb
+    .from('rooms')
+    .insert({
+      id: roomId,
+      headline: run.room_name,
+      feed_position: run.feed_position,
+      message_count: 0,
+      user_count: 0,
+      total_seconds_spent: 0,
+      time_spent_minutes: 0,
+    })
+    .select('id')
+    .single()
+
+  if (!insertRoomError && insertedRoom?.id) {
+    console.log('[Seeding] Created room id', { runId: run.id, roomId: insertedRoom.id })
+    return { roomId: insertedRoom.id, error: null }
+  }
+
+  if (!isUniqueViolation(insertRoomError)) {
+    return { roomId: '', error: insertRoomError }
+  }
+
+  const { data: duplicateRoom, error: duplicateRoomError } = await adminDb
+    .from('rooms')
+    .select('id')
+    .eq('id', roomId)
+    .maybeSingle()
+
+  if (duplicateRoomError) {
+    return { roomId: '', error: duplicateRoomError }
+  }
+
+  if (!duplicateRoom?.id) {
+    return { roomId: '', error: insertRoomError }
+  }
+
+  console.log('[Seeding] Reused room id after duplicate insert race', { runId: run.id, roomId })
+  return { roomId: duplicateRoom.id, error: null }
 }
 
 export async function GET(request: NextRequest) {
@@ -268,27 +335,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, run })
     }
 
-    let roomId = normalizeText(run.room_id)
+    const { roomId, error: roomError } = await getOrCreateRoomForRun(adminDb, run)
 
-    if (!roomId) {
-      const { data: roomData, error: roomError } = await adminDb
-        .from('rooms')
-        .insert({
-          headline: run.room_name,
-          feed_position: run.feed_position,
-          message_count: 0,
-          user_count: 0,
-          total_seconds_spent: 0,
-          time_spent_minutes: 0,
-        })
-        .select('id')
-        .single()
-
-      if (roomError || !roomData?.id) {
-        return NextResponse.json({ error: roomError?.message || 'Failed to create room' }, { status: 500 })
-      }
-
-      roomId = roomData.id
+    if (roomError || !roomId) {
+      return NextResponse.json({ error: roomError?.message || 'Failed to create room' }, { status: 500 })
     }
 
     const { data, error } = await adminDb
@@ -355,6 +405,12 @@ export async function POST(request: NextRequest) {
     if (messageError) {
       return NextResponse.json({ error: messageError.message || 'Failed to create message' }, { status: 500 })
     }
+
+    console.log('[Seeding] Inserted message', {
+      runId,
+      roomId,
+      displayName,
+    })
 
     const { error: messageCountError } = await adminDb.rpc('increment_room_message_count', {
       room_id: roomId,

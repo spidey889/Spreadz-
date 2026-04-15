@@ -84,6 +84,18 @@ interface ReadOnlyProfile {
   reportMessage: Message | null
 }
 
+type RoomFeedStatus = 'idle' | 'loading' | 'ready' | 'error'
+
+type ChatStatusScreenProps = {
+  eyebrow: string
+  title: string
+  description: string
+  actionLabel?: string
+  onAction?: () => void
+  showSpinner?: boolean
+  tone?: 'default' | 'error'
+}
+
 const getUserColor = (username: string) => {
   const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
   let hash = 0
@@ -159,7 +171,6 @@ const normalizeRoomFeed = (rooms: Room[]) => {
   rooms.forEach((room) => {
     if (!room?.id) return
     if (typeof room.headline !== 'string' || room.headline.trim().length === 0) return
-    if (typeof room.message_count !== 'number' || room.message_count <= 0) return
     uniqueRoomsById.set(room.id, room)
   })
 
@@ -212,6 +223,34 @@ const mergeRoomFeed = (currentRooms: Room[], incomingRooms: Room[]) => {
   })
 
   return Array.from(roomsById.values())
+}
+
+const ChatStatusScreen = ({
+  eyebrow,
+  title,
+  description,
+  actionLabel,
+  onAction,
+  showSpinner = false,
+  tone = 'default',
+}: ChatStatusScreenProps) => {
+  return (
+    <div className="chat-status-screen">
+      <div className={`chat-status-card${tone === 'error' ? ' error' : ''}`}>
+        <div className="chat-status-eyebrow">
+          {showSpinner && <span className="chat-status-spinner" aria-hidden="true" />}
+          <span>{eyebrow}</span>
+        </div>
+        <h1 className="chat-status-title">{title}</h1>
+        <p className="chat-status-copy">{description}</p>
+        {actionLabel && onAction && (
+          <button type="button" className="chat-status-button" onClick={onAction}>
+            {actionLabel}
+          </button>
+        )}
+      </div>
+    </div>
+  )
 }
 
 const getMessageCreatedAtSortValue = (message: Message) => {
@@ -443,6 +482,9 @@ export default function GlobalChat() {
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [authReady, setAuthReady] = useState(false)
+  const [authErrorMessage, setAuthErrorMessage] = useState('')
+  const [roomFeedStatus, setRoomFeedStatus] = useState<RoomFeedStatus>('idle')
+  const [roomFeedErrorMessage, setRoomFeedErrorMessage] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [accountUsername, setAccountUsername] = useState('')
   const [university, setUniversity] = useState('')
@@ -1030,6 +1072,7 @@ export default function GlobalChat() {
   useEffect(() => {
     let cancelled = false
     const initAuth = async () => {
+      setAuthErrorMessage('')
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
       if (sessionError) {
         console.error('[Auth] getSession failed:', sessionError)
@@ -1040,6 +1083,9 @@ export default function GlobalChat() {
         const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously()
         if (signInError) {
           console.error('[Auth] anonymous sign-in failed:', signInError)
+          if (!cancelled) {
+            setAuthErrorMessage('We could not start your chat session. Please reload and try again.')
+          }
           return
         }
         user = signInData?.user ?? null
@@ -1048,6 +1094,7 @@ export default function GlobalChat() {
       if (!user || cancelled) return
       userIdRef.current = user.id
       localStorage.setItem(USER_UUID_STORAGE_KEY, user.id)
+      setAuthErrorMessage('')
       setAuthReady(true)
     }
 
@@ -1919,6 +1966,17 @@ export default function GlobalChat() {
     roomIdsRef.current = new Set(rooms.map((room) => room.id))
   }, [rooms])
 
+  useEffect(() => {
+    const nextRoomIndex = rooms.length === 0
+      ? 0
+      : Math.max(0, Math.min(currentRoomIndex, rooms.length - 1))
+
+    if (nextRoomIndex === currentRoomIndex) return
+
+    currentRoomIndexRef.current = nextRoomIndex
+    setCurrentRoomIndex(nextRoomIndex)
+  }, [currentRoomIndex, rooms.length])
+
   const applyRoomFeed = useCallback((nextRooms: Room[]) => {
     setRooms((previousRooms) => {
       const mergedRooms = mergeRoomFeed(previousRooms, nextRooms)
@@ -1939,6 +1997,8 @@ export default function GlobalChat() {
     const requestId = roomFeedFetchRequestIdRef.current + 1
     roomFeedFetchRequestIdRef.current = requestId
     roomFeedRealtimeFiredRef.current = false
+    setRoomFeedStatus((currentStatus) => currentStatus === 'ready' ? currentStatus : 'loading')
+    setRoomFeedErrorMessage('')
 
     const applyLatestRoomFeed = (nextRooms: Room[]) => {
       if (requestId !== roomFeedFetchRequestIdRef.current) {
@@ -1950,13 +2010,23 @@ export default function GlobalChat() {
       }
 
       applyRoomFeed(nextRooms)
+      setRoomFeedErrorMessage('')
+      setRoomFeedStatus('ready')
+    }
+
+    const applyRoomFeedError = (errorMessage: string) => {
+      if (requestId !== roomFeedFetchRequestIdRef.current) {
+        return
+      }
+
+      setRoomFeedErrorMessage(errorMessage)
+      setRoomFeedStatus('error')
     }
 
     const orderedRoomsQuery = await (supabase.from('rooms') as any)
       .select('id, headline, created_at, feed_position, message_count')
       .not('headline', 'is', null)
       .neq('headline', '')
-      .gt('message_count', 0)
       .order('feed_position', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
 
@@ -1965,14 +2035,14 @@ export default function GlobalChat() {
 
       const { data, error } = await supabase
         .from('rooms')
-        .select('*')
+        .select('id, headline, created_at, message_count')
         .not('headline', 'is', null)
         .neq('headline', '')
-        .gt('message_count', 0)
         .order('created_at', { ascending: true })
 
       if (error) {
         console.error('[Rooms] fetch failed:', error)
+        applyRoomFeedError(error.message || 'Unable to load live rooms right now.')
         return
       }
 
@@ -1985,6 +2055,8 @@ export default function GlobalChat() {
 
   const patchRoomFeed = useCallback((nextRoom: Room) => {
     roomFeedRealtimeFiredRef.current = true
+    setRoomFeedErrorMessage('')
+    setRoomFeedStatus('ready')
 
     setRooms((previousRooms) => {
       const nextRooms = previousRooms.some((room) => room.id === nextRoom.id)
@@ -2431,6 +2503,8 @@ export default function GlobalChat() {
 
   useEffect(() => {
     if (!authReady) return
+
+    void fetchRooms('auth-ready')
 
     const channel = supabase
       .channel('rooms-realtime')
@@ -3400,7 +3474,53 @@ export default function GlobalChat() {
     return <div className="msg-text">{msg.text}</div>
   }
 
-  if (!isMounted || !authReady) return null
+  if (!isMounted) {
+    return (
+      <ChatStatusScreen
+        eyebrow="Chat"
+        title="Starting chat..."
+        description="Preparing the chat client for this device."
+        showSpinner
+      />
+    )
+  }
+
+  if (authErrorMessage) {
+    return (
+      <ChatStatusScreen
+        eyebrow="Chat"
+        title="We couldn't sign you in"
+        description={authErrorMessage}
+        actionLabel="Reload"
+        onAction={() => {
+          if (typeof window !== 'undefined') window.location.reload()
+        }}
+        tone="error"
+      />
+    )
+  }
+
+  if (!authReady) {
+    return (
+      <ChatStatusScreen
+        eyebrow="Chat"
+        title="Signing you in..."
+        description="Connecting your anonymous chat session."
+        showSpinner
+      />
+    )
+  }
+
+  if (roomFeedStatus === 'idle' || roomFeedStatus === 'loading') {
+    return (
+      <ChatStatusScreen
+        eyebrow="Rooms"
+        title="Loading live rooms..."
+        description="Pulling the latest conversations."
+        showSpinner
+      />
+    )
+  }
 
   const hasSavedProfileName = Boolean(displayName.trim())
   const profileHandle = accountUsername.trim()
@@ -3410,11 +3530,38 @@ export default function GlobalChat() {
   const profilePreviewInitials = getInitials(profilePreviewName)
   const profilePreviewColor = getUserColor(profilePreviewName)
   const isComposerExpanded = isKeyboardOpen || Boolean(activeGifPickerRoomId)
-  const activeRoom = rooms[currentRoomIndex]
-  const visibleRoomIndexes = [currentRoomIndex - 1, currentRoomIndex, currentRoomIndex + 1]
+  const resolvedRoomIndex = rooms.length === 0
+    ? 0
+    : Math.max(0, Math.min(currentRoomIndex, rooms.length - 1))
+  const activeRoom = rooms[resolvedRoomIndex]
+  const visibleRoomIndexes = [resolvedRoomIndex - 1, resolvedRoomIndex, resolvedRoomIndex + 1]
     .filter(index => index >= 0 && index < rooms.length)
 
-  if (!activeRoom) return null
+  if (!activeRoom) {
+    const hasRooms = rooms.length > 0
+    const fallbackTitle = roomFeedErrorMessage
+      ? 'Could not load chat rooms'
+      : hasRooms
+        ? 'We lost track of the current room'
+        : 'No live rooms yet'
+    const fallbackDescription = roomFeedErrorMessage
+      || (hasRooms
+        ? 'The room list loaded, but the selected room is unavailable. Reload the room feed to continue.'
+        : 'There are no chat rooms ready right now. Try refreshing the room feed in a moment.')
+
+    return (
+      <ChatStatusScreen
+        eyebrow="Rooms"
+        title={fallbackTitle}
+        description={fallbackDescription}
+        actionLabel="Retry"
+        onAction={() => {
+          void fetchRooms('manual-retry')
+        }}
+        tone={roomFeedErrorMessage ? 'error' : 'default'}
+      />
+    )
+  }
 
   return (
     <>
@@ -3424,14 +3571,14 @@ export default function GlobalChat() {
           const messages = roomMessages[room.id] || []
           const roomSeededAvatarMap = seededAvatarMap[room.id] || {}
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || new Set<string>()
-          const isCurrentRoom = index === currentRoomIndex
+          const isCurrentRoom = index === resolvedRoomIndex
           const isGifPickerOpen = activeGifPickerRoomId === room.id
           const composerText = inputTexts[room.id] ?? ''
           const remainingCharacters = Math.max(0, MESSAGE_MAX_LENGTH - composerText.length)
           const showComposerCounter = composerText.length > MESSAGE_COUNTER_THRESHOLD
           const isComposerAtLimit = composerText.length >= MESSAGE_MAX_LENGTH
           const isSendDisabled = isComposerMessageEmpty(composerText) || isComposerMessageTooLong(composerText)
-          const roomPanelClassName = `room-panel ${isCurrentRoom ? 'active-room' : (index < currentRoomIndex ? 'room-before' : 'room-after')}`
+          const roomPanelClassName = `room-panel ${isCurrentRoom ? 'active-room' : (index < resolvedRoomIndex ? 'room-before' : 'room-after')}`
 
           return (
             <div

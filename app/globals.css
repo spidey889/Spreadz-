@@ -56,6 +56,75 @@ body {
           flex-direction: column;
           overflow: hidden;
         }
+        .chat-status-screen {
+          min-height: 100dvh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+        }
+        .chat-status-card {
+          width: min(100%, 420px);
+          padding: 24px 22px;
+          border-radius: 18px;
+          background: rgba(13, 15, 19, 0.92);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          box-shadow: 0 28px 60px rgba(0, 0, 0, 0.35);
+          backdrop-filter: blur(14px);
+        }
+        .chat-status-card.error {
+          border-color: rgba(255, 112, 112, 0.28);
+        }
+        .chat-status-eyebrow {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: #8fb7ff;
+          margin-bottom: 12px;
+        }
+        .chat-status-title {
+          font-size: 28px;
+          line-height: 1.1;
+          letter-spacing: -0.03em;
+          color: #f7f8fb;
+        }
+        .chat-status-copy {
+          margin-top: 10px;
+          color: #b7bfcc;
+          font-size: 15px;
+          line-height: 1.55;
+        }
+        .chat-status-button {
+          margin-top: 18px;
+          border: 0;
+          border-radius: 999px;
+          padding: 11px 18px;
+          background: #ffffff;
+          color: #111214;
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: transform 0.15s ease, filter 0.15s ease;
+        }
+        .chat-status-button:hover {
+          filter: brightness(0.98);
+          transform: translateY(-1px);
+        }
+        .chat-status-spinner {
+          width: 12px;
+          height: 12px;
+          border-radius: 999px;
+          border: 2px solid rgba(143, 183, 255, 0.28);
+          border-top-color: #8fb7ff;
+          animation: chatStatusSpin 0.9s linear infinite;
+        }
+        @keyframes chatStatusSpin {
+          to { transform: rotate(360deg); }
+        }
         .room-panel {
           position: absolute;
           inset: 0;

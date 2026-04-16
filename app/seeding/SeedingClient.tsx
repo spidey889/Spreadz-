@@ -1,8 +1,10 @@
 'use client'
 
 import Image from 'next/image'
+import { Bebas_Neue, IBM_Plex_Mono } from 'next/font/google'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import styles from './SeedingClient.module.css'
 
 type SeedingClientProps = {
   isInitiallyAuthorized: boolean
@@ -55,87 +57,43 @@ type SeedingResponse = {
   runs?: SeedRun[]
 }
 
-const pageStyle = {
-  height: '100dvh',
-  boxSizing: 'border-box' as const,
-  overflowY: 'auto' as const,
-  background:
-    'radial-gradient(circle at top, rgba(255, 68, 68, 0.2), transparent 28%), linear-gradient(180deg, #160707 0%, #100606 32%, #080808 100%)',
-  color: '#f4eaea',
-  padding: '40px 24px 56px',
-}
+const bebasNeue = Bebas_Neue({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-seeding-display',
+})
 
-const shellStyle = {
-  width: '100%',
-  maxWidth: '1120px',
-  margin: '0 auto',
-}
+const ibmPlexMono = IBM_Plex_Mono({
+  weight: ['400', '500', '600'],
+  subsets: ['latin'],
+  variable: '--font-seeding-mono',
+})
 
-const cardStyle = {
-  background: 'rgba(18, 10, 10, 0.92)',
-  border: '1px solid rgba(255, 92, 92, 0.14)',
-  borderRadius: '28px',
-  padding: '32px',
-  boxShadow: '0 28px 60px rgba(0, 0, 0, 0.38)',
-  backdropFilter: 'blur(18px)',
-}
+const whyWeSeedLines = [
+  'Because cold starts are for the weak.',
+  "Because empty rooms don't build tribes.",
+  'Because someone has to light the fire.',
+]
 
-const panelStyle = {
-  borderRadius: '22px',
-  border: '1px solid rgba(255,255,255,0.06)',
-  background: 'rgba(255,255,255,0.02)',
-  padding: '22px',
-}
-
-const labelStyle = {
-  display: 'block',
-  fontSize: '11px',
-  fontWeight: 700,
-  letterSpacing: '0.12em',
-  textTransform: 'uppercase' as const,
-  color: '#c98c8c',
-  marginBottom: '10px',
-}
-
-const inputStyle = {
-  width: '100%',
-  borderRadius: '14px',
-  border: '1px solid rgba(255, 120, 120, 0.12)',
-  background: 'rgba(11, 8, 8, 0.92)',
-  color: '#f6eeee',
-  padding: '14px 15px',
-  fontSize: '15px',
-  outline: 'none',
-  fontFamily: 'inherit',
-  boxSizing: 'border-box' as const,
-}
-
-const buttonStyle = {
-  border: 'none',
-  borderRadius: '14px',
-  padding: '14px 18px',
-  fontSize: '15px',
-  fontWeight: 700,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-}
-
-const sectionTitleStyle = {
-  fontSize: '16px',
-  fontWeight: 700,
-  margin: '0 0 16px',
-  color: '#fff3f3',
-}
-
-const errorBoxStyle = {
-  borderRadius: '16px',
-  border: '1px solid rgba(255, 105, 105, 0.24)',
-  background: 'rgba(255, 79, 79, 0.1)',
-  color: '#ffd1d1',
-  padding: '14px 16px',
-  fontSize: '13px',
-  lineHeight: 1.5,
-}
+const footerProtocolItems = [
+  {
+    icon: '🜏',
+    title: 'THE HELL PROTOCOL',
+    copy: 'No users? No problem. We create the universe.',
+  },
+  {
+    icon: '🔥',
+    title: 'CHAOS SEEDING ACTIVE',
+  },
+  {
+    icon: '💀',
+    title: 'CONNECTIONS WILL FOLLOW',
+  },
+  {
+    icon: '📈',
+    title: 'GROWTH IS INEVITABLE',
+  },
+]
 
 const parseClockToSeconds = (value: string) => {
   const match = value.trim().match(/^(\d{2}):(\d{2}):(\d{2})$/)
@@ -1031,164 +989,148 @@ export default function SeedingClient({
   const canCreateRun = isAuthorized && !actionPending && !isAvatarModalOpen
 
   return (
-    <main style={pageStyle}>
-      <div style={shellStyle}>
-        <div style={{ marginBottom: '22px' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 12px',
-              borderRadius: '999px',
-              background: 'rgba(255, 87, 87, 0.12)',
-              border: '1px solid rgba(255, 87, 87, 0.2)',
-              color: '#ff9b9b',
-              fontSize: '12px',
-              fontWeight: 700,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-            }}
-          >
-            SpreadZ Seeding
+    <main className={`${styles.page} ${bebasNeue.variable} ${ibmPlexMono.variable}`}>
+      <div className={styles.shell}>
+        <header className={styles.hero}>
+          <div className={styles.heroCopy}>
+            <div className={styles.badge}>
+              <span>🔥</span>
+              <span>SPREADZ SEEDING</span>
+            </div>
+            <h1 className={styles.heroTitle}>
+              WELCOME TO <span className={styles.heroAccent}>HELL</span>
+            </h1>
+            <p className={styles.heroKicker}>YOU DON&apos;T BUILD AUDIENCES. YOU SUMMON THEM.</p>
+            <p className={styles.heroBody}>Every message is a spark. Every room is a world.</p>
+            <p className={styles.heroBodyAccent}>Seed chaos. Watch connection rise from it.</p>
           </div>
-          <h1
-            style={{
-              fontSize: 'clamp(2.5rem, 5vw, 4.5rem)',
-              lineHeight: 0.96,
-              letterSpacing: '-0.04em',
-              margin: '18px 0 12px',
-              color: '#ff4d4d',
-            }}
-          >
-            Welcome to Hell
-          </h1>
-          <p
-            style={{
-              color: '#c9b4b4',
-              fontSize: '15px',
-              lineHeight: 1.65,
-              margin: 0,
-              fontStyle: 'italic',
-            }}
-          >
-            &quot;Fake it till you make it.&quot;
-          </p>
-        </div>
 
-        <section style={cardStyle}>
+          <div className={styles.heroQuoteWrap}>
+            <div className={styles.quoteCard}>
+              <div className={styles.quoteMark}>66</div>
+              <p className={styles.quoteText}>
+                In the absence of users, we create them. In the name of growth, we seed the
+                storm.
+              </p>
+              <p className={styles.quoteAttribution}>- Spreadz Protocol</p>
+            </div>
+
+            <div className={styles.portalCard} aria-hidden="true">
+              <div className={styles.portalLabel}>
+                <span>SEED</span>
+                <br />
+                <span>THE</span>
+                <br />
+                <span>CHAOS</span>
+              </div>
+              <div className={styles.portalGlow} />
+            </div>
+          </div>
+        </header>
+
+        <section className={styles.controlShell}>
           {!secretConfigured && (
-            <div
-              style={{
-                borderRadius: '16px',
-                border: '1px solid rgba(255, 108, 108, 0.24)',
-                background: 'rgba(255, 108, 108, 0.12)',
-                color: '#ffd2d2',
-                padding: '14px 16px',
-                fontSize: '14px',
-                lineHeight: 1.5,
-              }}
-            >
-              Add `ADMIN_BROADCAST_SECRET` to your environment to enable this page.
+            <div className={styles.notice}>
+              Add <code className={styles.inlineCode}>ADMIN_BROADCAST_SECRET</code> to your
+              environment to enable this page.
             </div>
           )}
 
           {secretConfigured && !isAuthorized && (
-            <form onSubmit={handleUnlock} style={{ maxWidth: '460px' }}>
-              <div style={{ marginBottom: '10px', color: '#e2c3c3', fontSize: '14px' }}>
-                Unlock the seeding panel.
+            <div className={styles.unlockShell}>
+              <div className={styles.unlockIntro}>
+                <div className={styles.cardEyebrow}>LOCKED GATE</div>
+                <h2 className={styles.unlockTitle}>ENTER THE KEY. OPEN THE GATE.</h2>
+                <p className={styles.unlockCopy}>
+                  Unlock the seeding panel to access the room controls, script altar, and launch
+                  sequence.
+                </p>
               </div>
 
-              <div style={{ marginBottom: '18px' }}>
-                <label htmlFor="admin-key" style={labelStyle}>
-                  Admin Secret
-                </label>
-                <input
-                  id="admin-key"
-                  type="password"
-                  value={adminKey}
-                  onChange={(event) => setAdminKey(event.target.value)}
-                  placeholder="Enter your admin secret"
-                  autoComplete="current-password"
-                  style={inputStyle}
-                />
-              </div>
+              <form onSubmit={handleUnlock} className={styles.card}>
+                <div className={styles.cardHeader}>
+                  <span className={styles.cardIcon}>🔐</span>
+                  <h2>ACCESS RITUAL</h2>
+                </div>
 
-              {errorMessage ? <div style={{ ...errorBoxStyle, marginBottom: '16px' }}>{errorMessage}</div> : null}
+                <div className={styles.formField}>
+                  <label htmlFor="admin-key" className={styles.fieldLabel}>
+                    ADMIN SECRET
+                  </label>
+                  <input
+                    id="admin-key"
+                    type="password"
+                    value={adminKey}
+                    onChange={(event) => setAdminKey(event.target.value)}
+                    placeholder="Enter your admin secret"
+                    autoComplete="current-password"
+                    className={`${styles.fieldInput} ${styles.monoField}`}
+                  />
+                </div>
 
-              <button
-                type="submit"
-                disabled={authPending}
-                style={{
-                  ...buttonStyle,
-                  width: '100%',
-                  background: 'linear-gradient(135deg, #ff5f5f, #ff2f2f)',
-                  color: '#210404',
-                  opacity: authPending ? 0.75 : 1,
-                }}
-              >
-                {authPending ? 'Unlocking...' : 'Unlock Panel'}
-              </button>
-            </form>
+                {errorMessage ? (
+                  <div className={`${styles.notice} ${styles.errorNotice}`}>{errorMessage}</div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={authPending}
+                  className={`${styles.buttonBase} ${styles.primaryButton} ${styles.errorNotice}`}
+                >
+                  <span className={styles.buttonTitle}>
+                    {authPending ? 'UNLOCKING...' : 'UNLOCK PANEL'}
+                  </span>
+                  <span className={styles.buttonSubtitle}>SUMMON ACCESS</span>
+                </button>
+              </form>
+            </div>
           )}
 
           {secretConfigured && isAuthorized && (
             <>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: '12px',
-                  flexWrap: 'wrap' as const,
-                }}
-              >
-                <div>
-                  <div style={labelStyle}>Access</div>
-                  <div style={{ fontSize: '15px', color: '#f6e9e9', marginTop: '-2px' }}>
-                    Authorized and ready to seed
+              <div className={styles.accessBanner}>
+                <div className={styles.accessLead}>
+                  <div className={styles.accessIcon}>🔒</div>
+                  <div>
+                    <div className={styles.microLabel}>ACCESS LEVEL</div>
+                    <div className={styles.accessStatus}>AUTHORIZED &amp; READY</div>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  style={{
-                    ...buttonStyle,
-                    background: 'rgba(255,255,255,0.06)',
-                    color: '#f7efef',
-                    padding: '12px 14px',
-                  }}
-                >
-                  Lock Panel
-                </button>
+                <div className={styles.accessMeta}>
+                  <span className={styles.accessMetaText}>
+                    Existing scheduled runs attach in the background.
+                  </span>
+                  <div className={styles.heartbeatRail} aria-hidden="true">
+                    <span className={styles.heartbeatPulse} />
+                  </div>
+                  <span className={styles.accessSkull}>💀</span>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className={`${styles.buttonBase} ${styles.ghostButton}`}
+                  >
+                    Lock Panel
+                  </button>
+                </div>
               </div>
 
-              {errorMessage ? <div style={{ ...errorBoxStyle, marginTop: '22px' }}>{errorMessage}</div> : null}
+              {errorMessage ? (
+                <div className={`${styles.notice} ${styles.errorNotice}`}>{errorMessage}</div>
+              ) : null}
 
-              <div
-                style={{
-                  marginTop: '24px',
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                  gap: '24px',
-                  alignItems: 'start',
-                }}
-              >
-                <div style={{ display: 'grid', gap: '18px' }}>
-                  <div style={panelStyle}>
-                    <h2 style={sectionTitleStyle}>Room Setup</h2>
+              <div className={styles.dashboardGrid}>
+                <div className={styles.leftColumn}>
+                  <section className={styles.card}>
+                    <div className={styles.cardHeader}>
+                      <span className={styles.cardIcon}>🎯</span>
+                      <h2>ROOM SETUP</h2>
+                    </div>
 
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                        gap: '14px',
-                      }}
-                    >
-                      <div>
-                        <label htmlFor="feed-position" style={labelStyle}>
-                          Feed Position
+                    <div className={styles.fieldGrid}>
+                      <div className={styles.formField}>
+                        <label htmlFor="feed-position" className={styles.fieldLabel}>
+                          FEED POSITION
                         </label>
                         <input
                           id="feed-position"
@@ -1198,13 +1140,13 @@ export default function SeedingClient({
                           value={feedPosition}
                           onChange={(event) => setFeedPosition(event.target.value)}
                           placeholder="1"
-                          style={inputStyle}
+                          className={`${styles.fieldInput} ${styles.monoField}`}
                         />
                       </div>
 
-                      <div>
-                        <label htmlFor="room-name" style={labelStyle}>
-                          Room Name
+                      <div className={styles.formField}>
+                        <label htmlFor="room-name" className={styles.fieldLabel}>
+                          ROOM NAME
                         </label>
                         <input
                           id="room-name"
@@ -1212,221 +1154,155 @@ export default function SeedingClient({
                           value={roomName}
                           onChange={(event) => setRoomName(event.target.value)}
                           placeholder="Placement talk"
-                          style={inputStyle}
+                          className={`${styles.fieldInput} ${styles.monoField}`}
                         />
                       </div>
                     </div>
-                  </div>
+                  </section>
 
-                  <div style={panelStyle}>
-                    <h2 style={sectionTitleStyle}>Launch</h2>
+                  <section className={styles.card}>
+                    <div className={styles.cardHeader}>
+                      <span className={styles.cardIcon}>🚀</span>
+                      <h2>LAUNCH SEEDING</h2>
+                    </div>
 
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                        gap: '12px',
-                        alignItems: 'end',
-                      }}
-                    >
-                      <div>
-                        <label htmlFor="schedule-at" style={labelStyle}>
-                          Schedule
+                    <div className={styles.launchGrid}>
+                      <div className={styles.formField}>
+                        <label htmlFor="schedule-at" className={styles.fieldLabel}>
+                          SCHEDULE
                         </label>
                         <input
                           id="schedule-at"
                           type="datetime-local"
                           value={scheduledFor}
                           onChange={(event) => setScheduledFor(event.target.value)}
-                          style={inputStyle}
+                          className={`${styles.fieldInput} ${styles.monoField}`}
                         />
                       </div>
 
-                      <button
-                        type="button"
-                        disabled={!canCreateRun}
-                        onClick={() => void handleCreateRun('now')}
-                        style={{
-                          ...buttonStyle,
-                          background: 'linear-gradient(135deg, #ff5f5f, #ff2f2f)',
-                          color: '#210404',
-                          opacity: canCreateRun ? 1 : 0.6,
-                        }}
-                      >
-                        {actionPending === 'now' ? 'Launching...' : 'Go Live Now'}
-                      </button>
+                      <div className={styles.buttonStack}>
+                        <button
+                          type="button"
+                          disabled={!canCreateRun}
+                          onClick={() => void handleCreateRun('now')}
+                          className={`${styles.buttonBase} ${styles.primaryButton}`}
+                        >
+                          <span className={styles.buttonTitle}>
+                            {actionPending === 'now' ? 'IGNITING...' : 'IGNITE NOW'}
+                          </span>
+                          <span className={styles.buttonSubtitle}>GO LIVE</span>
+                        </button>
 
-                      <button
-                        type="button"
-                        disabled={!canCreateRun}
-                        onClick={() => void handleCreateRun('schedule')}
-                        style={{
-                          ...buttonStyle,
-                          background: 'rgba(255,255,255,0.06)',
-                          color: '#f7efef',
-                          opacity: canCreateRun ? 1 : 0.6,
-                        }}
-                      >
-                        {actionPending === 'schedule' ? 'Scheduling...' : 'Schedule'}
-                      </button>
+                        <button
+                          type="button"
+                          disabled={!canCreateRun}
+                          onClick={() => void handleCreateRun('schedule')}
+                          className={`${styles.buttonBase} ${styles.secondaryButton}`}
+                        >
+                          {actionPending === 'schedule' ? 'SCHEDULING...' : 'SCHEDULE RITUAL'}
+                        </button>
+                      </div>
                     </div>
 
-                    <p
-                      style={{
-                        margin: '14px 0 0',
-                        color: '#ae9393',
-                        fontSize: '13px',
-                        lineHeight: 1.6,
-                      }}
-                    >
+                    <p className={styles.helperText}>
                       Go live immediately or pick a time. The backend seeding flow stays the same.
                     </p>
-                  </div>
+                  </section>
+
+                  <section className={`${styles.card} ${styles.whyCard}`}>
+                    <div className={styles.whyIcon}>💀</div>
+                    <div className={styles.whyCopy}>
+                      <div className={styles.cardEyebrow}>WHY WE SEED</div>
+                      {whyWeSeedLines.map((line) => (
+                        <p key={line} className={styles.whyLine}>
+                          {line}
+                        </p>
+                      ))}
+                      <p className={styles.whyFinal}>BE THE REASON IT STARTS.</p>
+                    </div>
+                    <div className={styles.whySigil} aria-hidden="true" />
+                  </section>
                 </div>
 
-                <div style={{ ...panelStyle, minWidth: 0 }}>
-                  <h2 style={sectionTitleStyle}>Message Script</h2>
-
-                  <div
-                    style={{
-                      color: '#ae9393',
-                      fontSize: '13px',
-                      lineHeight: 1.6,
-                      marginBottom: '14px',
-                    }}
-                  >
-                    Format each line like:
-                    <br />
-                    <code
-                      style={{
-                        display: 'inline-block',
-                        marginTop: '6px',
-                        color: '#ffd2d2',
-                        fontSize: '12px',
-                      }}
-                    >
+                <section className={`${styles.card} ${styles.scriptCard}`}>
+                  <div className={styles.scriptHeader}>
+                    <h2 className={styles.scriptTitle}>
+                      <span className={styles.codeTag}>{'<>'}</span>
+                      MESSAGE SCRIPT
+                    </h2>
+                    <p className={styles.scriptSubtitle}>Format each line like:</p>
+                    <code className={styles.scriptPattern}>
                       Name - College - message - HH:MM:SS
                     </code>
                   </div>
 
-                  <label htmlFor="bulk-messages" style={labelStyle}>
-                    Messages
-                  </label>
-                  <div
-                    style={{
-                      color: '#8f7474',
-                      fontSize: '12px',
-                      marginBottom: '10px',
-                    }}
-                  >
-                    Unique names detected: {scriptDisplayNames.length}
+                  <div className={styles.formFieldGrow}>
+                    <label htmlFor="bulk-messages" className={styles.fieldLabel}>
+                      MESSAGES
+                    </label>
+                    <textarea
+                      id="bulk-messages"
+                      value={messagesInput}
+                      onChange={(event) => setMessagesInput(event.target.value)}
+                      placeholder={
+                        'Rahul - IIT Bombay - anyone else getting placed? - 00:00:10\nPriya - BITS Pilani - heard Flipkart is coming - 00:01:30\nArjun - VIT - bro same, super nervous - 00:02:00'
+                      }
+                      rows={16}
+                      className={`${styles.fieldInput} ${styles.monoField} ${styles.scriptTextarea}`}
+                    />
+                    <div className={styles.detectedCount}>
+                      Unique names detected: {scriptDisplayNames.length}
+                    </div>
                   </div>
-                  <textarea
-                    id="bulk-messages"
-                    value={messagesInput}
-                    onChange={(event) => setMessagesInput(event.target.value)}
-                    placeholder={
-                      'Rahul - IIT Bombay - anyone else getting placed? - 00:00:10\nPriya - BITS Pilani - heard Flipkart is coming - 00:01:30\nArjun - VIT - bro same, super nervous - 00:02:00'
-                    }
-                    rows={16}
-                    style={{
-                      ...inputStyle,
-                      resize: 'vertical' as const,
-                      minHeight: '420px',
-                      lineHeight: 1.6,
-                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-                    }}
-                  />
-                </div>
+                </section>
               </div>
             </>
           )}
         </section>
+
+        <footer className={styles.footerBar}>
+          {footerProtocolItems.map((item) => (
+            <div key={item.title} className={styles.footerItem}>
+              <span className={styles.footerIcon}>{item.icon}</span>
+              <div>
+                <div className={styles.footerTitle}>{item.title}</div>
+                {item.copy ? <p className={styles.footerCopy}>{item.copy}</p> : null}
+              </div>
+            </div>
+          ))}
+          <div className={styles.footerManifesto}>SEED THE STORM. OWN THE FUTURE.</div>
+        </footer>
       </div>
       {isAvatarModalOpen && pendingLiveRunDraft ? (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(8, 6, 6, 0.82)',
-            backdropFilter: 'blur(10px)',
-            padding: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 50,
-          }}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: '720px',
-              maxHeight: 'min(80dvh, 820px)',
-              overflowY: 'auto',
-              borderRadius: '24px',
-              border: '1px solid rgba(255,255,255,0.08)',
-              background: 'rgba(16, 9, 9, 0.98)',
-              boxShadow: '0 28px 80px rgba(0, 0, 0, 0.45)',
-              padding: '24px',
-            }}
-          >
-            <div style={{ marginBottom: '18px' }}>
-              <div style={labelStyle}>Avatar Assignment</div>
-              <h2 style={{ margin: '0 0 8px', fontSize: '24px', color: '#fff3f3' }}>
-                Upload avatars before going live
-              </h2>
-              <p style={{ margin: 0, color: '#b89999', fontSize: '14px', lineHeight: 1.6 }}>
-                Upload is optional for each name. Unassigned names will be skipped.
-              </p>
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalCard}>
+            <div className={styles.modalHeader}>
+              <div>
+                <div className={styles.cardEyebrow}>AVATAR ASSIGNMENT</div>
+                <h2 className={styles.modalTitle}>UPLOAD AVATARS BEFORE GOING LIVE</h2>
+                <p className={styles.modalCopy}>
+                  Upload is optional for each name. Unassigned names will be skipped.
+                </p>
+              </div>
+              <div className={styles.modalBadge}>PORTAL READY</div>
             </div>
 
-            {avatarModalError ? (
-              <div style={{ ...errorBoxStyle, marginBottom: '16px' }}>{avatarModalError}</div>
-            ) : null}
+            {avatarModalError ? <div className={styles.notice}>{avatarModalError}</div> : null}
 
-            <div style={{ display: 'grid', gap: '12px' }}>
+            <div className={styles.avatarList}>
               {pendingLiveRunDraft.displayNames.map((displayName) => {
                 const avatarDraft = avatarDrafts[displayName]
                 const previewSource = avatarDraft?.previewUrl || avatarDraft?.avatarUrl || ''
 
                 return (
-                  <div
-                    key={displayName}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'minmax(0, 1fr) auto auto',
-                      gap: '12px',
-                      alignItems: 'center',
-                      padding: '14px',
-                      borderRadius: '18px',
-                      border: '1px solid rgba(255,255,255,0.06)',
-                      background: 'rgba(255,255,255,0.02)',
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: '15px',
-                          fontWeight: 700,
-                          color: '#fff4f4',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {displayName}
-                      </div>
+                  <div key={displayName} className={styles.avatarRow}>
+                    <div className={styles.avatarIdentity}>
+                      <div className={styles.avatarName}>{displayName}</div>
+                      <div className={styles.avatarMeta}>Seeded identity slot</div>
                     </div>
 
                     <label
-                      style={{
-                        ...buttonStyle,
-                        background: 'rgba(255,255,255,0.06)',
-                        color: '#f7efef',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
+                      className={`${styles.buttonBase} ${styles.secondaryButton} ${styles.uploadButton}`}
                     >
                       {avatarDraft?.file ? 'Replace Image' : 'Upload Image'}
                       <input
@@ -1440,22 +1316,7 @@ export default function SeedingClient({
                       />
                     </label>
 
-                    <div
-                      style={{
-                        width: '54px',
-                        height: '54px',
-                        borderRadius: '999px',
-                        overflow: 'hidden',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        background: 'rgba(255,255,255,0.04)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#8e7575',
-                        fontSize: '11px',
-                        flexShrink: 0,
-                      }}
-                    >
+                    <div className={styles.avatarPreview}>
                       {previewSource ? (
                         <Image
                           src={previewSource}
@@ -1466,7 +1327,7 @@ export default function SeedingClient({
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                       ) : (
-                        'No image'
+                        <div className={styles.avatarFallback}>No image</div>
                       )}
                     </div>
                   </div>
@@ -1474,25 +1335,12 @@ export default function SeedingClient({
               })}
             </div>
 
-            <div
-              style={{
-                marginTop: '18px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: '12px',
-                flexWrap: 'wrap' as const,
-              }}
-            >
+            <div className={styles.modalActions}>
               <button
                 type="button"
                 onClick={closeAvatarModal}
                 disabled={actionPending === 'now' || !!avatarModalRun}
-                style={{
-                  ...buttonStyle,
-                  background: 'rgba(255,255,255,0.06)',
-                  color: '#f7efef',
-                  opacity: actionPending === 'now' || avatarModalRun ? 0.45 : 1,
-                }}
+                className={`${styles.buttonBase} ${styles.secondaryButton}`}
               >
                 Back
               </button>
@@ -1501,14 +1349,12 @@ export default function SeedingClient({
                 type="button"
                 onClick={() => void handleAvatarModalContinue()}
                 disabled={actionPending === 'now'}
-                style={{
-                  ...buttonStyle,
-                  background: 'linear-gradient(135deg, #ff5f5f, #ff2f2f)',
-                  color: '#210404',
-                  opacity: actionPending === 'now' ? 0.7 : 1,
-                }}
+                className={`${styles.buttonBase} ${styles.primaryButton}`}
               >
-                {actionPending === 'now' ? 'Saving...' : 'Save Avatars & Go Live'}
+                <span className={styles.buttonTitle}>
+                  {actionPending === 'now' ? 'SAVING...' : 'SEAL AVATARS'}
+                </span>
+                <span className={styles.buttonSubtitle}>GO LIVE</span>
               </button>
             </div>
           </div>

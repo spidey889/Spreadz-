@@ -910,9 +910,15 @@ display: flex;
         }
         .profile-sheet.dragging { transition: none; }
         .profile-sheet.view-only {
-          padding: 108px 24px 24px;
+          padding: 10px 14px calc(18px + env(safe-area-inset-bottom, 0px));
           gap: 0;
-          min-height: 332px;
+          min-height: 280px;
+          margin-top: 20px;
+          background: #1e1f22;
+          border-color: rgba(255, 255, 255, 0.08);
+          box-shadow: 0 -24px 46px rgba(0, 0, 0, 0.44);
+          scroll-padding-top: 18px;
+          scroll-padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
         }
         .profile-sheet.profile-sheet-edit-mode {
           padding: 18px 20px calc(22px + env(safe-area-inset-bottom, 0px));
@@ -929,12 +935,19 @@ display: flex;
           box-shadow: 0 -22px 46px rgba(0, 0, 0, 0.46);
           scroll-padding-top: 24px;
         }
-        .profile-sheet.view-only .profile-avatar-section {
-          top: -56px;
-          gap: 0;
-        }
         .profile-sheet .sheet-handle {
           background: rgba(15, 23, 42, 0.12);
+        }
+        .profile-sheet.view-only .sheet-handle {
+          background: rgba(219, 222, 225, 0.92);
+          margin: 0 auto;
+        }
+        .profile-sheet-view-drag-zone {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          padding: 2px 0 16px;
+          touch-action: none;
         }
         .profile-sheet-topbar {
           display: flex;
@@ -966,12 +979,6 @@ display: flex;
           background: rgba(255, 255, 255, 0.08);
           border-color: rgba(255, 255, 255, 0.1);
           color: #f5f7fb;
-        }
-        .profile-sheet.view-only .profile-avatar-preview {
-          width: 112px;
-          height: 112px;
-          font-size: 28px;
-          cursor: default;
         }
         .profile-avatar-section {
           position: absolute;
@@ -1194,81 +1201,132 @@ display: flex;
         .profile-sheet-view-content {
           display: flex;
           flex-direction: column;
-          align-items: center;
-          gap: 20px;
-          text-align: center;
+          align-items: stretch;
+          gap: 0;
+          text-align: left;
           width: 100%;
           flex: 1;
         }
-        .profile-sheet-view-identity {
+        .profile-sheet-view-hero {
           display: flex;
           flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+          padding: 4px 0 0;
+        }
+        .profile-sheet-view-avatar {
+          width: 84px;
+          height: 84px;
+          border-radius: 50%;
+          overflow: hidden;
+          display: flex;
           align-items: center;
-          gap: 6px;
+          justify-content: center;
+          background: #313338;
+          color: #ffffff;
+          font-size: 24px;
+          font-weight: 800;
+          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
         }
         .profile-sheet-view-name {
-          font-size: 30px;
+          font-size: 32px;
           font-weight: 800;
           color: #ffffff;
-          line-height: 1.1;
-          letter-spacing: -0.02em;
+          line-height: 1.02;
+          letter-spacing: -0.03em;
         }
-        .profile-sheet .profile-sheet-view-name {
+        .profile-sheet:not(.view-only) .profile-sheet-view-name {
           color: #101828;
         }
-        .profile-sheet-view-handle {
+        .profile-sheet-view-meta-line {
           font-size: 14px;
-          font-weight: 600;
-          color: #8b95a7;
+          font-weight: 500;
+          color: #b5bac1;
           line-height: 1.4;
         }
-        .profile-sheet-view-details {
+        .profile-sheet-view-cards {
           width: 100%;
           display: flex;
           flex-direction: column;
-          gap: 14px;
-          margin-top: 2px;
-          text-align: left;
+          gap: 12px;
+          margin-top: 18px;
         }
-        .profile-sheet-view-row {
+        .profile-sheet-view-card {
+          width: 100%;
+          border-radius: 18px;
+          background: #2b2d31;
+          padding: 14px 16px 16px;
+          border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .profile-sheet-view-card-label {
+          color: #80848e;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          margin-bottom: 10px;
+        }
+        .profile-sheet-view-card-value {
+          color: #f2f3f5;
+          font-size: 15px;
+          font-weight: 500;
+          line-height: 1.55;
+          white-space: pre-wrap;
+        }
+        .profile-sheet-view-card-row {
           display: flex;
-          align-items: center;
-          gap: 10px;
-          color: #475467;
+          flex-wrap: wrap;
+          gap: 4px 8px;
+          align-items: baseline;
+        }
+        .profile-sheet-view-card-row + .profile-sheet-view-card-row {
+          margin-top: 8px;
+        }
+        .profile-sheet-view-card-row-label {
+          color: #80848e;
+          font-size: 14px;
+          font-weight: 600;
+          line-height: 1.5;
+        }
+        .profile-sheet-view-card-row-value {
+          color: #f2f3f5;
           font-size: 15px;
           font-weight: 500;
           line-height: 1.5;
         }
-        .profile-sheet-view-icon {
-          width: 18px;
-          flex: 0 0 18px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 14px;
+        .profile-sheet-view-note-card .profile-sheet-view-card-value {
+          color: #c9ccd1;
         }
-        .profile-sheet-view-divider {
-          width: 100%;
-          height: 1px;
-          background: rgba(15, 23, 42, 0.08);
-        }
-        .profile-sheet-view-actions {
+        .profile-sheet-view-footer {
           width: 100%;
           display: flex;
-          gap: 14px;
-          margin-top: auto;
-          padding: 10px 0 0;
+          flex-direction: column;
+          gap: 10px;
+          margin-top: 16px;
+        }
+        .profile-sheet-view-joined {
+          color: #b5bac1;
+          font-size: 12px;
+          font-weight: 500;
+          line-height: 1.4;
+        }
+        .profile-sheet-view-actions {
+          width: auto;
+          display: flex;
+          gap: 18px;
+          flex-wrap: wrap;
+          padding: 0;
         }
         .profile-sheet-view-action {
-          flex: 1 1 0;
+          flex: 0 0 auto;
           padding: 0;
           background: transparent;
           border: none;
-          color: rgba(195, 52, 73, 0.82);
+          color: #ed4245;
           font-size: 12px;
-          font-weight: 600;
+          font-weight: 700;
           line-height: 1.2;
-          letter-spacing: 0.01em;
+          letter-spacing: 0.02em;
           text-align: left;
           cursor: pointer;
         }
@@ -1280,9 +1338,7 @@ display: flex;
           cursor: default;
         }
         .profile-sheet-view-action-status {
-          margin-top: 10px;
-          text-align: center;
-          font-size: 13px;
+          font-size: 12px;
           color: #ff8a8a;
         }
         .profile-username {

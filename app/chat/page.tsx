@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useRef, useEffect, useCallback, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react'
+import { useState, useRef, useEffect, useCallback, type ClipboardEvent, type FormEvent, type KeyboardEvent, type TouchEvent } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { BackFeedbackModal } from '@/app/chat/components/BackFeedbackModal'
@@ -619,6 +619,7 @@ export default function GlobalChat() {
   const [visibleMessageIdsByRoom, setVisibleMessageIdsByRoom] = useState<Record<string, Set<string>>>({})
   const [reportSheetMessage, setReportSheetMessage] = useState<Message | null>(null)
   const [readOnlyProfile, setReadOnlyProfile] = useState<ReadOnlyProfile | null>(null)
+  const [readOnlyProfileSheetDragging, setReadOnlyProfileSheetDragging] = useState(false)
   const [reportStatus, setReportStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
   const [muteStatus, setMuteStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
   const [muteStateReady, setMuteStateReady] = useState(false)
@@ -673,6 +674,7 @@ export default function GlobalChat() {
   const notificationCooldownUntilRef = useRef(0)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const profileSheetRef = useRef<HTMLFormElement>(null)
+  const readOnlyProfileSheetRef = useRef<HTMLDivElement>(null)
   const currentRoomIndexRef = useRef(0)
   const activeRoomIdRef = useRef<string | null>(null)
   const realtimeMessageHandlerRef = useRef<(messageRow: any) => void>(() => {})
@@ -695,6 +697,10 @@ export default function GlobalChat() {
   const profileSheetOffsetYRef = useRef(0)
   const profileSheetFrameRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
+  const readOnlyProfileSheetTouchStartYRef = useRef<number | null>(null)
+  const readOnlyProfileSheetOffsetYRef = useRef(0)
+  const readOnlyProfileSheetFrameRef = useRef<number | null>(null)
+  const readOnlyProfileSheetCloseTimeoutRef = useRef<number | null>(null)
   const pendingProfileReportMessageRef = useRef<Message | null>(null)
   const readOnlyProfileRequestIdRef = useRef(0)
   const roomIsAtBottomByIdRef = useRef<Record<string, boolean>>({})
@@ -1154,6 +1160,20 @@ export default function GlobalChat() {
       profileSheetFrameRef.current = null
       if (profileSheetRef.current) {
         profileSheetRef.current.style.setProperty('--profile-sheet-offset', `${profileSheetOffsetYRef.current}px`)
+      }
+    })
+  }, [])
+
+  const applyReadOnlyProfileSheetOffset = useCallback((offset: number) => {
+    readOnlyProfileSheetOffsetYRef.current = offset
+
+    if (typeof window === 'undefined') return
+    if (readOnlyProfileSheetFrameRef.current !== null) return
+
+    readOnlyProfileSheetFrameRef.current = window.requestAnimationFrame(() => {
+      readOnlyProfileSheetFrameRef.current = null
+      if (readOnlyProfileSheetRef.current) {
+        readOnlyProfileSheetRef.current.style.setProperty('--profile-sheet-offset', `${readOnlyProfileSheetOffsetYRef.current}px`)
       }
     })
   }, [])
@@ -2316,6 +2336,22 @@ export default function GlobalChat() {
   }, [showProfileModal, scrollProfileFieldIntoView])
 
   useEffect(() => {
+    if (!readOnlyProfile) {
+      if (readOnlyProfileSheetCloseTimeoutRef.current !== null) {
+        window.clearTimeout(readOnlyProfileSheetCloseTimeoutRef.current)
+        readOnlyProfileSheetCloseTimeoutRef.current = null
+      }
+      readOnlyProfileSheetTouchStartYRef.current = null
+      setReadOnlyProfileSheetDragging(false)
+      applyReadOnlyProfileSheetOffset(0)
+      return
+    }
+
+    setReadOnlyProfileSheetDragging(false)
+    applyReadOnlyProfileSheetOffset(0)
+  }, [readOnlyProfile, applyReadOnlyProfileSheetOffset])
+
+  useEffect(() => {
     if (readOnlyProfile || !pendingProfileReportMessageRef.current) return
 
     const reportMessage = pendingProfileReportMessageRef.current
@@ -2333,6 +2369,12 @@ export default function GlobalChat() {
       }
       if (profileSheetFrameRef.current !== null) {
         window.cancelAnimationFrame(profileSheetFrameRef.current)
+      }
+      if (readOnlyProfileSheetCloseTimeoutRef.current !== null) {
+        window.clearTimeout(readOnlyProfileSheetCloseTimeoutRef.current)
+      }
+      if (readOnlyProfileSheetFrameRef.current !== null) {
+        window.cancelAnimationFrame(readOnlyProfileSheetFrameRef.current)
       }
     }
   }, [])
@@ -3733,10 +3775,64 @@ export default function GlobalChat() {
     })
   }, [university])
 
-  const closeReadOnlyProfile = () => {
+  const closeReadOnlyProfile = useCallback(() => {
     readOnlyProfileRequestIdRef.current += 1
+    if (readOnlyProfileSheetCloseTimeoutRef.current !== null) {
+      window.clearTimeout(readOnlyProfileSheetCloseTimeoutRef.current)
+      readOnlyProfileSheetCloseTimeoutRef.current = null
+    }
+    readOnlyProfileSheetTouchStartYRef.current = null
+    setReadOnlyProfileSheetDragging(false)
+    applyReadOnlyProfileSheetOffset(0)
     setReadOnlyProfile(null)
-  }
+  }, [applyReadOnlyProfileSheetOffset])
+
+  const handleReadOnlyProfileSheetTouchStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    if (readOnlyProfileSheetCloseTimeoutRef.current !== null) {
+      window.clearTimeout(readOnlyProfileSheetCloseTimeoutRef.current)
+      readOnlyProfileSheetCloseTimeoutRef.current = null
+    }
+
+    readOnlyProfileSheetTouchStartYRef.current = event.touches[0]?.clientY ?? null
+    setReadOnlyProfileSheetDragging(false)
+  }, [])
+
+  const handleReadOnlyProfileSheetTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    const startY = readOnlyProfileSheetTouchStartYRef.current
+    if (startY === null) return
+
+    const currentY = event.touches[0]?.clientY ?? startY
+    const delta = currentY - startY
+    if (Math.abs(delta) < 3) return
+
+    event.preventDefault()
+    setReadOnlyProfileSheetDragging(true)
+    applyReadOnlyProfileSheetOffset(delta < 0 ? Math.max(delta * 0.16, -18) : Math.min(delta, 280))
+  }, [applyReadOnlyProfileSheetOffset])
+
+  const handleReadOnlyProfileSheetTouchEnd = useCallback(() => {
+    const shouldClose = readOnlyProfileSheetOffsetYRef.current > 96
+
+    readOnlyProfileSheetTouchStartYRef.current = null
+    setReadOnlyProfileSheetDragging(false)
+
+    if (!shouldClose) {
+      applyReadOnlyProfileSheetOffset(0)
+      return
+    }
+
+    applyReadOnlyProfileSheetOffset(Math.max(readOnlyProfileSheetOffsetYRef.current, 260))
+    readOnlyProfileSheetCloseTimeoutRef.current = window.setTimeout(() => {
+      readOnlyProfileSheetCloseTimeoutRef.current = null
+      closeReadOnlyProfile()
+    }, 170)
+  }, [applyReadOnlyProfileSheetOffset, closeReadOnlyProfile])
+
+  const handleReadOnlyProfileSheetTouchCancel = useCallback(() => {
+    readOnlyProfileSheetTouchStartYRef.current = null
+    setReadOnlyProfileSheetDragging(false)
+    applyReadOnlyProfileSheetOffset(0)
+  }, [applyReadOnlyProfileSheetOffset])
 
   const handleReadOnlyProfileReport = () => {
     const reportMessage = readOnlyProfile?.reportMessage
@@ -3871,21 +3967,25 @@ export default function GlobalChat() {
     || extendedProfile.isPrivate
   )
   const readOnlyJoinedLabel = formatProfileJoinedLabel(readOnlyProfile?.joinedAt)
-  const readOnlyDetailRows = readOnlyProfile
+  const canShowReadOnlyDetails = Boolean(readOnlyProfile && !readOnlyProfile.limitedByPrivacy)
+  const readOnlyMetaLine = readOnlyProfile
     ? [
-      { label: 'College', value: readOnlyProfile.college },
+      readOnlyProfile.handle ? `@${readOnlyProfile.handle.replace(/^@/, '')}` : '',
+      readOnlyProfile.college,
+    ].filter(Boolean).join(' • ')
+    : ''
+  const readOnlyAboutRows = readOnlyProfile && canShowReadOnlyDetails
+    ? [
       { label: 'Branch', value: readOnlyProfile.branch },
       { label: 'Year', value: readOnlyProfile.year },
-      { label: 'Favorite movie', value: readOnlyProfile.favMovie },
-      { label: 'Relationship status', value: readOnlyProfile.relationshipStatus },
     ].filter((item) => Boolean(item.value))
     : []
-  const canShowReadOnlyDetails = Boolean(readOnlyProfile && !readOnlyProfile.limitedByPrivacy)
-  const hasReadOnlyExtendedContent = Boolean(
-    readOnlyProfile
-    && canShowReadOnlyDetails
-    && (readOnlyProfile.bio || readOnlyProfile.interests.length > 0 || readOnlyDetailRows.length > 0)
-  )
+  const readOnlyFavoriteRows = readOnlyProfile && canShowReadOnlyDetails
+    ? [
+      { label: 'Favorite Movie', value: readOnlyProfile.favMovie },
+      { label: 'Relationship Status', value: readOnlyProfile.relationshipStatus },
+    ].filter((item) => Boolean(item.value))
+    : []
 
   if (!activeRoom) {
     const hasRooms = rooms.length > 0
@@ -4294,97 +4394,111 @@ export default function GlobalChat() {
 
       {readOnlyProfile && (
         <div className="profile-overlay" onClick={closeReadOnlyProfile}>
-          <div className="profile-sheet view-only" onClick={(e) => e.stopPropagation()}>
-            <div className="profile-avatar-section">
-              <div
-                className="profile-avatar-preview"
-                style={!readOnlyProfile.avatarUrl ? { backgroundColor: getUserColor(readOnlyProfile.displayName) } : undefined}
-              >
-                {readOnlyProfile.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={readOnlyProfile.avatarUrl}
-                    alt={`${readOnlyProfile.displayName} profile`}
-                    className="profile-avatar-image"
-                    draggable={false}
-                  />
-                ) : (
-                  <span>{getInitials(readOnlyProfile.displayName)}</span>
-                )}
-              </div>
+          <div
+            ref={readOnlyProfileSheetRef}
+            className={`profile-sheet view-only${readOnlyProfileSheetDragging ? ' dragging' : ''}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="profile-sheet-view-drag-zone"
+              onTouchStart={handleReadOnlyProfileSheetTouchStart}
+              onTouchMove={handleReadOnlyProfileSheetTouchMove}
+              onTouchEnd={handleReadOnlyProfileSheetTouchEnd}
+              onTouchCancel={handleReadOnlyProfileSheetTouchCancel}
+            >
+              <div className="sheet-handle" />
             </div>
-            <div className="sheet-handle" />
             <div className="profile-sheet-view-content">
-              <div className="profile-sheet-view-identity">
+              <div className="profile-sheet-view-hero">
+                <div
+                  className="profile-sheet-view-avatar"
+                  style={!readOnlyProfile.avatarUrl ? { backgroundColor: getUserColor(readOnlyProfile.displayName) } : undefined}
+                >
+                  {readOnlyProfile.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={readOnlyProfile.avatarUrl}
+                      alt={`${readOnlyProfile.displayName} profile`}
+                      className="profile-avatar-image"
+                      draggable={false}
+                    />
+                  ) : (
+                    <span>{getInitials(readOnlyProfile.displayName)}</span>
+                  )}
+                </div>
                 <div className="profile-sheet-view-name">{readOnlyProfile.displayName}</div>
-                {readOnlyProfile.handle && (
-                  <div className="profile-sheet-view-handle">
-                    @{readOnlyProfile.handle.replace(/^@/, '')}
-                  </div>
+                {readOnlyMetaLine && (
+                  <div className="profile-sheet-view-meta-line">{readOnlyMetaLine}</div>
                 )}
               </div>
-              <div className="profile-sheet-view-details">
+              <div className="profile-sheet-view-cards">
                 {readOnlyProfile.limitedByPrivacy ? (
-                  <div className="profile-view-note">
-                    Full profile details are limited to people from {readOnlyProfile.college || 'their college'}.
+                  <div className="profile-sheet-view-card profile-sheet-view-note-card">
+                    <div className="profile-sheet-view-card-label">Profile</div>
+                    <div className="profile-sheet-view-card-value">
+                      Full profile details are limited to people from {readOnlyProfile.college || 'their college'}.
+                    </div>
                   </div>
-                ) : hasReadOnlyExtendedContent ? (
+                ) : (
                   <>
                     {readOnlyProfile.bio && (
-                      <div className="profile-sheet-view-section">
-                        <div className="profile-sheet-view-label">Bio</div>
-                        <div className="profile-sheet-view-value">{readOnlyProfile.bio}</div>
+                      <div className="profile-sheet-view-card">
+                        <div className="profile-sheet-view-card-label">Bio</div>
+                        <div className="profile-sheet-view-card-value">{readOnlyProfile.bio}</div>
                       </div>
                     )}
-                    {readOnlyProfile.interests.length > 0 && (
-                      <div className="profile-sheet-view-section">
-                        <div className="profile-sheet-view-label">Interests</div>
-                        <div className="profile-tags-preview">
-                          {readOnlyProfile.interests.map((interest) => (
-                            <span key={interest} className="profile-tag">{interest}</span>
-                          ))}
-                        </div>
+                    {readOnlyAboutRows.length > 0 && (
+                      <div className="profile-sheet-view-card">
+                        <div className="profile-sheet-view-card-label">About</div>
+                        {readOnlyAboutRows.map((item) => (
+                          <div key={item.label} className="profile-sheet-view-card-row">
+                            <span className="profile-sheet-view-card-row-label">{item.label}</span>
+                            <span className="profile-sheet-view-card-row-value">{item.value}</span>
+                          </div>
+                        ))}
                       </div>
                     )}
-                    {readOnlyDetailRows.map((item) => (
-                      <div key={item.label} className="profile-sheet-view-section">
-                        <div className="profile-sheet-view-label">{item.label}</div>
-                        <div className="profile-sheet-view-value">{item.value}</div>
+                    {readOnlyFavoriteRows.length > 0 && (
+                      <div className="profile-sheet-view-card">
+                        <div className="profile-sheet-view-card-label">Favorites</div>
+                        {readOnlyFavoriteRows.map((item) => (
+                          <div key={item.label} className="profile-sheet-view-card-row">
+                            <span className="profile-sheet-view-card-row-label">{item.label}</span>
+                            <span className="profile-sheet-view-card-row-value">{item.value}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </>
-                ) : (
-                  <div className="profile-view-empty">No extra profile details yet.</div>
-                )}
-                {readOnlyJoinedLabel && !readOnlyProfile.limitedByPrivacy && (
-                  <div className="profile-sheet-view-section">
-                    <div className="profile-sheet-view-label">Joined</div>
-                    <div className="profile-sheet-view-value profile-sheet-view-muted">{readOnlyJoinedLabel}</div>
-                  </div>
                 )}
               </div>
-              <div className="profile-sheet-view-actions">
-                {readOnlyProfile.reportMessage?.user_uuid && readOnlyProfile.reportMessage.user_uuid !== getCurrentUserId() && (
+              <div className="profile-sheet-view-footer">
+                {readOnlyJoinedLabel && (
+                  <div className="profile-sheet-view-joined">{readOnlyJoinedLabel}</div>
+                )}
+                <div className="profile-sheet-view-actions">
+                  {readOnlyProfile.reportMessage?.user_uuid && readOnlyProfile.reportMessage.user_uuid !== getCurrentUserId() && (
+                    <button
+                      type="button"
+                      className="profile-sheet-view-action"
+                      onClick={handleReadOnlyProfileMute}
+                      disabled={muteStatus === 'submitting'}
+                    >
+                      {muteStatus === 'submitting'
+                        ? (isMutedUser(readOnlyProfile.reportMessage?.user_uuid) ? 'Unmuting...' : 'Muting...')
+                        : (isMutedUser(readOnlyProfile.reportMessage?.user_uuid) ? 'Unmute' : 'Mute')}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="profile-sheet-view-action"
-                    onClick={handleReadOnlyProfileMute}
-                    disabled={muteStatus === 'submitting'}
+                    className="profile-sheet-view-action profile-sheet-view-report"
+                    onClick={handleReadOnlyProfileReport}
                   >
-                    {muteStatus === 'submitting'
-                      ? (isMutedUser(readOnlyProfile.reportMessage?.user_uuid) ? 'Unmuting...' : 'Muting...')
-                      : (isMutedUser(readOnlyProfile.reportMessage?.user_uuid) ? 'Unmute' : 'Mute')}
+                    Report User
                   </button>
-                )}
-                <button
-                  type="button"
-                  className="profile-sheet-view-action profile-sheet-view-report"
-                  onClick={handleReadOnlyProfileReport}
-                >
-                  Report user
-                </button>
+                </div>
+                {muteStatus === 'error' && <div className="profile-sheet-view-action-status error">Mute failed</div>}
               </div>
-              {muteStatus === 'error' && <div className="profile-sheet-view-action-status error">Mute failed</div>}
             </div>
           </div>
         </div>

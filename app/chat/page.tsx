@@ -4450,7 +4450,6 @@ export default function GlobalChat() {
                     placeholder="e.g. CSE"
                     value={profileDraft.branch}
                     onChange={(e) => updateProfileDraft({ branch: e.target.value })}
-                    autoFocus
                     className="profile-input"
                   />
                 </div>

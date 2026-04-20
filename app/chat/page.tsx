@@ -94,7 +94,7 @@ interface ReadOnlyProfile {
   reportMessage: Message | null
 }
 
-type ProfileModalMode = 'setup' | 'edit'
+type ProfileModalMode = 'setup' | 'edit' | 'preview'
 
 type ExtendedProfileFields = {
   branch: string
@@ -3591,10 +3591,11 @@ export default function GlobalChat() {
 
     setExtendedProfile(nextExtendedProfile)
     setProfileDraft(buildProfileDraft(nextExtendedProfile))
+    setProfileSaveState('idle')
+    setProfileModalMode('preview')
     profileSheetTouchStartYRef.current = null
     setProfileSheetDragging(false)
     applyProfileSheetOffset(0)
-    setShowProfileModal(false)
   }
 
   const closeProfileModal = () => {
@@ -3607,6 +3608,7 @@ export default function GlobalChat() {
     setProfileSheetDragging(false)
     applyProfileSheetOffset(0)
     setShowProfileModal(false)
+    setProfileModalMode(displayName.trim() ? 'edit' : 'setup')
     setTempProfileName('')
     setTempProfileCollege('')
     setProfileDraft(buildProfileDraft(extendedProfile))
@@ -3834,6 +3836,7 @@ export default function GlobalChat() {
 
   const hasSavedProfileName = Boolean(displayName.trim())
   const profileHandle = accountUsername.trim()
+  const profileHandleLabel = profileHandle ? `@${profileHandle.replace(/^@/, '')}` : '@pending'
   const currentAvatarUrl = avatarUrl.trim()
   const hasAvatarPhoto = Boolean(currentAvatarUrl)
   const profilePreviewName = tempProfileName.trim() || displayName.trim() || 'User'
@@ -3846,8 +3849,27 @@ export default function GlobalChat() {
   const activeRoom = rooms[resolvedRoomIndex]
   const visibleRoomIndexes = [resolvedRoomIndex - 1, resolvedRoomIndex, resolvedRoomIndex + 1]
     .filter(index => index >= 0 && index < rooms.length)
+  const isProfileSetupMode = profileModalMode === 'setup'
   const isProfileEditMode = profileModalMode === 'edit'
+  const isProfilePreviewMode = profileModalMode === 'preview'
+  const canCloseOwnProfileModal = !isProfileSetupMode || hasSavedProfileName
   const profileDraftInterests = normalizeProfileInterests(profileDraft.interestsInput)
+  const savedProfileName = displayName.trim() || 'User'
+  const savedProfileCollege = university.trim() || 'College not set'
+  const savedProfileInitials = getInitials(savedProfileName)
+  const savedProfileColor = getUserColor(savedProfileName)
+  const savedProfileDetailRows = [
+    { label: 'Branch', value: extendedProfile.branch },
+    { label: 'Year', value: extendedProfile.year },
+    { label: 'Favorite movie', value: extendedProfile.favMovie },
+    { label: 'Relationship status', value: extendedProfile.relationshipStatus },
+  ].filter((item) => Boolean(item.value))
+  const hasSavedProfileContent = Boolean(
+    extendedProfile.bio
+    || extendedProfile.interests.length > 0
+    || savedProfileDetailRows.length > 0
+    || extendedProfile.isPrivate
+  )
   const readOnlyJoinedLabel = formatProfileJoinedLabel(readOnlyProfile?.joinedAt)
   const readOnlyDetailRows = readOnlyProfile
     ? [
@@ -4372,76 +4394,163 @@ export default function GlobalChat() {
         <div
           className="profile-overlay"
           onClick={() => {
-            if (isProfileEditMode || hasSavedProfileName) closeProfileModal()
+            if (canCloseOwnProfileModal) closeProfileModal()
           }}
         >
           <form
             ref={profileSheetRef}
-            className={`profile-sheet${profileSheetDragging ? ' dragging' : ''}`}
-            onSubmit={isProfileEditMode ? handleExtendedProfileSave : handleProfileSubmit}
+            className={`profile-sheet${isProfileEditMode ? ' profile-sheet-edit-mode' : ''}${isProfilePreviewMode ? ' profile-sheet-preview-mode' : ''}${profileSheetDragging ? ' dragging' : ''}`}
+            onSubmit={isProfileSetupMode ? handleProfileSubmit : handleExtendedProfileSave}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="profile-avatar-section">
-              <div
-                className="profile-avatar-preview"
-                style={!hasAvatarPhoto ? { backgroundColor: profilePreviewColor } : undefined}
-                onClick={() => {
-                  if (!avatarUploading) avatarInputRef.current?.click()
-                }}
-              >
-                {hasAvatarPhoto ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={`modal-${currentAvatarUrl}`} src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" />
-                ) : (
-                  <span>{profilePreviewInitials}</span>
-                )}
+            {isProfilePreviewMode ? (
+              <>
+                <div className="profile-sheet-topbar">
+                  <button
+                    type="button"
+                    className="profile-back-button"
+                    aria-label="Back to chat"
+                    onClick={closeProfileModal}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="m15 18-6-6 6-6" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="profile-preview-hero">
+                  <div
+                    className="profile-preview-avatar"
+                    style={!hasAvatarPhoto ? { backgroundColor: savedProfileColor } : undefined}
+                  >
+                    {hasAvatarPhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={`preview-${currentAvatarUrl}`}
+                        src={currentAvatarUrl}
+                        alt="Your profile"
+                        className="profile-sheet-avatar-image"
+                        draggable={false}
+                      />
+                    ) : (
+                      <span>{savedProfileInitials}</span>
+                    )}
+                  </div>
+                  <div className="profile-preview-name">{savedProfileName}</div>
+                  <div className="profile-preview-handle">{profileHandleLabel}</div>
+                  <div className="profile-preview-college">{savedProfileCollege}</div>
+                </div>
+                <div className="profile-preview-cards">
+                  {extendedProfile.bio && (
+                    <div className="profile-preview-card">
+                      <div className="profile-preview-card-label">Bio</div>
+                      <div className="profile-preview-card-value">{extendedProfile.bio}</div>
+                    </div>
+                  )}
+                  {extendedProfile.interests.length > 0 && (
+                    <div className="profile-preview-card">
+                      <div className="profile-preview-card-label">Interests</div>
+                      <div className="profile-tags-preview profile-preview-tags">
+                        {extendedProfile.interests.map((interest) => (
+                          <span key={interest} className="profile-tag">{interest}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {savedProfileDetailRows.map((item) => (
+                    <div key={item.label} className="profile-preview-card">
+                      <div className="profile-preview-card-label">{item.label}</div>
+                      <div className="profile-preview-card-value">{item.value}</div>
+                    </div>
+                  ))}
+                  {extendedProfile.isPrivate && (
+                    <div className="profile-preview-card">
+                      <div className="profile-preview-card-label">Visibility</div>
+                      <div className="profile-preview-card-value">Only people from your college can open the full version of this profile.</div>
+                    </div>
+                  )}
+                  {!hasSavedProfileContent && (
+                    <div className="profile-preview-empty">No extra profile details yet.</div>
+                  )}
+                </div>
                 <button
                   type="button"
-                  className="profile-avatar-camera"
-                  aria-label={avatarUploading ? 'Uploading photo' : 'Upload profile photo'}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    avatarInputRef.current?.click()
+                  className="profile-submit profile-preview-edit-button"
+                  onClick={() => {
+                    setProfileModalMode('edit')
+                    setProfileDraft(buildProfileDraft(extendedProfile))
                   }}
-                  disabled={avatarUploading}
                 >
-                  {avatarUploading ? (
-                    <span className="profile-avatar-spinner" />
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 7h4l2-2h4l2 2h4v12H4Z" />
-                      <circle cx="12" cy="13" r="3" />
-                    </svg>
-                  )}
+                  Edit Profile
                 </button>
-              </div>
-              <div className="profile-avatar-note">
-                {isProfileEditMode ? 'Tap your photo to update it.' : 'Faceless is sus. Just saying 👀'}
-              </div>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                className="profile-avatar-input"
-                onChange={handleAvatarFileChange}
-              />
-              {avatarUploading && <div className="profile-avatar-status">Uploading photo...</div>}
-            </div>
-            <div className="sheet-handle" />
-            {profileHandle && <div className="profile-username">@{profileHandle}</div>}
-            <div className="profile-title">{isProfileEditMode ? 'Edit profile' : 'Your Profile'}</div>
-            {isProfileEditMode ? (
+              </>
+            ) : isProfileEditMode ? (
               <>
-                <div className="profile-meta-grid">
-                  <div className="profile-display-section">
-                    <div className="profile-display-label">Name</div>
-                    <div className="profile-display-value">{displayName || 'Not set yet'}</div>
-                  </div>
-                  <div className="profile-display-section">
-                    <div className="profile-display-label">College</div>
-                    <div className="profile-display-value">{university || 'Not set yet'}</div>
-                  </div>
+                <div className="profile-sheet-topbar">
+                  <button
+                    type="button"
+                    className="profile-back-button"
+                    aria-label="Back to chat"
+                    onClick={closeProfileModal}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="m15 18-6-6 6-6" />
+                    </svg>
+                  </button>
                 </div>
+                <div className="profile-edit-header">
+                  <div
+                    className="profile-avatar-preview profile-edit-avatar"
+                    style={!hasAvatarPhoto ? { backgroundColor: profilePreviewColor } : undefined}
+                    onClick={() => {
+                      if (!avatarUploading) avatarInputRef.current?.click()
+                    }}
+                  >
+                    {hasAvatarPhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={`modal-${currentAvatarUrl}`}
+                        src={currentAvatarUrl}
+                        alt="Your profile"
+                        className="profile-sheet-avatar-image"
+                        draggable={false}
+                      />
+                    ) : (
+                      <span>{profilePreviewInitials}</span>
+                    )}
+                    <button
+                      type="button"
+                      className="profile-avatar-camera"
+                      aria-label={avatarUploading ? 'Uploading photo' : 'Upload profile photo'}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        avatarInputRef.current?.click()
+                      }}
+                      disabled={avatarUploading}
+                    >
+                      {avatarUploading ? (
+                        <span className="profile-avatar-spinner" />
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 7h4l2-2h4l2 2h4v12H4Z" />
+                          <circle cx="12" cy="13" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <div className="profile-edit-identity">
+                    <div className="profile-edit-name">{savedProfileName}</div>
+                    <div className="profile-edit-handle">{profileHandleLabel}</div>
+                    <div className="profile-edit-college">{savedProfileCollege}</div>
+                  </div>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="profile-avatar-input"
+                    onChange={handleAvatarFileChange}
+                  />
+                </div>
+                {avatarUploading && <div className="profile-avatar-status profile-edit-avatar-status">Uploading photo...</div>}
                 <div className="profile-field">
                   <label className="profile-label" htmlFor="profile-branch">Branch</label>
                   <input
@@ -4529,15 +4638,64 @@ export default function GlobalChat() {
                     onChange={(e) => updateProfileDraft({ isPrivate: e.target.checked })}
                     className="profile-toggle-input"
                   />
+                  <span className="profile-toggle-switch" aria-hidden="true">
+                    <span className="profile-toggle-thumb" />
+                  </span>
                 </label>
                 <button type="submit" className="profile-submit" disabled={profileSaveState === 'saving'}>
                   {profileSaveState === 'saving' ? 'Saving...' : 'Save'}
                 </button>
-                {profileSaveState === 'saved' && <div className="profile-save-status">Saved</div>}
                 {profileSaveState === 'error' && <div className="profile-save-status error">Could not save right now.</div>}
               </>
             ) : (
               <>
+                <div className="profile-avatar-section">
+                  <div
+                    className="profile-avatar-preview"
+                    style={!hasAvatarPhoto ? { backgroundColor: profilePreviewColor } : undefined}
+                    onClick={() => {
+                      if (!avatarUploading) avatarInputRef.current?.click()
+                    }}
+                  >
+                    {hasAvatarPhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={`modal-${currentAvatarUrl}`} src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" />
+                    ) : (
+                      <span>{profilePreviewInitials}</span>
+                    )}
+                    <button
+                      type="button"
+                      className="profile-avatar-camera"
+                      aria-label={avatarUploading ? 'Uploading photo' : 'Upload profile photo'}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        avatarInputRef.current?.click()
+                      }}
+                      disabled={avatarUploading}
+                    >
+                      {avatarUploading ? (
+                        <span className="profile-avatar-spinner" />
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 7h4l2-2h4l2 2h4v12H4Z" />
+                          <circle cx="12" cy="13" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <div className="profile-avatar-note">Faceless is sus. Just saying 👀</div>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="profile-avatar-input"
+                    onChange={handleAvatarFileChange}
+                  />
+                  {avatarUploading && <div className="profile-avatar-status">Uploading photo...</div>}
+                </div>
+                <div className="sheet-handle" />
+                {profileHandle && <div className="profile-username">@{profileHandle}</div>}
+                <div className="profile-title">Your Profile</div>
                 <div className="profile-field">
                   <label className="profile-label" htmlFor="display-name">Display name</label>
                   <input

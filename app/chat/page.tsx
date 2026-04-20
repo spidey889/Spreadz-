@@ -597,6 +597,7 @@ export default function GlobalChat() {
   const [profileSaveState, setProfileSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [avatarUrl, setAvatarUrl] = useState('')
   const [profileJoinedAt, setProfileJoinedAt] = useState<string | null>(null)
+  const [searchSettingsQuery, setSearchSettingsQuery] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [profileSheetDragging, setProfileSheetDragging] = useState(false)
   const [visibleMessageIdsByRoom, setVisibleMessageIdsByRoom] = useState<Record<string, Set<string>>>({})
@@ -4363,47 +4364,52 @@ export default function GlobalChat() {
                           <circle cx="11" cy="11" r="8" />
                           <path d="m21 21-4.3-4.3" />
                         </svg>
-                        <input type="text" placeholder="Search settings" readOnly />
+                        <input type="text" placeholder="Search settings" value={searchSettingsQuery} onChange={(e) => setSearchSettingsQuery(e.target.value)} />
                       </div>
                     </div>
                     <div className="profile-settings-list">
-                      <Link href="/about?section=muted" className="profile-settings-link" onClick={closeProfileModal}>
-                        <div className="profile-settings-link-icon">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M11 5L6 9H2v6h4l5 4V5z" />
-                            <line x1="23" y1="9" x2="17" y2="15" />
-                            <line x1="17" y1="9" x2="23" y2="15" />
-                          </svg>
-                        </div>
-                        <div className="profile-settings-link-content">
-                          <div className="profile-settings-link-title">Muted Users</div>
-                          <div className="profile-settings-link-desc">Manage the people you&apos;ve silenced</div>
-                        </div>
-                        <div className="profile-settings-link-arrow">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="m9 18 6-6-6-6" />
-                          </svg>
-                        </div>
-                      </Link>
+                      {(!searchSettingsQuery || "muted users manage the people you've silenced".includes(searchSettingsQuery.toLowerCase())) && (
+                        <Link href="/about?section=muted" className="profile-settings-link" onClick={closeProfileModal}>
+                          <div className="profile-settings-link-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                              <line x1="23" y1="9" x2="17" y2="15" />
+                              <line x1="17" y1="9" x2="23" y2="15" />
+                            </svg>
+                          </div>
+                          <div className="profile-settings-link-content">
+                            <div className="profile-settings-link-title">Muted Users</div>
+                            <div className="profile-settings-link-desc">Manage the people you&apos;ve silenced</div>
+                          </div>
+                          <div className="profile-settings-link-arrow">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="m9 18 6-6-6-6" />
+                            </svg>
+                          </div>
+                        </Link>
+                      )}
 
-                      <Link href="/about?section=about" className="profile-settings-link" onClick={closeProfileModal}>
-                        <div className="profile-settings-link-icon">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="16" x2="12" y2="12" />
-                            <line x1="12" y1="8" x2="12.01" y2="8" />
-                          </svg>
-                        </div>
-                        <div className="profile-settings-link-content">
-                          <div className="profile-settings-link-title">About Spreadz</div>
-                          <div className="profile-settings-link-desc">Guidelines, Privacy, and more</div>
-                        </div>
-                        <div className="profile-settings-link-arrow">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="m9 18 6-6-6-6" />
-                          </svg>
-                        </div>
-                      </Link>
+
+                      {(!searchSettingsQuery || "about spreadz guidelines, privacy, and more".includes(searchSettingsQuery.toLowerCase())) && (
+                        <Link href="/about?section=about" className="profile-settings-link" onClick={closeProfileModal}>
+                          <div className="profile-settings-link-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="16" x2="12" y2="12" />
+                              <line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                          </div>
+                          <div className="profile-settings-link-content">
+                            <div className="profile-settings-link-title">About Spreadz</div>
+                            <div className="profile-settings-link-desc">Guidelines, Privacy, and more</div>
+                          </div>
+                          <div className="profile-settings-link-arrow">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="m9 18 6-6-6-6" />
+                            </svg>
+                          </div>
+                        </Link>
+                      )}
                     </div>
                   </div>
                 ) : (

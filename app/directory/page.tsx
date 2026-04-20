@@ -49,6 +49,18 @@ const getInitials = (name: string) => (
   name.split(' ').map(part => part[0]).join('').toUpperCase().slice(0, 2)
 )
 
+const formatMemberSince = (isoString?: string | null) => {
+  if (!isoString) return 'Member since recently'
+
+  const targetDate = new Date(isoString)
+  if (Number.isNaN(targetDate.getTime())) return 'Member since recently'
+
+  return `Member since ${targetDate.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  })}`
+}
+
 export default function PeopleDirectoryPage() {
   const [college, setCollege] = useState('')
   const [users, setUsers] = useState<DirectoryUser[]>([])
@@ -205,7 +217,7 @@ export default function PeopleDirectoryPage() {
                   <div className="people-directory-card-copy">
                     <div className="people-directory-card-name">{user.displayName}</div>
                     <div className="people-directory-card-meta">
-                      {user.handle ? `@${user.handle.replace(/^@/, '')}` : user.college}
+                      {formatMemberSince(user.joinedAt)}
                     </div>
                   </div>
                 </button>

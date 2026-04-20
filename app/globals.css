@@ -1518,9 +1518,11 @@ display: flex;
           align-items: center;
           justify-content: center;
           color: #ffffff;
-          font-size: 17px;
+          font-size: 19px;
           font-weight: 800;
           box-shadow: 0 10px 18px rgba(0, 0, 0, 0.22);
+          user-select: none;
+          border: 1.5px solid rgba(255,255,255,0.06);
         }
         .people-directory-card-copy {
           min-width: 0;

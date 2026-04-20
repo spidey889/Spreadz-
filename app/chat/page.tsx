@@ -4315,6 +4315,7 @@ export default function GlobalChat() {
         open={showProfileModal && isProfilePreviewMode}
         profile={ownProfileSheetProfile}
         onClose={closeProfileModal}
+        onSettingsClick={() => setProfileModalMode('settings')}
         showExtended
         primaryAction={ownProfilePrimaryAction}
       />
@@ -4348,19 +4349,6 @@ export default function GlobalChat() {
                       <path d="m15 18-6-6 6-6" />
                     </svg>
                   </button>
-                  {!isProfileSettingsMode && (
-                    <button
-                      type="button"
-                      className="profile-settings-button"
-                      aria-label="Settings"
-                      onClick={() => setProfileModalMode('settings')}
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="3" />
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                      </svg>
-                    </button>
-                  )}
                 </div>
                 {isProfileSettingsMode ? (
                   <div className="profile-settings-view">
@@ -4498,7 +4486,7 @@ export default function GlobalChat() {
                 <div className="profile-field">
                   <div className="profile-label-row">
                     <label className="profile-label" htmlFor="profile-fav-movie">Favorite movie</label>
-                    <span className="profile-label-note">(optional) • only visible to college students</span>
+                    <span className="profile-label-note">(optional) • only visible to your college students</span>
                   </div>
                   <input
                     id="profile-fav-movie"
@@ -4512,7 +4500,7 @@ export default function GlobalChat() {
                 <div className="profile-field">
                   <div className="profile-label-row">
                     <label className="profile-label" htmlFor="profile-relationship-status">Relationship status</label>
-                    <span className="profile-label-note">(optional) • only visible to college students</span>
+                    <span className="profile-label-note">(optional) • only visible to your college students</span>
                   </div>
                   <input
                     id="profile-relationship-status"

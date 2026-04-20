@@ -973,8 +973,33 @@ display: flex;
           width: 100%;
           display: flex;
           justify-content: center;
-          padding: 2px 0 16px;
+          padding: 8px 0 16px;
           touch-action: none;
+          position: relative;
+        }
+        .profile-sheet-settings-button {
+          position: absolute;
+          right: 20px;
+          top: 14px;
+          width: 36px;
+          height: 36px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: #f5f7fb;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.1s ease, background 0.1s ease;
+        }
+        .profile-sheet-settings-button:active {
+          transform: scale(0.94);
+          background: rgba(255, 255, 255, 0.12);
+        }
+        .profile-sheet-settings-button svg {
+          width: 20px;
+          height: 20px;
         }
         .profile-sheet-topbar {
           display: flex;
@@ -983,13 +1008,11 @@ display: flex;
           width: 100%;
         }
         .profile-back-button,
-        .profile-settings-button,
         .profile-back-button-placeholder {
           width: 36px;
           height: 36px;
         }
-        .profile-back-button,
-        .profile-settings-button {
+        .profile-back-button {
           border-radius: 999px;
           border: 1px solid rgba(15, 23, 42, 0.08);
           background: #f4f6fb;
@@ -1000,17 +1023,14 @@ display: flex;
           cursor: pointer;
           transition: transform 0.14s ease, background 0.14s ease, border-color 0.14s ease;
         }
-        .profile-back-button svg,
-        .profile-settings-button svg {
+        .profile-back-button svg {
           width: 18px;
           height: 18px;
         }
-        .profile-back-button:active,
-        .profile-settings-button:active {
+        .profile-back-button:active {
           transform: scale(0.97);
         }
-        .profile-sheet-preview-mode .profile-back-button,
-        .profile-sheet-preview-mode .profile-settings-button {
+        .profile-sheet-preview-mode .profile-back-button {
           background: rgba(255, 255, 255, 0.08);
           border-color: rgba(255, 255, 255, 0.1);
           color: #f5f7fb;
@@ -1044,13 +1064,13 @@ display: flex;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 14px 16px;
+          padding: 18px 20px;
           background: #f4f6fb;
-          border-radius: 12px;
+          border-radius: 14px;
           color: #101828;
           text-decoration: none;
-          font-weight: 600;
-          font-size: 15px;
+          font-weight: 700;
+          font-size: 17px;
           transition: transform 0.1s ease, background 0.1s ease;
         }
         .profile-settings-link:active {
@@ -1058,8 +1078,8 @@ display: flex;
           background: #eaedf5;
         }
         .profile-settings-link-arrow svg {
-          width: 18px;
-          height: 18px;
+          width: 20px;
+          height: 20px;
           color: #80848e;
         }
         .profile-avatar-section {

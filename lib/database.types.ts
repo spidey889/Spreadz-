@@ -16,6 +16,13 @@ export type Database = {
           username: string | null
           college: string | null
           avatar_url: string | null
+          branch: string | null
+          year: string | null
+          bio: string | null
+          interests: string[] | null
+          fav_movie: string | null
+          relationship_status: string | null
+          is_private: boolean | null
           messages_sent: number | null
           came_back: number | null
           created_at?: string | null
@@ -26,6 +33,13 @@ export type Database = {
           username?: string | null
           college?: string | null
           avatar_url?: string | null
+          branch?: string | null
+          year?: string | null
+          bio?: string | null
+          interests?: string[] | null
+          fav_movie?: string | null
+          relationship_status?: string | null
+          is_private?: boolean | null
           messages_sent?: number | null
           came_back?: number | null
           created_at?: string | null
@@ -36,6 +50,13 @@ export type Database = {
           username?: string | null
           college?: string | null
           avatar_url?: string | null
+          branch?: string | null
+          year?: string | null
+          bio?: string | null
+          interests?: string[] | null
+          fav_movie?: string | null
+          relationship_status?: string | null
+          is_private?: boolean | null
           messages_sent?: number | null
           came_back?: number | null
           created_at?: string | null

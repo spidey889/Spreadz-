@@ -1112,6 +1112,12 @@ display: flex;
         .profile-title { font-size: 21px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; }
         .profile-sheet .profile-title { color: #101828; }
         .profile-field { display: flex; flex-direction: column; gap: 6px; }
+        .profile-meta-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          width: 100%;
+        }
         .profile-label { font-size: 12px; color: var(--text-secondary); }
         .profile-sheet .profile-label { color: #667085; }
         .profile-display-stack {
@@ -1213,6 +1219,70 @@ display: flex;
           border-color: rgba(132, 142, 255, 0.24);
           box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.12);
         }
+        .profile-textarea {
+          min-height: 104px;
+          resize: vertical;
+          line-height: 1.5;
+        }
+        .profile-tags-preview {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 4px;
+        }
+        .profile-tag {
+          display: inline-flex;
+          align-items: center;
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: #eef2ff;
+          color: #4450d8;
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1;
+        }
+        .profile-toggle-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          padding: 14px;
+          border-radius: 16px;
+          background: #f6f7fb;
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          cursor: pointer;
+        }
+        .profile-toggle-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .profile-toggle-title {
+          color: #101828;
+          font-size: 14px;
+          font-weight: 700;
+          line-height: 1.35;
+        }
+        .profile-toggle-description {
+          color: #667085;
+          font-size: 12px;
+          line-height: 1.45;
+        }
+        .profile-toggle-input {
+          width: 18px;
+          height: 18px;
+          accent-color: #5865f2;
+          flex: 0 0 auto;
+        }
+        .profile-save-status {
+          margin-top: 6px;
+          text-align: center;
+          font-size: 13px;
+          color: #12a150;
+        }
+        .profile-save-status.error {
+          color: #c33449;
+        }
         .profile-warning {
           font-size: 12px;
           line-height: 1.45;
@@ -1262,6 +1332,37 @@ display: flex;
           background: linear-gradient(180deg, #6772f8, #5865f2);
           color: #ffffff;
           box-shadow: 0 14px 24px rgba(88, 101, 242, 0.24);
+        }
+        .profile-sheet-view-section {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .profile-sheet-view-label {
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #98a2b3;
+        }
+        .profile-sheet-view-value {
+          color: #101828;
+          font-size: 15px;
+          font-weight: 500;
+          line-height: 1.55;
+          white-space: pre-wrap;
+        }
+        .profile-sheet-view-muted {
+          color: #667085;
+        }
+        .profile-view-note,
+        .profile-view-empty {
+          border-radius: 16px;
+          background: #f6f7fb;
+          padding: 14px;
+          font-size: 14px;
+          line-height: 1.55;
+          color: #667085;
         }
         .avatar.clickable {
           cursor: pointer;
@@ -1568,6 +1669,9 @@ display: flex;
           .notify-actions {
             flex-direction: column;
           }
+          .profile-meta-grid {
+            grid-template-columns: 1fr;
+          }
         }
         .hidden { display: none !important; }
 
@@ -1591,6 +1695,7 @@ display: flex;
           .logo { transform: translate(-54px, 1px); }
           .logo-img { height: 76px; margin-top: -18px; margin-bottom: -15px; }
           .profile-avatar-btn { width: 30px; height: 30px; }
+          .profile-meta-grid { grid-template-columns: 1fr; }
           .ai-card-wrap { margin-left: 10px; margin-right: 10px; }
         }
       

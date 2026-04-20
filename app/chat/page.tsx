@@ -83,7 +83,37 @@ interface ReadOnlyProfile {
   college: string
   avatarUrl: string | null
   joinedAt: string | null
+  branch: string
+  year: string
+  bio: string
+  interests: string[]
+  favMovie: string
+  relationshipStatus: string
+  isPrivate: boolean
+  limitedByPrivacy: boolean
   reportMessage: Message | null
+}
+
+type ProfileModalMode = 'setup' | 'edit'
+
+type ExtendedProfileFields = {
+  branch: string
+  year: string
+  bio: string
+  interests: string[]
+  favMovie: string
+  relationshipStatus: string
+  isPrivate: boolean
+}
+
+type ExtendedProfileDraft = {
+  branch: string
+  year: string
+  bio: string
+  interestsInput: string
+  favMovie: string
+  relationshipStatus: string
+  isPrivate: boolean
 }
 
 type RoomFeedStatus = 'idle' | 'loading' | 'ready' | 'error'
@@ -91,6 +121,24 @@ type RoomMessageStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 const EMPTY_MESSAGE_LIST: Message[] = []
 const EMPTY_VISIBLE_MESSAGE_IDS = new Set<string>()
+const EMPTY_EXTENDED_PROFILE: ExtendedProfileFields = {
+  branch: '',
+  year: '',
+  bio: '',
+  interests: [],
+  favMovie: '',
+  relationshipStatus: '',
+  isPrivate: false,
+}
+const EMPTY_PROFILE_DRAFT: ExtendedProfileDraft = {
+  branch: '',
+  year: '',
+  bio: '',
+  interestsInput: '',
+  favMovie: '',
+  relationshipStatus: '',
+  isPrivate: false,
+}
 
 type ChatStatusScreenProps = {
   eyebrow: string
@@ -382,6 +430,69 @@ const generateUsernameFromDisplayName = (displayName: string) => {
   return `${base}_${suffix}`
 }
 
+const normalizeProfileText = (value: unknown) => {
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  return ''
+}
+
+const normalizeProfileInterests = (value: unknown) => {
+  const sourceValues = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(',')
+      : []
+
+  const uniqueValues = new Set<string>()
+
+  sourceValues.forEach((entry) => {
+    const normalizedEntry = normalizeProfileText(entry)
+    if (normalizedEntry) {
+      uniqueValues.add(normalizedEntry)
+    }
+  })
+
+  return Array.from(uniqueValues)
+}
+
+const buildProfileDraft = (profile: ExtendedProfileFields): ExtendedProfileDraft => ({
+  branch: profile.branch,
+  year: profile.year,
+  bio: profile.bio,
+  interestsInput: profile.interests.join(', '),
+  favMovie: profile.favMovie,
+  relationshipStatus: profile.relationshipStatus,
+  isPrivate: profile.isPrivate,
+})
+
+const buildExtendedProfileFields = (draft: ExtendedProfileDraft): ExtendedProfileFields => ({
+  branch: draft.branch.trim(),
+  year: draft.year.trim(),
+  bio: draft.bio.trim(),
+  interests: normalizeProfileInterests(draft.interestsInput),
+  favMovie: draft.favMovie.trim(),
+  relationshipStatus: draft.relationshipStatus.trim(),
+  isPrivate: draft.isPrivate,
+})
+
+const hasExtendedProfileContent = (profile: ExtendedProfileFields) => (
+  Boolean(
+    profile.branch
+    || profile.year
+    || profile.bio
+    || profile.interests.length > 0
+    || profile.favMovie
+    || profile.relationshipStatus
+  )
+)
+
+const isSameCollege = (left?: string | null, right?: string | null) => {
+  const normalizedLeft = normalizeProfileText(left).toLowerCase()
+  const normalizedRight = normalizeProfileText(right).toLowerCase()
+
+  return Boolean(normalizedLeft && normalizedRight && normalizedLeft === normalizedRight)
+}
+
 const readStoredProfile = () => {
   const rawStoredUsername = localStorage.getItem(USERNAME_STORAGE_KEY)?.trim() || ''
   const storedDisplayName = localStorage.getItem(DISPLAY_NAME_STORAGE_KEY)?.trim() || ''
@@ -496,8 +607,12 @@ export default function GlobalChat() {
   const [accountUsername, setAccountUsername] = useState('')
   const [university, setUniversity] = useState('')
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [profileModalMode, setProfileModalMode] = useState<ProfileModalMode>('edit')
   const [tempProfileName, setTempProfileName] = useState('')
   const [tempProfileCollege, setTempProfileCollege] = useState('')
+  const [extendedProfile, setExtendedProfile] = useState<ExtendedProfileFields>(EMPTY_EXTENDED_PROFILE)
+  const [profileDraft, setProfileDraft] = useState<ExtendedProfileDraft>(EMPTY_PROFILE_DRAFT)
+  const [profileSaveState, setProfileSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [avatarUrl, setAvatarUrl] = useState('')
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [profileSheetDragging, setProfileSheetDragging] = useState(false)
@@ -581,6 +696,7 @@ export default function GlobalChat() {
   const profileSheetFrameRef = useRef<number | null>(null)
   const profileSheetCloseTimeoutRef = useRef<number | null>(null)
   const pendingProfileReportMessageRef = useRef<Message | null>(null)
+  const readOnlyProfileRequestIdRef = useRef(0)
   const roomIsAtBottomByIdRef = useRef<Record<string, boolean>>({})
   const roomHasUserScrolledByIdRef = useRef<Record<string, boolean>>({})
   const roomProgrammaticScrollUntilByIdRef = useRef<Record<string, number>>({})
@@ -1683,15 +1799,30 @@ export default function GlobalChat() {
     }
   }, [])
 
+  const updateProfileDraft = useCallback((patch: Partial<ExtendedProfileDraft>) => {
+    setProfileSaveState('idle')
+    setProfileDraft((current) => ({
+      ...current,
+      ...patch,
+    }))
+  }, [])
+
   const upsertUserProfile = useCallback(async (profile: {
     displayName?: string
     username?: string
     college?: string
     avatarUrl?: string
     createdAt?: string
+    branch?: string
+    year?: string
+    bio?: string
+    interests?: string[]
+    favMovie?: string
+    relationshipStatus?: string
+    isPrivate?: boolean
   }) => {
     const userId = getCurrentUserId()
-    if (!userId) return
+    if (!userId) return false
 
     const payload: {
       uuid: string
@@ -1700,6 +1831,13 @@ export default function GlobalChat() {
       username?: string | null
       college?: string | null
       avatar_url?: string | null
+      branch?: string | null
+      year?: string | null
+      bio?: string | null
+      interests?: string[] | null
+      fav_movie?: string | null
+      relationship_status?: string | null
+      is_private?: boolean
     } = {
       uuid: userId,
     }
@@ -1709,9 +1847,21 @@ export default function GlobalChat() {
     if (profile.username !== undefined) payload.username = profile.username || null
     if (profile.college !== undefined) payload.college = profile.college || null
     if (profile.avatarUrl !== undefined) payload.avatar_url = profile.avatarUrl || null
+    if (profile.branch !== undefined) payload.branch = profile.branch || null
+    if (profile.year !== undefined) payload.year = profile.year || null
+    if (profile.bio !== undefined) payload.bio = profile.bio || null
+    if (profile.interests !== undefined) payload.interests = profile.interests.length > 0 ? profile.interests : null
+    if (profile.favMovie !== undefined) payload.fav_movie = profile.favMovie || null
+    if (profile.relationshipStatus !== undefined) payload.relationship_status = profile.relationshipStatus || null
+    if (profile.isPrivate !== undefined) payload.is_private = profile.isPrivate
 
     const { error } = await supabase.from('users').upsert(payload, { onConflict: 'uuid' })
-    if (error) console.error('[Users] upsert failed:', error)
+    if (error) {
+      console.error('[Users] upsert failed:', error)
+      return false
+    }
+
+    return true
   }, [getCurrentUserId])
 
   const ensureAccountUsername = useCallback(async (name: string, college?: string) => {
@@ -2110,11 +2260,13 @@ export default function GlobalChat() {
       }
       profileSheetTouchStartYRef.current = null
       setProfileSheetDragging(false)
+      setProfileSaveState('idle')
       applyProfileSheetOffset(0)
       return
     }
 
     setProfileSheetDragging(false)
+    setProfileSaveState('idle')
     applyProfileSheetOffset(0)
   }, [showProfileModal, applyProfileSheetOffset])
 
@@ -2166,7 +2318,7 @@ export default function GlobalChat() {
 
       const { data: userRow, error: userError } = await supabase
         .from('users')
-        .select('display_name, college, avatar_url, username')
+        .select('display_name, college, avatar_url, username, branch, year, bio, interests, fav_movie, relationship_status, is_private')
         .eq('uuid', storedUserId)
         .maybeSingle()
 
@@ -2183,6 +2335,17 @@ export default function GlobalChat() {
       setUniversity(nextCollege)
       setAvatarUrl(userRow?.avatar_url || '')
       setAccountUsername(nextUsername)
+      const nextExtendedProfile: ExtendedProfileFields = {
+        branch: normalizeProfileText(userRow?.branch),
+        year: normalizeProfileText(userRow?.year),
+        bio: normalizeProfileText(userRow?.bio),
+        interests: normalizeProfileInterests(userRow?.interests),
+        favMovie: normalizeProfileText(userRow?.fav_movie),
+        relationshipStatus: normalizeProfileText(userRow?.relationship_status),
+        isPrivate: Boolean(userRow?.is_private),
+      }
+      setExtendedProfile(nextExtendedProfile)
+      setProfileDraft(buildProfileDraft(nextExtendedProfile))
       sentRoomIdsRef.current = readStoredSentRoomIds(nextUsername)
       if (nextDisplayName && nextUsername) {
         displayNameToUsernameRef.current[nextDisplayName] = nextUsername
@@ -3185,6 +3348,7 @@ export default function GlobalChat() {
     const activeDisplayName = overrideName || displayName || localStorage.getItem(DISPLAY_NAME_STORAGE_KEY)
     if (!activeDisplayName) {
       pendingSendRef.current = { roomId, contentOverride }
+      setProfileModalMode('setup')
       setTempProfileName('')
       setTempProfileCollege('')
       setShowProfileModal(true)
@@ -3341,6 +3505,7 @@ export default function GlobalChat() {
     setDisplayName(name)
     setAccountUsername(nextUsername)
     setUniversity(college)
+    setProfileModalMode('setup')
     setShowProfileModal(false)
     setTempProfileName('')
     setTempProfileCollege('')
@@ -3352,9 +3517,36 @@ export default function GlobalChat() {
     })
 
     if (pendingSendRef.current) {
-      handleSend(pendingSendRef.current.roomId, name, college, pendingSendRef.current.contentOverride)
+      void handleSend(pendingSendRef.current.roomId, name, college, pendingSendRef.current.contentOverride)
       pendingSendRef.current = null
     }
+  }
+
+  const handleExtendedProfileSave = async (e?: FormEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+
+    const nextExtendedProfile = buildExtendedProfileFields(profileDraft)
+    setProfileSaveState('saving')
+
+    const didSave = await upsertUserProfile({
+      branch: nextExtendedProfile.branch,
+      year: nextExtendedProfile.year,
+      bio: nextExtendedProfile.bio,
+      interests: nextExtendedProfile.interests,
+      favMovie: nextExtendedProfile.favMovie,
+      relationshipStatus: nextExtendedProfile.relationshipStatus,
+      isPrivate: nextExtendedProfile.isPrivate,
+    })
+
+    if (!didSave) {
+      setProfileSaveState('error')
+      return
+    }
+
+    setExtendedProfile(nextExtendedProfile)
+    setProfileDraft(buildProfileDraft(nextExtendedProfile))
+    setProfileSaveState('saved')
   }
 
   const closeProfileModal = () => {
@@ -3369,11 +3561,12 @@ export default function GlobalChat() {
     setShowProfileModal(false)
     setTempProfileName('')
     setTempProfileCollege('')
+    setProfileDraft(buildProfileDraft(extendedProfile))
   }
 
   const handleProfileButtonClick = () => {
-    setTempProfileName(displayName)
-    setTempProfileCollege(university)
+    setProfileModalMode('edit')
+    setProfileDraft(buildProfileDraft(extendedProfile))
     setShowProfileModal(true)
   }
 
@@ -3426,11 +3619,72 @@ export default function GlobalChat() {
     }
   }
 
-  const openReadOnlyProfile = (profile: ReadOnlyProfile) => {
-    setReadOnlyProfile(profile)
-  }
+  const openReadOnlyProfile = useCallback(async (message: Message, fallbackAvatarUrl?: string | null) => {
+    const nextRequestId = readOnlyProfileRequestIdRef.current + 1
+    readOnlyProfileRequestIdRef.current = nextRequestId
+
+    const fallbackProfile: ReadOnlyProfile = {
+      displayName: message.username,
+      handle: message.senderUsername || '',
+      college: message.university || '',
+      avatarUrl: fallbackAvatarUrl || null,
+      joinedAt: message.created_at || null,
+      branch: '',
+      year: '',
+      bio: '',
+      interests: [],
+      favMovie: '',
+      relationshipStatus: '',
+      isPrivate: false,
+      limitedByPrivacy: false,
+      reportMessage: message,
+    }
+
+    setReadOnlyProfile(fallbackProfile)
+
+    const profileUserId = message.user_uuid?.trim()
+    if (!profileUserId) {
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('display_name, username, college, avatar_url, created_at, branch, year, bio, interests, fav_movie, relationship_status, is_private')
+      .eq('uuid', profileUserId)
+      .maybeSingle()
+
+    if (error) {
+      console.error('[Users] read-only profile fetch failed:', error)
+      return
+    }
+
+    if (!data || readOnlyProfileRequestIdRef.current !== nextRequestId) {
+      return
+    }
+
+    const resolvedCollege = normalizeProfileText(data.college) || fallbackProfile.college
+    const limitedByPrivacy = Boolean(data.is_private) && !isSameCollege(university, resolvedCollege)
+
+    setReadOnlyProfile({
+      displayName: normalizeProfileText(data.display_name) || fallbackProfile.displayName,
+      handle: normalizeProfileText(data.username) || fallbackProfile.handle,
+      college: resolvedCollege,
+      avatarUrl: normalizeProfileText(data.avatar_url) || fallbackProfile.avatarUrl,
+      joinedAt: data.created_at || fallbackProfile.joinedAt,
+      branch: limitedByPrivacy ? '' : normalizeProfileText(data.branch),
+      year: limitedByPrivacy ? '' : normalizeProfileText(data.year),
+      bio: limitedByPrivacy ? '' : normalizeProfileText(data.bio),
+      interests: limitedByPrivacy ? [] : normalizeProfileInterests(data.interests),
+      favMovie: limitedByPrivacy ? '' : normalizeProfileText(data.fav_movie),
+      relationshipStatus: limitedByPrivacy ? '' : normalizeProfileText(data.relationship_status),
+      isPrivate: Boolean(data.is_private),
+      limitedByPrivacy,
+      reportMessage: message,
+    })
+  }, [university])
 
   const closeReadOnlyProfile = () => {
+    readOnlyProfileRequestIdRef.current += 1
     setReadOnlyProfile(null)
   }
 
@@ -3544,6 +3798,24 @@ export default function GlobalChat() {
   const activeRoom = rooms[resolvedRoomIndex]
   const visibleRoomIndexes = [resolvedRoomIndex - 1, resolvedRoomIndex, resolvedRoomIndex + 1]
     .filter(index => index >= 0 && index < rooms.length)
+  const isProfileEditMode = profileModalMode === 'edit'
+  const profileDraftInterests = normalizeProfileInterests(profileDraft.interestsInput)
+  const readOnlyJoinedLabel = formatProfileJoinedLabel(readOnlyProfile?.joinedAt)
+  const readOnlyDetailRows = readOnlyProfile
+    ? [
+      { label: 'College', value: readOnlyProfile.college },
+      { label: 'Branch', value: readOnlyProfile.branch },
+      { label: 'Year', value: readOnlyProfile.year },
+      { label: 'Favorite movie', value: readOnlyProfile.favMovie },
+      { label: 'Relationship status', value: readOnlyProfile.relationshipStatus },
+    ].filter((item) => Boolean(item.value))
+    : []
+  const canShowReadOnlyDetails = Boolean(readOnlyProfile && !readOnlyProfile.limitedByPrivacy)
+  const hasReadOnlyExtendedContent = Boolean(
+    readOnlyProfile
+    && canShowReadOnlyDetails
+    && (readOnlyProfile.bio || readOnlyProfile.interests.length > 0 || readOnlyDetailRows.length > 0)
+  )
 
   if (!activeRoom) {
     const hasRooms = rooms.length > 0
@@ -3722,14 +3994,7 @@ export default function GlobalChat() {
                                 style={messageAvatarUrl ? undefined : { backgroundColor: getUserColor(msg.username) }}
                                 onClick={isReadOnlyProfileAvatar ? (e) => {
                                   e.stopPropagation()
-                                  openReadOnlyProfile({
-                                    displayName: msg.username,
-                                    handle: msg.senderUsername || '',
-                                    college: msg.university,
-                                    avatarUrl: messageAvatarUrl || null,
-                                    joinedAt: msg.created_at || null,
-                                    reportMessage: msg,
-                                  })
+                                  void openReadOnlyProfile(msg, messageAvatarUrl || null)
                                 } : undefined}
                               >
                                 {messageAvatarUrl ? (
@@ -3989,15 +4254,44 @@ export default function GlobalChat() {
                 )}
               </div>
               <div className="profile-sheet-view-details">
-                <div className="profile-sheet-view-row">
-                  <span className="profile-sheet-view-icon" aria-hidden="true">🎓</span>
-                  <span>{readOnlyProfile.college || 'College not listed'}</span>
-                </div>
-                <div className="profile-sheet-view-divider" aria-hidden="true" />
-                <div className="profile-sheet-view-row">
-                  <span className="profile-sheet-view-icon" aria-hidden="true">📅</span>
-                  <span>{formatProfileJoinedLabel(readOnlyProfile.joinedAt)}</span>
-                </div>
+                {readOnlyProfile.limitedByPrivacy ? (
+                  <div className="profile-view-note">
+                    Full profile details are limited to people from {readOnlyProfile.college || 'their college'}.
+                  </div>
+                ) : hasReadOnlyExtendedContent ? (
+                  <>
+                    {readOnlyProfile.bio && (
+                      <div className="profile-sheet-view-section">
+                        <div className="profile-sheet-view-label">Bio</div>
+                        <div className="profile-sheet-view-value">{readOnlyProfile.bio}</div>
+                      </div>
+                    )}
+                    {readOnlyProfile.interests.length > 0 && (
+                      <div className="profile-sheet-view-section">
+                        <div className="profile-sheet-view-label">Interests</div>
+                        <div className="profile-tags-preview">
+                          {readOnlyProfile.interests.map((interest) => (
+                            <span key={interest} className="profile-tag">{interest}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {readOnlyDetailRows.map((item) => (
+                      <div key={item.label} className="profile-sheet-view-section">
+                        <div className="profile-sheet-view-label">{item.label}</div>
+                        <div className="profile-sheet-view-value">{item.value}</div>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <div className="profile-view-empty">No extra profile details yet.</div>
+                )}
+                {readOnlyJoinedLabel && !readOnlyProfile.limitedByPrivacy && (
+                  <div className="profile-sheet-view-section">
+                    <div className="profile-sheet-view-label">Joined</div>
+                    <div className="profile-sheet-view-value profile-sheet-view-muted">{readOnlyJoinedLabel}</div>
+                  </div>
+                )}
               </div>
               <div className="profile-sheet-view-actions">
                 {readOnlyProfile.reportMessage?.user_uuid && readOnlyProfile.reportMessage.user_uuid !== getCurrentUserId() && (
@@ -4030,13 +4324,13 @@ export default function GlobalChat() {
         <div
           className="profile-overlay"
           onClick={() => {
-            if (hasSavedProfileName) closeProfileModal()
+            if (isProfileEditMode || hasSavedProfileName) closeProfileModal()
           }}
         >
           <form
             ref={profileSheetRef}
             className={`profile-sheet${profileSheetDragging ? ' dragging' : ''}`}
-            onSubmit={handleProfileSubmit}
+            onSubmit={isProfileEditMode ? handleExtendedProfileSave : handleProfileSubmit}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="profile-avatar-section">
@@ -4073,7 +4367,9 @@ export default function GlobalChat() {
                   )}
                 </button>
               </div>
-              <div className="profile-avatar-note">Faceless is sus. Just saying 👀</div>
+              <div className="profile-avatar-note">
+                {isProfileEditMode ? 'Tap your photo to update it.' : 'Faceless is sus. Just saying 👀'}
+              </div>
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -4085,34 +4381,114 @@ export default function GlobalChat() {
             </div>
             <div className="sheet-handle" />
             {profileHandle && <div className="profile-username">@{profileHandle}</div>}
-            <div className="profile-title">Your Profile</div>
-            {hasSavedProfileName ? (
-              <div className="profile-display-stack">
-                <div className="profile-display-section">
-                  <div className="profile-display-label">Display name</div>
-                  <div className="profile-display-value">{displayName}</div>
-                  <div className="profile-display-note">Your name is set in stone. No take-backs. 🪨</div>
+            <div className="profile-title">{isProfileEditMode ? 'Edit profile' : 'Your Profile'}</div>
+            {isProfileEditMode ? (
+              <>
+                <div className="profile-meta-grid">
+                  <div className="profile-display-section">
+                    <div className="profile-display-label">Name</div>
+                    <div className="profile-display-value">{displayName || 'Not set yet'}</div>
+                  </div>
+                  <div className="profile-display-section">
+                    <div className="profile-display-label">College</div>
+                    <div className="profile-display-value">{university || 'Not set yet'}</div>
+                  </div>
                 </div>
-                <div className="profile-section-divider" aria-hidden="true" />
-                <div className="profile-display-section">
-                  <div className="profile-display-label">College</div>
-                  <div className="profile-display-value">{university || 'Not added yet'}</div>
-                  <div className="profile-display-note">College locked too. Own it.</div>
+                <div className="profile-field">
+                  <label className="profile-label" htmlFor="profile-branch">Branch</label>
+                  <input
+                    id="profile-branch"
+                    type="text"
+                    placeholder="e.g. CSE"
+                    value={profileDraft.branch}
+                    onChange={(e) => updateProfileDraft({ branch: e.target.value })}
+                    autoFocus
+                    className="profile-input"
+                  />
                 </div>
-                <div className="profile-section-divider" aria-hidden="true" />
-                <Link
-                  href="/about"
-                  className="profile-settings-link"
-                  onClick={closeProfileModal}
-                >
-                  <span className="profile-settings-link-main">Settings</span>
-                  <span className="profile-settings-link-arrow" aria-hidden="true">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  </span>
-                </Link>
-              </div>
+                <div className="profile-field">
+                  <label className="profile-label" htmlFor="profile-year">Year</label>
+                  <input
+                    id="profile-year"
+                    type="text"
+                    placeholder="e.g. 2nd year"
+                    value={profileDraft.year}
+                    onChange={(e) => updateProfileDraft({ year: e.target.value })}
+                    className="profile-input"
+                  />
+                </div>
+                <div className="profile-field">
+                  <label className="profile-label" htmlFor="profile-bio">Bio</label>
+                  <textarea
+                    id="profile-bio"
+                    placeholder="Say a little about yourself"
+                    value={profileDraft.bio}
+                    onChange={(e) => updateProfileDraft({ bio: e.target.value })}
+                    className="profile-input profile-textarea"
+                    rows={4}
+                  />
+                </div>
+                <div className="profile-field">
+                  <label className="profile-label" htmlFor="profile-interests">Interests</label>
+                  <input
+                    id="profile-interests"
+                    type="text"
+                    placeholder="Music, football, anime"
+                    value={profileDraft.interestsInput}
+                    onChange={(e) => updateProfileDraft({ interestsInput: e.target.value })}
+                    className="profile-input"
+                  />
+                  {profileDraftInterests.length > 0 && (
+                    <div className="profile-tags-preview">
+                      {profileDraftInterests.map((interest) => (
+                        <span key={interest} className="profile-tag">{interest}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="profile-field">
+                  <label className="profile-label" htmlFor="profile-fav-movie">Favorite movie</label>
+                  <input
+                    id="profile-fav-movie"
+                    type="text"
+                    placeholder="Your all-time favorite"
+                    value={profileDraft.favMovie}
+                    onChange={(e) => updateProfileDraft({ favMovie: e.target.value })}
+                    className="profile-input"
+                  />
+                </div>
+                <div className="profile-field">
+                  <label className="profile-label" htmlFor="profile-relationship-status">Relationship status</label>
+                  <input
+                    id="profile-relationship-status"
+                    type="text"
+                    placeholder="Single, taken, it's complicated..."
+                    value={profileDraft.relationshipStatus}
+                    onChange={(e) => updateProfileDraft({ relationshipStatus: e.target.value })}
+                    className="profile-input"
+                  />
+                </div>
+                <label className="profile-toggle-row" htmlFor="profile-private-toggle">
+                  <div className="profile-toggle-copy">
+                    <div className="profile-toggle-title">Limit my profile to my college only</div>
+                    <div className="profile-toggle-description">
+                      Only people from your college can open the full version of this profile.
+                    </div>
+                  </div>
+                  <input
+                    id="profile-private-toggle"
+                    type="checkbox"
+                    checked={profileDraft.isPrivate}
+                    onChange={(e) => updateProfileDraft({ isPrivate: e.target.checked })}
+                    className="profile-toggle-input"
+                  />
+                </label>
+                <button type="submit" className="profile-submit" disabled={profileSaveState === 'saving'}>
+                  {profileSaveState === 'saving' ? 'Saving...' : 'Save'}
+                </button>
+                {profileSaveState === 'saved' && <div className="profile-save-status">Saved</div>}
+                {profileSaveState === 'error' && <div className="profile-save-status error">Could not save right now.</div>}
+              </>
             ) : (
               <>
                 <div className="profile-field">

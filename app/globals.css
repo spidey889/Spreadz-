@@ -1141,14 +1141,16 @@ display: flex;
           display: flex;
           flex-direction: column;
           width: 100%;
+          margin-top: 12px;
         }
         .profile-settings-link {
           display: flex;
           align-items: center;
           gap: 24px;
-          padding: 24px 20px;
+          padding: 28px 24px;
+          min-height: 88px;
           background: transparent;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.15);
           border-radius: 0;
           color: #f5f7fb;
           text-decoration: none;

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useRef, useEffect, useCallback, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react'
 import Image from 'next/image'
@@ -90,7 +90,6 @@ interface ReadOnlyProfile {
   interests: string[]
   favMovie: string
   relationshipStatus: string
-  isPrivate: boolean
   limitedByPrivacy: boolean
   reportMessage: Message | null
 }
@@ -104,7 +103,6 @@ type ExtendedProfileFields = {
   interests: string[]
   favMovie: string
   relationshipStatus: string
-  isPrivate: boolean
 }
 
 type ExtendedProfileDraft = {
@@ -114,7 +112,6 @@ type ExtendedProfileDraft = {
   interestsInput: string
   favMovie: string
   relationshipStatus: string
-  isPrivate: boolean
 }
 
 type RoomFeedStatus = 'idle' | 'loading' | 'ready' | 'error'
@@ -129,7 +126,6 @@ const EMPTY_EXTENDED_PROFILE: ExtendedProfileFields = {
   interests: [],
   favMovie: '',
   relationshipStatus: '',
-  isPrivate: false,
 }
 const EMPTY_PROFILE_DRAFT: ExtendedProfileDraft = {
   branch: '',
@@ -138,7 +134,6 @@ const EMPTY_PROFILE_DRAFT: ExtendedProfileDraft = {
   interestsInput: '',
   favMovie: '',
   relationshipStatus: '',
-  isPrivate: false,
 }
 
 type ChatStatusScreenProps = {
@@ -451,7 +446,6 @@ const buildProfileDraft = (profile: ExtendedProfileFields): ExtendedProfileDraft
   interestsInput: profile.interests.join(', '),
   favMovie: profile.favMovie,
   relationshipStatus: profile.relationshipStatus,
-  isPrivate: profile.isPrivate,
 })
 
 const buildExtendedProfileFields = (draft: ExtendedProfileDraft): ExtendedProfileFields => ({
@@ -461,7 +455,6 @@ const buildExtendedProfileFields = (draft: ExtendedProfileDraft): ExtendedProfil
   interests: normalizeProfileInterests(draft.interestsInput),
   favMovie: draft.favMovie.trim(),
   relationshipStatus: draft.relationshipStatus.trim(),
-  isPrivate: draft.isPrivate,
 })
 
 const hasExtendedProfileContent = (profile: ExtendedProfileFields) => (
@@ -1822,7 +1815,6 @@ export default function GlobalChat() {
     interests?: string[]
     favMovie?: string
     relationshipStatus?: string
-    isPrivate?: boolean
   }) => {
     const userId = getCurrentUserId()
     if (!userId) return false
@@ -1840,7 +1832,6 @@ export default function GlobalChat() {
       interests?: string[] | null
       fav_movie?: string | null
       relationship_status?: string | null
-      is_private?: boolean
     } = {
       uuid: userId,
     }
@@ -1856,7 +1847,6 @@ export default function GlobalChat() {
     if (profile.interests !== undefined) payload.interests = profile.interests.length > 0 ? profile.interests : null
     if (profile.favMovie !== undefined) payload.fav_movie = profile.favMovie || null
     if (profile.relationshipStatus !== undefined) payload.relationship_status = profile.relationshipStatus || null
-    if (profile.isPrivate !== undefined) payload.is_private = profile.isPrivate
 
     const { error } = await supabase.from('users').upsert(payload, { onConflict: 'uuid' })
     if (error) {
@@ -2353,7 +2343,7 @@ export default function GlobalChat() {
 
       const { data: userRow, error: userError } = await supabase
         .from('users')
-        .select('display_name, college, avatar_url, username, branch, year, bio, interests, fav_movie, relationship_status, is_private, created_at')
+        .select('display_name, college, avatar_url, username, branch, year, bio, interests, fav_movie, relationship_status, created_at')
         .eq('uuid', storedUserId)
         .maybeSingle()
 
@@ -2378,7 +2368,6 @@ export default function GlobalChat() {
         interests: normalizeProfileInterests(userRow?.interests),
         favMovie: normalizeProfileText(userRow?.fav_movie),
         relationshipStatus: normalizeProfileText(userRow?.relationship_status),
-        isPrivate: Boolean(userRow?.is_private),
       }
       setExtendedProfile(nextExtendedProfile)
       setProfileDraft(buildProfileDraft(nextExtendedProfile))
@@ -3573,7 +3562,6 @@ export default function GlobalChat() {
       interests: nextExtendedProfile.interests,
       favMovie: nextExtendedProfile.favMovie,
       relationshipStatus: nextExtendedProfile.relationshipStatus,
-      isPrivate: nextExtendedProfile.isPrivate,
     })
 
     if (!didSave) {
@@ -3677,7 +3665,6 @@ export default function GlobalChat() {
       interests: [],
       favMovie: '',
       relationshipStatus: '',
-      isPrivate: false,
       limitedByPrivacy: false,
       reportMessage: message,
     }
@@ -3691,7 +3678,7 @@ export default function GlobalChat() {
 
     const { data, error } = await supabase
       .from('users')
-      .select('display_name, username, college, avatar_url, created_at, branch, year, bio, interests, fav_movie, relationship_status, is_private')
+      .select('display_name, username, college, avatar_url, created_at, branch, year, bio, interests, fav_movie, relationship_status')
       .eq('uuid', profileUserId)
       .maybeSingle()
 
@@ -3705,7 +3692,7 @@ export default function GlobalChat() {
     }
 
     const resolvedCollege = normalizeProfileText(data.college) || fallbackProfile.college
-    const limitedByPrivacy = Boolean(data.is_private) && !isSameCollege(university, resolvedCollege)
+    const limitedByPrivacy = false
 
     setReadOnlyProfile({
       displayName: normalizeProfileText(data.display_name) || fallbackProfile.displayName,
@@ -3719,7 +3706,6 @@ export default function GlobalChat() {
       interests: limitedByPrivacy ? [] : normalizeProfileInterests(data.interests),
       favMovie: limitedByPrivacy ? '' : normalizeProfileText(data.fav_movie),
       relationshipStatus: limitedByPrivacy ? '' : normalizeProfileText(data.relationship_status),
-      isPrivate: Boolean(data.is_private),
       limitedByPrivacy,
       reportMessage: message,
     })
@@ -4486,24 +4472,6 @@ export default function GlobalChat() {
                     className="profile-input"
                   />
                 </div>
-                <label className="profile-toggle-row" htmlFor="profile-private-toggle">
-                  <div className="profile-toggle-copy">
-                    <div className="profile-toggle-title">Limit my profile to my college only</div>
-                    <div className="profile-toggle-description">
-                      Only people from your college can open the full version of this profile.
-                    </div>
-                  </div>
-                  <input
-                    id="profile-private-toggle"
-                    type="checkbox"
-                    checked={profileDraft.isPrivate}
-                    onChange={(e) => updateProfileDraft({ isPrivate: e.target.checked })}
-                    className="profile-toggle-input"
-                  />
-                  <span className="profile-toggle-switch" aria-hidden="true">
-                    <span className="profile-toggle-thumb" />
-                  </span>
-                </label>
                 <button type="submit" className="profile-submit" disabled={profileSaveState === 'saving'}>
                   {profileSaveState === 'saving' ? 'Saving...' : 'Save'}
                 </button>

@@ -218,6 +218,11 @@ body {
           background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
         }
         .header-side { width: 38px; height: 38px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .header-side-actions {
+          width: auto;
+          gap: 8px;
+          justify-content: flex-end;
+        }
         .logo { flex: 1; display: flex; align-items: center; justify-content: flex-start; overflow: hidden; min-width: 0; transform: translate(-66px, 2px); }
         .logo-img {
           width: auto;
@@ -248,6 +253,28 @@ display: flex;
         }
         .profile-avatar-btn.empty { background: linear-gradient(180deg, rgba(104,109,119,0.96), rgba(82,86,94,0.96)); }
         .profile-avatar-btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
+        .people-directory-link {
+          width: 34px;
+          height: 34px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.1);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: #d9dde4;
+          background: rgba(255,255,255,0.04);
+          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.18);
+          transition: transform 0.15s ease, filter 0.15s ease, background 0.15s ease;
+        }
+        .people-directory-link svg {
+          width: 16px;
+          height: 16px;
+        }
+        .people-directory-link:hover {
+          filter: brightness(1.06);
+          transform: translateY(-1px);
+          background: rgba(255,255,255,0.07);
+        }
         .profile-avatar-image {
           width: 100%;
           height: 100%;
@@ -1258,6 +1285,11 @@ display: flex;
           padding: 14px 16px 16px;
           border: 1px solid rgba(255, 255, 255, 0.04);
         }
+        .profile-sheet-view-row-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
         .profile-sheet-view-card-label {
           color: #80848e;
           font-size: 11px;
@@ -1297,6 +1329,43 @@ display: flex;
         .profile-sheet-view-note-card .profile-sheet-view-card-value {
           color: #c9ccd1;
         }
+        .profile-sheet-view-interest-block {
+          margin-top: 10px;
+        }
+        .profile-sheet-view-tag-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 8px;
+        }
+        .profile-sheet-view-tag {
+          display: inline-flex;
+          align-items: center;
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: rgba(88, 101, 242, 0.16);
+          color: #dbe0ff;
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1;
+        }
+        .profile-sheet-view-primary-action {
+          margin-top: 14px;
+          width: 100%;
+          border: none;
+          border-radius: 14px;
+          padding: 14px;
+          background: linear-gradient(180deg, #6772f8, #5865f2);
+          color: #ffffff;
+          font-size: 15px;
+          font-weight: 700;
+          cursor: pointer;
+          box-shadow: 0 14px 24px rgba(88, 101, 242, 0.24);
+        }
+        .profile-sheet-view-primary-action:disabled {
+          opacity: 0.62;
+          cursor: default;
+        }
         .profile-sheet-view-footer {
           width: 100%;
           display: flex;
@@ -1330,6 +1399,9 @@ display: flex;
           text-align: left;
           cursor: pointer;
         }
+        .profile-sheet-view-action.default {
+          color: #f2f3f5;
+        }
         .profile-sheet-view-action:active {
           opacity: 0.72;
         }
@@ -1340,6 +1412,135 @@ display: flex;
         .profile-sheet-view-action-status {
           font-size: 12px;
           color: #ff8a8a;
+        }
+        .people-directory-page {
+          min-height: 100dvh;
+          background: #111214;
+          color: #ffffff;
+          padding: calc(env(safe-area-inset-top, 0px) + 18px) 18px calc(28px + env(safe-area-inset-bottom, 0px));
+        }
+        .people-directory-shell {
+          width: min(100%, 680px);
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+        }
+        .people-directory-header {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .people-directory-back {
+          width: fit-content;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          color: #b8c0cc;
+          text-decoration: none;
+          font-size: 14px;
+          font-weight: 600;
+        }
+        .people-directory-back svg {
+          width: 16px;
+          height: 16px;
+        }
+        .people-directory-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .people-directory-eyebrow {
+          color: #8c96a7;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+        .people-directory-title {
+          margin: 0;
+          color: #ffffff;
+          font-size: clamp(28px, 6vw, 40px);
+          line-height: 1.02;
+          letter-spacing: -0.04em;
+        }
+        .people-directory-subtitle {
+          margin: 0;
+          color: #aab3c1;
+          font-size: 15px;
+          line-height: 1.55;
+        }
+        .people-directory-state {
+          border-radius: 22px;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.04);
+          padding: 18px;
+          color: #c4ccd8;
+          font-size: 15px;
+          line-height: 1.55;
+        }
+        .people-directory-state.error {
+          color: #ffb4b6;
+          border-color: rgba(237, 66, 69, 0.24);
+          background: rgba(237, 66, 69, 0.08);
+        }
+        .people-directory-list {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 12px;
+        }
+        .people-directory-card {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 14px;
+          border-radius: 20px;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: #1b1d21;
+          color: inherit;
+          cursor: pointer;
+          text-align: left;
+          transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+        }
+        .people-directory-card:hover {
+          transform: translateY(-1px);
+          border-color: rgba(88, 101, 242, 0.36);
+          background: #202329;
+        }
+        .people-directory-avatar {
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          overflow: hidden;
+          flex: 0 0 52px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #ffffff;
+          font-size: 17px;
+          font-weight: 800;
+          box-shadow: 0 10px 18px rgba(0, 0, 0, 0.22);
+        }
+        .people-directory-card-copy {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .people-directory-card-name {
+          color: #ffffff;
+          font-size: 16px;
+          font-weight: 700;
+          line-height: 1.3;
+        }
+        .people-directory-card-meta {
+          color: #98a2b3;
+          font-size: 13px;
+          line-height: 1.35;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .profile-username {
           font-size: 12px;
@@ -1956,6 +2157,9 @@ display: flex;
           .profile-meta-grid {
             grid-template-columns: 1fr;
           }
+          .people-directory-list {
+            grid-template-columns: 1fr;
+          }
         }
         .hidden { display: none !important; }
 
@@ -1976,9 +2180,11 @@ display: flex;
           .header { padding-left: 14px; padding-right: 14px; }
           .header::after { left: 14px; right: 14px; }
           .header-side { width: 34px; height: 34px; }
+          .header-side-actions { width: auto; gap: 6px; }
           .logo { transform: translate(-54px, 1px); }
           .logo-img { height: 76px; margin-top: -18px; margin-bottom: -15px; }
           .profile-avatar-btn { width: 30px; height: 30px; }
+          .people-directory-link { width: 30px; height: 30px; }
           .profile-meta-grid { grid-template-columns: 1fr; }
           .ai-card-wrap { margin-left: 10px; margin-right: 10px; }
         }

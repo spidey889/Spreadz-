@@ -3709,7 +3709,7 @@ export default function GlobalChat() {
       limitedByPrivacy,
       reportMessage: message,
     })
-  }, [university])
+  }, [])
 
   const closeReadOnlyProfile = useCallback(() => {
     readOnlyProfileRequestIdRef.current += 1

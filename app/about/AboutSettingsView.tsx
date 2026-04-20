@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import type { ReactNode } from 'react'
 import { useEffect, useState, Suspense } from 'react'
 import { MutedUsersSection } from './MutedUsersSection'
 

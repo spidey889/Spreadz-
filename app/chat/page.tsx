@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useRef, useEffect, useCallback, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react'
 import Image from 'next/image'
@@ -4354,8 +4354,16 @@ export default function GlobalChat() {
                     <div className="profile-title">Settings</div>
                     <div className="profile-settings-list">
                       <Link href="/about?section=muted" className="profile-settings-link" onClick={closeProfileModal}>
-                        <div className="profile-settings-link-main">
-                          <span>Muted Users</span>
+                        <div className="profile-settings-link-icon">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                            <line x1="23" y1="9" x2="17" y2="15" />
+                            <line x1="17" y1="9" x2="23" y2="15" />
+                          </svg>
+                        </div>
+                        <div className="profile-settings-link-content">
+                          <div className="profile-settings-link-title">Muted Users</div>
+                          <div className="profile-settings-link-desc">Manage the people you've silenced</div>
                         </div>
                         <div className="profile-settings-link-arrow">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -4363,9 +4371,18 @@ export default function GlobalChat() {
                           </svg>
                         </div>
                       </Link>
+
                       <Link href="/about?section=about" className="profile-settings-link" onClick={closeProfileModal}>
-                        <div className="profile-settings-link-main">
-                          <span>About Spreadz</span>
+                        <div className="profile-settings-link-icon">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="16" x2="12" y2="12" />
+                            <line x1="12" y1="8" x2="12.01" y2="8" />
+                          </svg>
+                        </div>
+                        <div className="profile-settings-link-content">
+                          <div className="profile-settings-link-title">About Spreadz</div>
+                          <div className="profile-settings-link-desc">Guidelines, Privacy, and more</div>
                         </div>
                         <div className="profile-settings-link-arrow">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

@@ -1158,6 +1158,19 @@ export default function GlobalChat() {
     })
   }, [])
 
+  const scrollProfileFieldIntoView = useCallback((target?: EventTarget | null) => {
+    const sheet = profileSheetRef.current
+    if (!sheet || !(target instanceof HTMLElement) || !sheet.contains(target)) return
+
+    window.setTimeout(() => {
+      target.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest',
+      })
+    }, 180)
+  }, [])
+
   const fetchGifResults = useCallback(async (query: string, signal?: AbortSignal) => {
     const trimmedQuery = query.trim()
     const endpoint = trimmedQuery
@@ -2269,6 +2282,38 @@ export default function GlobalChat() {
     setProfileSaveState('idle')
     applyProfileSheetOffset(0)
   }, [showProfileModal, applyProfileSheetOffset])
+
+  useEffect(() => {
+    if (!showProfileModal || typeof window === 'undefined') return
+
+    const sheet = profileSheetRef.current
+    if (!sheet) return
+
+    const syncProfileSheetKeyboardInset = () => {
+      const viewport = window.visualViewport
+      const keyboardInset = viewport
+        ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+        : 0
+
+      sheet.style.setProperty('--profile-sheet-keyboard-inset', `${keyboardInset}px`)
+    }
+
+    const handleFocusIn = (event: Event) => {
+      scrollProfileFieldIntoView(event.target)
+    }
+
+    syncProfileSheetKeyboardInset()
+    document.addEventListener('focusin', handleFocusIn)
+    window.visualViewport?.addEventListener('resize', syncProfileSheetKeyboardInset)
+    window.visualViewport?.addEventListener('scroll', syncProfileSheetKeyboardInset)
+
+    return () => {
+      document.removeEventListener('focusin', handleFocusIn)
+      window.visualViewport?.removeEventListener('resize', syncProfileSheetKeyboardInset)
+      window.visualViewport?.removeEventListener('scroll', syncProfileSheetKeyboardInset)
+      sheet.style.removeProperty('--profile-sheet-keyboard-inset')
+    }
+  }, [showProfileModal, scrollProfileFieldIntoView])
 
   useEffect(() => {
     if (readOnlyProfile || !pendingProfileReportMessageRef.current) return
@@ -3546,7 +3591,10 @@ export default function GlobalChat() {
 
     setExtendedProfile(nextExtendedProfile)
     setProfileDraft(buildProfileDraft(nextExtendedProfile))
-    setProfileSaveState('saved')
+    profileSheetTouchStartYRef.current = null
+    setProfileSheetDragging(false)
+    applyProfileSheetOffset(0)
+    setShowProfileModal(false)
   }
 
   const closeProfileModal = () => {

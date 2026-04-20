@@ -4351,7 +4351,19 @@ export default function GlobalChat() {
                 </div>
                 {isProfileSettingsMode ? (
                   <div className="profile-settings-view">
-                    <div className="profile-title">Settings</div>
+                    <div className="profile-title-group">
+                      <div className="profile-title">Settings</div>
+                      <div className="profile-settings-handle">@{accountUsername}</div>
+                    </div>
+                    <div className="profile-settings-search-wrap">
+                      <div className="profile-settings-search">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <circle cx="11" cy="11" r="8" />
+                          <path d="m21 21-4.3-4.3" />
+                        </svg>
+                        <input type="text" placeholder="Search settings" readOnly />
+                      </div>
+                    </div>
                     <div className="profile-settings-list">
                       <Link href="/about?section=muted" className="profile-settings-link" onClick={closeProfileModal}>
                         <div className="profile-settings-link-icon">

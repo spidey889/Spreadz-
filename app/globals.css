@@ -953,7 +953,15 @@ display: flex;
           gap: 12px;
           scroll-padding-top: 24px;
         }
-        .profile-sheet.profile-sheet-settings-mode,
+        .profile-sheet.profile-sheet-settings-mode {
+          padding: 12px 0 calc(20px + env(safe-area-inset-bottom, 0px));
+          margin-top: 24px;
+          gap: 0;
+          background: #000000;
+          border-color: rgba(255, 255, 255, 0.1);
+          box-shadow: 0 -22px 60px rgba(0, 0, 0, 0.8);
+          scroll-padding-top: 24px;
+        }
         .profile-sheet.profile-sheet-preview-mode {
           padding: 18px 16px calc(20px + env(safe-area-inset-bottom, 0px));
           margin-top: 24px;
@@ -969,12 +977,40 @@ display: flex;
           border-color: rgba(255, 255, 255, 0.1);
           color: #f5f7fb;
         }
+        .profile-sheet.profile-sheet-settings-mode .profile-sheet-topbar {
+          padding: 0 16px;
+          margin-bottom: 12px;
+        }
+        .profile-title-group {
+          padding: 0 20px 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .profile-sheet.profile-sheet-settings-mode .profile-back-button {
+          background: transparent;
+          border: none;
+          color: #eff3f4;
+          padding: 0;
+          width: auto;
+          height: auto;
+        }
+        .profile-sheet.profile-sheet-settings-mode .profile-back-button svg {
+          width: 20px;
+          height: 20px;
+          stroke-width: 2.5;
+        }
         .profile-sheet.profile-sheet-settings-mode .profile-title {
-          font-size: 26px;
-          font-weight: 800;
+          font-size: 20px;
+          font-weight: 700;
           color: #ffffff;
-          margin-bottom: 4px;
-          letter-spacing: -0.02em;
+          margin: 0;
+          letter-spacing: -0.01em;
+        }
+        .profile-settings-handle {
+          font-size: 13px;
+          color: #71767b;
+          font-weight: 400;
         }
         .profile-sheet .sheet-handle {
           background: rgba(15, 23, 42, 0.12);
@@ -990,6 +1026,34 @@ display: flex;
           padding: 8px 0 16px;
           touch-action: none;
           position: relative;
+        }
+        .profile-settings-search-wrap {
+          padding: 0 12px 12px;
+        }
+        .profile-settings-search {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          background: #202327;
+          border-radius: 999px;
+          padding: 10px 20px;
+          color: #71767b;
+        }
+        .profile-settings-search svg {
+          width: 18px;
+          height: 18px;
+          flex-shrink: 0;
+        }
+        .profile-settings-search input {
+          background: transparent;
+          border: none;
+          outline: none;
+          color: #ffffff;
+          font-size: 15px;
+          width: 100%;
+        }
+        .profile-settings-search input::placeholder {
+          color: #71767b;
         }
         .profile-sheet-settings-button {
           position: absolute;
@@ -1072,43 +1136,49 @@ display: flex;
         .profile-settings-list {
           display: flex;
           flex-direction: column;
-          gap: 16px;
           width: 100%;
         }
         .profile-settings-link {
           display: flex;
           align-items: center;
-          gap: 16px;
-          padding: 16px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 18px;
+          gap: 20px;
+          padding: 14px 20px;
+          background: transparent;
+          border: none;
+          border-radius: 0;
           color: #f5f7fb;
           text-decoration: none;
-          transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+          transition: background 0.2s ease;
           user-select: none;
           -webkit-tap-highlight-color: transparent;
+          position: relative;
+        }
+        .profile-settings-link::after {
+          content: '';
+          position: absolute;
+          left: 64px;
+          right: 0;
+          bottom: 0;
+          height: 1px;
+          background: rgba(255, 255, 255, 0.08);
+        }
+        .profile-settings-list .profile-settings-link:last-child::after {
+          display: none;
         }
         .profile-settings-link:active {
-          transform: scale(0.98);
-          background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.05);
+          transform: none;
         }
         .profile-settings-link-icon {
-          width: 44px;
-          height: 44px;
+          width: 24px;
+          height: 24px;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(255, 255, 255, 0.04);
-          border-radius: 12px;
-          color: #8b92a5;
+          background: transparent;
+          border-radius: 0;
+          color: #eff3f4;
           flex-shrink: 0;
-          transition: all 0.2s ease;
-        }
-        .profile-settings-link:active .profile-settings-link-icon {
-          background: rgba(255, 255, 255, 0.08);
-          color: #ffffff;
         }
         .profile-settings-link-icon svg {
           width: 22px;
@@ -1119,30 +1189,22 @@ display: flex;
           min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 1px;
         }
         .profile-settings-link-title {
-          font-size: 16px;
-          font-weight: 700;
-          color: #ffffff;
-          letter-spacing: -0.01em;
+          font-size: 15px;
+          font-weight: 500;
+          color: #eff3f4;
+          letter-spacing: 0;
         }
         .profile-settings-link-desc {
           font-size: 13px;
-          color: #8b92a5;
-          font-weight: 500;
+          color: #71767b;
+          font-weight: 400;
+          line-height: 1.3;
         }
         .profile-settings-link-arrow {
-          color: rgba(255, 255, 255, 0.24);
-          transition: transform 0.2s ease, color 0.2s ease;
-        }
-        .profile-settings-link-arrow svg {
-          width: 20px;
-          height: 20px;
-        }
-        .profile-settings-link:active .profile-settings-link-arrow {
-          color: rgba(255, 255, 255, 0.6);
-          transform: translateX(2px);
+          display: none;
         }
         .profile-avatar-section {
           position: absolute;

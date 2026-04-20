@@ -4528,7 +4528,9 @@ export default function GlobalChat() {
                 </button>
                 {profileSaveState === 'error' && <div className="profile-save-status error">Could not save right now.</div>}
               </>
-            ) : (
+            )}
+          </>
+        ) : (
               <>
                 <div className="profile-sheet-topbar">
                   {canCloseOwnProfileModal ? (

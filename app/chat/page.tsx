@@ -4335,7 +4335,7 @@ export default function GlobalChat() {
           >
             {isProfileEditMode || isProfileSettingsMode ? (
               <>
-                <div className="profile-sheet-topbar">
+                <div className={`profile-sheet-topbar${isProfileSettingsMode ? ' profile-sheet-settings-topbar' : ''}`}>
                   <button
                     type="button"
                     className="profile-back-button"
@@ -4348,13 +4348,15 @@ export default function GlobalChat() {
                       <path d="m15 18-6-6 6-6" />
                     </svg>
                   </button>
-                </div>
-                {isProfileSettingsMode ? (
-                  <div className="profile-settings-view">
+                  {isProfileSettingsMode && (
                     <div className="profile-title-group">
                       <div className="profile-title">Settings</div>
                       <div className="profile-settings-handle">@{accountUsername}</div>
                     </div>
+                  )}
+                </div>
+                {isProfileSettingsMode ? (
+                  <div className="profile-settings-view">
                     <div className="profile-settings-search-wrap">
                       <div className="profile-settings-search">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

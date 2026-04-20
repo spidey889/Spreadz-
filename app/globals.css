@@ -979,10 +979,14 @@ display: flex;
         }
         .profile-sheet.profile-sheet-settings-mode .profile-sheet-topbar {
           padding: 0 16px;
-          margin-bottom: 12px;
+          margin-bottom: 0;
+        }
+        .profile-sheet-settings-topbar {
+          justify-content: flex-start !important;
+          gap: 28px;
+          padding: 0 16px 16px !important;
         }
         .profile-title-group {
-          padding: 0 20px 16px;
           display: flex;
           flex-direction: column;
           gap: 2px;
@@ -1028,7 +1032,7 @@ display: flex;
           position: relative;
         }
         .profile-settings-search-wrap {
-          padding: 0 12px 12px;
+          padding: 0 16px 12px;
         }
         .profile-settings-search {
           display: flex;
@@ -1129,9 +1133,9 @@ display: flex;
         .profile-settings-view {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 0;
           width: 100%;
-          padding: 4px 0 8px;
+          padding: 0 0 8px;
         }
         .profile-settings-list {
           display: flex;
@@ -1142,7 +1146,7 @@ display: flex;
           display: flex;
           align-items: center;
           gap: 20px;
-          padding: 14px 20px;
+          padding: 16px 20px;
           background: transparent;
           border: none;
           border-radius: 0;

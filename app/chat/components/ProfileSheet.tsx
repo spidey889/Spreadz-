@@ -129,6 +129,15 @@ export function ProfileSheet({
       closeTimeoutRef.current = null
     }
 
+    const sheet = sheetRef.current
+    if (!sheet) return
+
+    // Only allow dragging if we are at the top of the scrollable content
+    if (sheet.scrollTop > 0) {
+      touchStartYRef.current = null
+      return
+    }
+
     touchStartYRef.current = event.touches[0]?.clientY ?? null
     setDragging(false)
   }
@@ -139,11 +148,23 @@ export function ProfileSheet({
 
     const currentY = event.touches[0]?.clientY ?? startY
     const delta = currentY - startY
-    if (Math.abs(delta) < 3) return
 
-    event.preventDefault()
-    setDragging(true)
-    applyOffset(delta < 0 ? Math.max(delta * 0.16, -18) : Math.min(delta, 280))
+    // If swiping up, let native scroll handle it
+    if (delta < 0) {
+      return
+    }
+
+    // If swiping down and we are at the top of the scroll, we drag the sheet
+    if (sheetRef.current && sheetRef.current.scrollTop <= 0) {
+      if (Math.abs(delta) < 5) return
+      
+      if (event.cancelable) {
+        event.preventDefault()
+      }
+      setDragging(true)
+      // Allow more dragging room but cap it reasonably
+      applyOffset(Math.min(delta, 500))
+    }
   }
 
   const resetDrag = () => {
@@ -153,7 +174,12 @@ export function ProfileSheet({
   }
 
   const handleTouchEnd = () => {
-    const shouldClose = offsetYRef.current > 96
+    const startY = touchStartYRef.current
+    if (startY === null) {
+      return
+    }
+
+    const shouldClose = offsetYRef.current > 120
 
     touchStartYRef.current = null
     setDragging(false)
@@ -163,11 +189,12 @@ export function ProfileSheet({
       return
     }
 
-    applyOffset(Math.max(offsetYRef.current, 260))
+    // Smoothly animate the rest of the way down
+    applyOffset(window.innerHeight)
     closeTimeoutRef.current = window.setTimeout(() => {
       closeTimeoutRef.current = null
       onClose()
-    }, 170)
+    }, 200)
   }
 
   const metaLine = [
@@ -196,14 +223,12 @@ export function ProfileSheet({
         ref={sheetRef}
         className={`profile-sheet view-only${dragging ? ' dragging' : ''}`}
         onClick={(event) => event.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={resetDrag}
       >
-        <div
-          className="profile-sheet-view-drag-zone"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onTouchCancel={resetDrag}
-        >
+        <div className="profile-sheet-view-drag-zone">
           <div className="sheet-handle" />
         </div>
         <div className="profile-sheet-view-content">

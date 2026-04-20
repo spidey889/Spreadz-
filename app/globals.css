@@ -979,12 +979,17 @@ display: flex;
         .profile-sheet-topbar {
           display: flex;
           align-items: center;
-          justify-content: flex-start;
+          justify-content: space-between;
           width: 100%;
         }
-        .profile-back-button {
+        .profile-back-button,
+        .profile-settings-button,
+        .profile-back-button-placeholder {
           width: 36px;
           height: 36px;
+        }
+        .profile-back-button,
+        .profile-settings-button {
           border-radius: 999px;
           border: 1px solid rgba(15, 23, 42, 0.08);
           background: #f4f6fb;
@@ -995,17 +1000,67 @@ display: flex;
           cursor: pointer;
           transition: transform 0.14s ease, background 0.14s ease, border-color 0.14s ease;
         }
-        .profile-back-button svg {
+        .profile-back-button svg,
+        .profile-settings-button svg {
           width: 18px;
           height: 18px;
         }
-        .profile-back-button:active {
+        .profile-back-button:active,
+        .profile-settings-button:active {
           transform: scale(0.97);
         }
-        .profile-sheet-preview-mode .profile-back-button {
+        .profile-sheet-preview-mode .profile-back-button,
+        .profile-sheet-preview-mode .profile-settings-button {
           background: rgba(255, 255, 255, 0.08);
           border-color: rgba(255, 255, 255, 0.1);
           color: #f5f7fb;
+        }
+        .profile-label-row {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          width: 100%;
+          gap: 8px;
+        }
+        .profile-label-note {
+          font-size: 11px;
+          color: #80848e;
+          font-weight: 500;
+        }
+        .profile-settings-view {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          width: 100%;
+          padding: 4px 0 8px;
+        }
+        .profile-settings-list {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          width: 100%;
+        }
+        .profile-settings-link {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 14px 16px;
+          background: #f4f6fb;
+          border-radius: 12px;
+          color: #101828;
+          text-decoration: none;
+          font-weight: 600;
+          font-size: 15px;
+          transition: transform 0.1s ease, background 0.1s ease;
+        }
+        .profile-settings-link:active {
+          transform: scale(0.985);
+          background: #eaedf5;
+        }
+        .profile-settings-link-arrow svg {
+          width: 18px;
+          height: 18px;
+          color: #80848e;
         }
         .profile-avatar-section {
           position: absolute;

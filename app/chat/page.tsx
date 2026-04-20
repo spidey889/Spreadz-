@@ -94,7 +94,7 @@ interface ReadOnlyProfile {
   reportMessage: Message | null
 }
 
-type ProfileModalMode = 'setup' | 'edit' | 'preview'
+type ProfileModalMode = 'setup' | 'edit' | 'preview' | 'settings'
 
 type ExtendedProfileFields = {
   branch: string
@@ -3829,6 +3829,7 @@ export default function GlobalChat() {
     .filter(index => index >= 0 && index < rooms.length)
   const isProfileSetupMode = profileModalMode === 'setup'
   const isProfileEditMode = profileModalMode === 'edit'
+  const isProfileSettingsMode = profileModalMode === 'settings'
   const isProfilePreviewMode = profileModalMode === 'preview'
   const canCloseOwnProfileModal = !isProfileSetupMode || hasSavedProfileName
   const profileDraftInterests = normalizeProfileInterests(profileDraft.interestsInput)
@@ -4331,21 +4332,65 @@ export default function GlobalChat() {
             onSubmit={isProfileSetupMode ? handleProfileSubmit : handleExtendedProfileSave}
             onClick={(e) => e.stopPropagation()}
           >
-            {isProfileEditMode ? (
+            {isProfileEditMode || isProfileSettingsMode ? (
               <>
                 <div className="profile-sheet-topbar">
                   <button
                     type="button"
                     className="profile-back-button"
-                    aria-label="Back to chat"
-                    onClick={closeProfileModal}
+                    aria-label={isProfileSettingsMode ? "Back to edit" : "Back to chat"}
+                    onClick={() => {
+                      if (isProfileSettingsMode) setProfileModalMode('edit')
+                      else closeProfileModal()
+                    }}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m15 18-6-6 6-6" />
                     </svg>
                   </button>
+                  {!isProfileSettingsMode && (
+                    <button
+                      type="button"
+                      className="profile-settings-button"
+                      aria-label="Settings"
+                      onClick={() => setProfileModalMode('settings')}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
-                <div className="profile-edit-header">
+                {isProfileSettingsMode ? (
+                  <div className="profile-settings-view">
+                    <div className="profile-title">Settings</div>
+                    <div className="profile-settings-list">
+                      <Link href="/about?section=muted" className="profile-settings-link" onClick={closeProfileModal}>
+                        <div className="profile-settings-link-main">
+                          <span>Muted Users</span>
+                        </div>
+                        <div className="profile-settings-link-arrow">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="m9 18 6-6-6-6" />
+                          </svg>
+                        </div>
+                      </Link>
+                      <Link href="/about?section=about" className="profile-settings-link" onClick={closeProfileModal}>
+                        <div className="profile-settings-link-main">
+                          <span>About Spreadz</span>
+                        </div>
+                        <div className="profile-settings-link-arrow">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="m9 18 6-6-6-6" />
+                          </svg>
+                        </div>
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="profile-edit-header">
                   <div
                     className="profile-avatar-preview profile-edit-avatar"
                     style={!hasAvatarPhoto ? { backgroundColor: profilePreviewColor } : undefined}
@@ -4451,7 +4496,10 @@ export default function GlobalChat() {
                   )}
                 </div>
                 <div className="profile-field">
-                  <label className="profile-label" htmlFor="profile-fav-movie">Favorite movie</label>
+                  <div className="profile-label-row">
+                    <label className="profile-label" htmlFor="profile-fav-movie">Favorite movie</label>
+                    <span className="profile-label-note">(optional) • only visible to college students</span>
+                  </div>
                   <input
                     id="profile-fav-movie"
                     type="text"
@@ -4462,7 +4510,10 @@ export default function GlobalChat() {
                   />
                 </div>
                 <div className="profile-field">
-                  <label className="profile-label" htmlFor="profile-relationship-status">Relationship status</label>
+                  <div className="profile-label-row">
+                    <label className="profile-label" htmlFor="profile-relationship-status">Relationship status</label>
+                    <span className="profile-label-note">(optional) • only visible to college students</span>
+                  </div>
                   <input
                     id="profile-relationship-status"
                     type="text"
@@ -4479,6 +4530,20 @@ export default function GlobalChat() {
               </>
             ) : (
               <>
+                <div className="profile-sheet-topbar">
+                  {canCloseOwnProfileModal ? (
+                    <button
+                      type="button"
+                      className="profile-back-button"
+                      aria-label="Back to chat"
+                      onClick={closeProfileModal}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="m15 18-6-6 6-6" />
+                      </svg>
+                    </button>
+                  ) : <div className="profile-back-button-placeholder" />}
+                </div>
                 <div className="profile-avatar-section">
                   <div
                     className="profile-avatar-preview"

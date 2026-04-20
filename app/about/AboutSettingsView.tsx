@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
 import { MutedUsersSection } from './MutedUsersSection'
 
 const ABOUT_LINKS = [
@@ -121,8 +121,12 @@ function LegalLinkRow({
   )
 }
 
-export function AboutSettingsView() {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('menu')
+function AboutSettingsContent() {
+  const searchParams = useSearchParams()
+  const initialSection = searchParams.get('section') as SettingsSection
+  const [activeSection, setActiveSection] = useState<SettingsSection>(
+    initialSection === 'muted' || initialSection === 'about' ? initialSection : 'menu'
+  )
   const [username, setUsername] = useState('')
   const isMenuView = activeSection === 'menu'
   const isMutedView = activeSection === 'muted'
@@ -190,5 +194,13 @@ export function AboutSettingsView() {
         )}
       </div>
     </main>
+  )
+}
+
+export function AboutSettingsView() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#111214]" />}>
+      <AboutSettingsContent />
+    </Suspense>
   )
 }

@@ -4339,10 +4339,9 @@ export default function GlobalChat() {
                   <button
                     type="button"
                     className="profile-back-button"
-                    aria-label={isProfileSettingsMode ? "Back to edit" : "Back to chat"}
+                    aria-label="Back to chat"
                     onClick={() => {
-                      if (isProfileSettingsMode) setProfileModalMode('edit')
-                      else closeProfileModal()
+                      closeProfileModal()
                     }}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -1002,8 +1002,8 @@ display: flex;
         }
         .profile-sheet-settings-button {
           position: absolute;
-          left: 14px;
-          right: auto;
+          right: 14px;
+          left: auto;
           top: 14px;
           width: 36px;
           height: 36px;

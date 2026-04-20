@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect, useCallback, type ClipboardEvent, type FormEvent, type KeyboardEvent } from 'react'
 import Image from 'next/image'
@@ -4329,7 +4329,7 @@ export default function GlobalChat() {
         >
           <form
             ref={profileSheetRef}
-            className={`profile-sheet${isProfileEditMode ? ' profile-sheet-edit-mode' : ''}${profileSheetDragging ? ' dragging' : ''}`}
+            className={`profile-sheet${isProfileEditMode ? ' profile-sheet-edit-mode' : ''}${isProfileSettingsMode ? ' profile-sheet-settings-mode' : ''}${profileSheetDragging ? ' dragging' : ''}`}
             onSubmit={isProfileSetupMode ? handleProfileSubmit : handleExtendedProfileSave}
             onClick={(e) => e.stopPropagation()}
           >

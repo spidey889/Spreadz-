@@ -953,6 +953,7 @@ display: flex;
           gap: 12px;
           scroll-padding-top: 24px;
         }
+        .profile-sheet.profile-sheet-settings-mode,
         .profile-sheet.profile-sheet-preview-mode {
           padding: 18px 16px calc(20px + env(safe-area-inset-bottom, 0px));
           margin-top: 24px;
@@ -961,6 +962,28 @@ display: flex;
           border-color: rgba(255, 255, 255, 0.08);
           box-shadow: 0 -22px 46px rgba(0, 0, 0, 0.46);
           scroll-padding-top: 24px;
+        }
+        .profile-sheet.profile-sheet-settings-mode .profile-back-button,
+        .profile-sheet.profile-sheet-preview-mode .profile-back-button {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.1);
+          color: #f5f7fb;
+        }
+        .profile-sheet.profile-sheet-settings-mode .profile-title {
+          color: #ffffff;
+        }
+        .profile-sheet.profile-sheet-settings-mode .profile-settings-link {
+          background: rgba(255, 255, 255, 0.06);
+          border-radius: 16px;
+          color: #f5f7fb;
+          box-shadow: none;
+        }
+        .profile-sheet.profile-sheet-settings-mode .profile-settings-link:active {
+          background: rgba(255, 255, 255, 0.1);
+          box-shadow: none;
+        }
+        .profile-sheet.profile-sheet-settings-mode .profile-settings-link-arrow svg {
+          color: rgba(255, 255, 255, 0.64);
         }
         .profile-sheet .sheet-handle {
           background: rgba(15, 23, 42, 0.12);
@@ -979,7 +1002,8 @@ display: flex;
         }
         .profile-sheet-settings-button {
           position: absolute;
-          right: 14px;
+          left: 14px;
+          right: auto;
           top: 14px;
           width: 36px;
           height: 36px;

@@ -616,6 +616,7 @@ export default function GlobalChat() {
   const [activeFriendRequest, setActiveFriendRequest] = useState<FriendRequest | null>(null)
   const [, setFriendRequestQueue] = useState<FriendRequest[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
+  const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [backFeedbackModalOpen, setBackFeedbackModalOpen] = useState(false)
   const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
@@ -656,6 +657,9 @@ export default function GlobalChat() {
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
   const notificationCooldownUntilRef = useRef(0)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const presenceChannelRef = useRef<any>(null)
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isCurrentlyTypingRef = useRef(false)
   const profileSheetRef = useRef<HTMLFormElement>(null)
   const currentRoomIndexRef = useRef(0)
   const activeRoomIdRef = useRef<string | null>(null)
@@ -723,7 +727,28 @@ export default function GlobalChat() {
     }
 
     syncComposerText(roomId, nextText)
-  }, [syncComposerText])
+
+    if (roomId === activeRoomIdRef.current) {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+
+      if (!isCurrentlyTypingRef.current) {
+        isCurrentlyTypingRef.current = true
+        presenceChannelRef.current?.track({
+          isTyping: true,
+          name: displayName || accountUsername || 'Anonymous',
+        })
+      }
+
+      typingTimeoutRef.current = setTimeout(() => {
+        isCurrentlyTypingRef.current = false
+        presenceChannelRef.current?.track({
+          isTyping: false,
+          name: displayName || accountUsername || 'Anonymous',
+        })
+      }, 2000)
+    }
+  }, [syncComposerText, displayName, accountUsername])
+
 
   const handleComposerBeforeInput = useCallback((event: FormEvent<HTMLDivElement>) => {
     const nativeEvent = event.nativeEvent as InputEvent
@@ -2806,6 +2831,45 @@ export default function GlobalChat() {
   }, [activeRoomId, scrollCurrentRoomToBottom])
 
   useEffect(() => {
+    if (!authReady || !activeRoomId) return
+
+    const channel = supabase.channel(`room-presence-${activeRoomId}`, {
+      config: {
+        presence: {
+          key: getCurrentUsername(),
+        },
+      },
+    })
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState()
+        const currentUserId = getCurrentUserId()
+        const users = Object.keys(state).filter(userId => {
+          if (userId === currentUserId) return false
+          const presences = state[userId] as any[]
+          return presences.some(p => p.isTyping)
+        }).map(userId => {
+          return (state[userId][0] as any).name
+        }).filter(Boolean)
+        setTypingUsers(users)
+      })
+      .subscribe()
+
+    presenceChannelRef.current = channel
+
+    return () => {
+      if (presenceChannelRef.current) {
+        supabase.removeChannel(presenceChannelRef.current)
+        presenceChannelRef.current = null
+      }
+      setTypingUsers([])
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      isCurrentlyTypingRef.current = false
+    }
+  }, [authReady, activeRoomId, getCurrentUsername])
+
+  useEffect(() => {
     if (!activeRoomId) return
 
     const shouldStickToBottom = roomIsAtBottomByIdRef.current[activeRoomId] ?? true
@@ -4220,6 +4284,24 @@ export default function GlobalChat() {
                   </div>
                 )}
                 <div ref={isCurrentRoom ? composerAreaRef : undefined} className="input-area global-composer">
+                  {isCurrentRoom && typingUsers.length > 0 && (
+                    <div className="typing-indicator">
+                      <div className="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                      <div className="typing-text">
+                        {typingUsers.length === 1 ? (
+                          <><b>{typingUsers[0]}</b> is typing...</>
+                        ) : typingUsers.length === 2 ? (
+                          <><b>{typingUsers[0]}</b> and <b>{typingUsers[1]}</b> are typing...</>
+                        ) : (
+                          <><b>Several people</b> are typing...</>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <div
                     ref={isCurrentRoom ? composerBarRef : undefined}
                     className="input-wrap"

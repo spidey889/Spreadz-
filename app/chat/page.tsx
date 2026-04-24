@@ -4059,35 +4059,7 @@ export default function GlobalChat() {
                 <div className="logo">
                   <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={176} height={88} priority unoptimized />
                 </div>
-                <div className="header-side header-side-actions">
-                  <Link href="/directory" className="people-directory-link" aria-label="Open people directory">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </svg>
-                  </Link>
-                  <button
-                    type="button"
-                    className={`profile-avatar-btn${!hasAvatarPhoto && !displayName.trim() ? ' empty' : ''}`}
-                    style={!hasAvatarPhoto && displayName.trim() ? { backgroundColor: getUserColor(displayName) } : undefined}
-                    aria-label="Open profile"
-                    onClick={handleProfileButtonClick}
-                  >
-                    {hasAvatarPhoto ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img key={currentAvatarUrl} src={currentAvatarUrl} alt="Your profile" className="profile-avatar-image" />
-                    ) : displayName.trim() ? (
-                      getInitials(displayName)
-                    ) : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 20a6 6 0 0 0-12 0" />
-                        <circle cx="12" cy="10" r="4" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
+                <div className="header-side" aria-hidden="true" />
               </div>
 
               <div className={`ai-card-wrap${isComposerExpanded ? ' hidden' : ''}`}>
@@ -4422,6 +4394,41 @@ export default function GlobalChat() {
           )
         })}
       </div>
+
+      <nav className="chat-bottom-nav" aria-label="Chat navigation">
+        <Link href="/chat" className="chat-bottom-nav-tab active" aria-current="page">
+          <span className="chat-bottom-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 17.5 3.5 20V7.5A2.5 2.5 0 0 1 6 5h12a2.5 2.5 0 0 1 2.5 2.5v7A2.5 2.5 0 0 1 18 17H7Z" />
+              <path d="M8 9.5h8" />
+              <path d="M8 13h5.5" />
+            </svg>
+          </span>
+          <span className="chat-bottom-nav-label">Chat</span>
+        </Link>
+
+        <Link href="/directory" className="chat-bottom-nav-tab" aria-label="Open students directory">
+          <span className="chat-bottom-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 21v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 19.5V21" />
+              <circle cx="10" cy="9" r="3.5" />
+              <path d="M19.5 20.5v-1a3 3 0 0 0-2.4-2.94" />
+              <path d="M16.5 5.3a3.5 3.5 0 0 1 0 7.4" />
+            </svg>
+          </span>
+          <span className="chat-bottom-nav-label">Students</span>
+        </Link>
+
+        <button type="button" className="chat-bottom-nav-tab" onClick={handleProfileButtonClick} aria-label="Open profile">
+          <span className="chat-bottom-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="3.5" />
+              <path d="M5 20a7 7 0 0 1 14 0" />
+            </svg>
+          </span>
+          <span className="chat-bottom-nav-label">Profile</span>
+        </button>
+      </nav>
 
       <ProfileSheet
         open={Boolean(readOnlyProfileSheetProfile)}

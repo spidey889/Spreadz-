@@ -34,6 +34,7 @@ body {
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
+          --bottom-nav-height: 50px;
           --composer-reserved-space: 72px;
           --bg: #111214;
           --border: #2E2F35;
@@ -43,6 +44,7 @@ body {
           --text-secondary: #AAB2BE;
           --text-muted: #7E8692;
           --headline-bg: #ffffff;
+          --context-accent-green: #67d996;
           color-scheme: dark;
         }
 
@@ -55,6 +57,7 @@ body {
           display: flex;
           flex-direction: column;
           overflow: hidden;
+          padding-bottom: var(--bottom-nav-height);
         }
         .chat-status-screen {
           min-height: 100dvh;
@@ -159,9 +162,9 @@ body {
         }
         .room-panel {
           position: absolute;
-          inset: 0;
+          inset: 0 0 var(--bottom-nav-height) 0;
           width: 100%;
-          height: 100dvh;
+          height: auto;
           display: flex;
           flex-direction: column;
           min-height: 0;
@@ -895,6 +898,61 @@ display: flex;
 
         .input-area {
           z-index: 4;
+        }
+
+        .chat-bottom-nav {
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          height: var(--bottom-nav-height);
+          display: flex;
+          align-items: stretch;
+          background: var(--bg);
+          border-top: 1px solid #202327;
+          z-index: 40;
+        }
+        .chat-bottom-nav-tab {
+          flex: 1 1 0;
+          min-width: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 1px;
+          border: none;
+          appearance: none;
+          background: transparent;
+          color: var(--text-muted);
+          text-decoration: none;
+          font: inherit;
+          cursor: pointer;
+          transition: color 0.16s ease;
+        }
+        .chat-bottom-nav-tab.active {
+          color: var(--context-accent-green);
+        }
+        .chat-bottom-nav-icon {
+          width: 18px;
+          height: 18px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .chat-bottom-nav-icon svg {
+          width: 18px;
+          height: 18px;
+        }
+        .chat-bottom-nav-label {
+          font-size: 10px;
+          font-weight: 600;
+          line-height: 1;
+          letter-spacing: 0.01em;
+        }
+        .chat-bottom-nav-tab:focus-visible {
+          outline: none;
+          box-shadow: inset 0 0 0 2px rgba(103, 217, 150, 0.22);
         }
 
         .profile-overlay {

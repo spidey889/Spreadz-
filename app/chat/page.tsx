@@ -4407,7 +4407,7 @@ export default function GlobalChat() {
           <span className="chat-bottom-nav-label">Global Chat</span>
         </Link>
 
-        <button type="button" className="chat-bottom-nav-tab" onClick={() => setFriendsSheetOpen(true)} aria-label="Open friends">
+        <Link href="/directory" className="chat-bottom-nav-tab" aria-label="Open your college directory">
           <span className="chat-bottom-nav-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="9" cy="9" r="3" />
@@ -4416,8 +4416,8 @@ export default function GlobalChat() {
               <path d="M13.8 18.8a4.5 4.5 0 0 1 5.7-1.4" />
             </svg>
           </span>
-          <span className="chat-bottom-nav-label">Friends</span>
-        </button>
+          <span className="chat-bottom-nav-label">Your College</span>
+        </Link>
 
         <button type="button" className="chat-bottom-nav-tab" onClick={handleProfileButtonClick} aria-label="Open profile">
           {hasAvatarPhoto ? (

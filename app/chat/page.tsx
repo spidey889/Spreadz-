@@ -202,6 +202,9 @@ const GIF_PICKER_CLOSE_DURATION_MS = 200
 const MESSAGE_MAX_LENGTH = 500
 const MESSAGE_COUNTER_THRESHOLD = 400
 const MESSAGE_SELECT_COLUMNS = 'id, content, created_at, display_name, college, room_name, room_id, user_uuid'
+const MEGA_ROOM_ID = 'd43c1a5f-5417-4fbb-bc8f-92f6cf0212c9'
+const GLOBAL_CHAT_TIP_STORAGE_KEY = 'spreadz_global_chat_tip_seen_v1'
+const GLOBAL_CHAT_TIP_COPY = 'In this chat room you can talk to all the Gujarat University students from all the colleges in it.'
 
 const normalizeRoomFeed = (rooms: Room[]) => {
   const uniqueRoomsById = new Map<string, Room>()
@@ -619,6 +622,7 @@ export default function GlobalChat() {
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [backFeedbackModalOpen, setBackFeedbackModalOpen] = useState(false)
   const [showJumpToLatest, setShowJumpToLatest] = useState(false)
+  const [showGlobalChatTip, setShowGlobalChatTip] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
   const userIdRef = useRef<string>('')
   const displayNameToUsernameRef = useRef<Record<string, string>>({})
@@ -709,6 +713,30 @@ export default function GlobalChat() {
 
   useEffect(() => {
     activeRoomIdRef.current = activeRoomId
+  }, [activeRoomId])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    if (activeRoomId !== MEGA_ROOM_ID) {
+      setShowGlobalChatTip(false)
+      return
+    }
+
+    if (window.localStorage.getItem(GLOBAL_CHAT_TIP_STORAGE_KEY) === 'seen') {
+      return
+    }
+
+    window.localStorage.setItem(GLOBAL_CHAT_TIP_STORAGE_KEY, 'seen')
+    setShowGlobalChatTip(true)
+
+    const timeoutId = window.setTimeout(() => {
+      setShowGlobalChatTip(false)
+    }, 5200)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
   }, [activeRoomId])
 
   const scrollRoomFeedToIndex = useCallback((roomIndex: number, behavior: ScrollBehavior = 'smooth') => {
@@ -3441,14 +3469,13 @@ export default function GlobalChat() {
   }, [clearGifPickerCloseTimeout, clearGifPickerFrame])
 
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string, contentOverride?: string) => {
-    const megaRoomId = 'd43c1a5f-5417-4fbb-bc8f-92f6cf0212c9'
-    if (roomId !== megaRoomId) {
+    if (roomId !== MEGA_ROOM_ID) {
       const redirectedContentOverride = contentOverride ?? inputTexts[roomId] ?? ''
-      const megaRoomIndex = rooms.findIndex((room) => room.id === megaRoomId)
+      const megaRoomIndex = rooms.findIndex((room) => room.id === MEGA_ROOM_ID)
 
       if (megaRoomIndex >= 0) {
         currentRoomIndexRef.current = megaRoomIndex
-        activeRoomIdRef.current = megaRoomId
+        activeRoomIdRef.current = MEGA_ROOM_ID
         setCurrentRoomIndex(megaRoomIndex)
 
         if (typeof window !== 'undefined') {
@@ -3458,7 +3485,7 @@ export default function GlobalChat() {
         }
       }
 
-      void handleSend(megaRoomId, overrideName, overrideCollege, redirectedContentOverride)
+      void handleSend(MEGA_ROOM_ID, overrideName, overrideCollege, redirectedContentOverride)
       return
     }
 
@@ -4086,6 +4113,71 @@ export default function GlobalChat() {
                 onScroll={(e) => updateRoomBottomState(room.id, e.currentTarget)}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
               >
+                {isCurrentRoom && room.id === MEGA_ROOM_ID && showGlobalChatTip && (
+                  <div
+                    style={{
+                      position: 'sticky',
+                      top: 10,
+                      zIndex: 6,
+                      display: 'flex',
+                      justifyContent: 'center',
+                      padding: '8px 12px 2px',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: 'relative',
+                        width: 'min(100%, 320px)',
+                        borderRadius: 18,
+                        background: '#2d2d2d',
+                        color: '#eef2f7',
+                        padding: '12px 44px 12px 14px',
+                        boxShadow: '0 16px 28px rgba(0, 0, 0, 0.28)',
+                        fontSize: 13,
+                        lineHeight: 1.45,
+                        letterSpacing: '-0.01em',
+                        pointerEvents: 'auto',
+                      }}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setShowGlobalChatTip(false)}
+                        style={{
+                          position: 'absolute',
+                          top: 8,
+                          right: 10,
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#a8b0bc',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                        aria-label="Close chat room tip"
+                      >
+                        Cut
+                      </button>
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: 24,
+                          bottom: -6,
+                          width: 14,
+                          height: 14,
+                          background: '#2d2d2d',
+                          transform: 'rotate(45deg)',
+                          borderRadius: 3,
+                        }}
+                        aria-hidden="true"
+                      />
+                      {GLOBAL_CHAT_TIP_COPY}
+                    </div>
+                  </div>
+                )}
                 <div ref={isCurrentRoom ? activeMessagesRef : undefined} className="messages">
                   <div className="messages-spacer" aria-hidden="true" />
                   {showMessageLoadingState && (
@@ -4404,7 +4496,7 @@ export default function GlobalChat() {
               <path d="M8 13h5.5" />
             </svg>
           </span>
-          <span className="chat-bottom-nav-label">Global Chat</span>
+          <span className="chat-bottom-nav-label">Chat</span>
         </Link>
 
         <Link href="/directory" className="chat-bottom-nav-tab" aria-label="Open your college directory">

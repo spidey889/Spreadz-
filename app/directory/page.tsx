@@ -168,13 +168,9 @@ export default function PeopleDirectoryPage() {
               <span>Back to chat</span>
             </Link>
             <div className="people-directory-copy">
-              <div className="people-directory-eyebrow">People Directory</div>
               <h1 className="people-directory-title">
                 {college ? `People from ${college}` : 'People from your college'}
               </h1>
-              <p className="people-directory-subtitle">
-                Tap anyone to view their profile.
-              </p>
             </div>
           </div>
 

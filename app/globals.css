@@ -1724,14 +1724,6 @@ display: flex;
         .people-directory-copy {
           display: flex;
           flex-direction: column;
-          gap: 6px;
-        }
-        .people-directory-eyebrow {
-          color: #8c96a7;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
         }
         .people-directory-title {
           margin: 0;
@@ -1739,12 +1731,6 @@ display: flex;
           font-size: clamp(28px, 6vw, 40px);
           line-height: 1.02;
           letter-spacing: -0.04em;
-        }
-        .people-directory-subtitle {
-          margin: 0;
-          color: #aab3c1;
-          font-size: 15px;
-          line-height: 1.45;
         }
         .people-directory-state {
           border-radius: 22px;
@@ -1769,9 +1755,9 @@ display: flex;
           width: 100%;
           display: flex;
           align-items: center;
-          gap: 18px;
-          padding: 20px;
-          min-height: 122px;
+          gap: 16px;
+          padding: 18px;
+          min-height: 114px;
           border-radius: 24px;
           border: 1px solid rgba(118, 131, 163, 0.22);
           background:
@@ -1806,16 +1792,16 @@ display: flex;
             0 18px 40px rgba(0, 0, 0, 0.32);
         }
         .people-directory-avatar {
-          width: 72px;
-          height: 72px;
+          width: 66px;
+          height: 66px;
           border-radius: 50%;
           overflow: hidden;
-          flex: 0 0 72px;
+          flex: 0 0 66px;
           display: flex;
           align-items: center;
           justify-content: center;
           color: #ffffff;
-          font-size: 24px;
+          font-size: 22px;
           font-weight: 800;
           box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
           user-select: none;

@@ -3428,6 +3428,30 @@ export default function GlobalChat() {
   }, [clearGifPickerCloseTimeout, clearGifPickerFrame])
 
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string, contentOverride?: string) => {
+    const megaRoomId = 'd43c1a5f-5417-4fbb-bc8f-92f6cf0212c9'
+    if (roomId !== megaRoomId) {
+      const redirectedContentOverride = contentOverride ?? inputTexts[roomId] ?? ''
+      const megaRoomIndex = rooms.findIndex((room) => room.id === megaRoomId)
+
+      if (megaRoomIndex >= 0) {
+        currentRoomIndexRef.current = megaRoomIndex
+        activeRoomIdRef.current = megaRoomId
+        setCurrentRoomIndex(megaRoomIndex)
+
+        if (typeof window !== 'undefined') {
+          window.requestAnimationFrame(() => {
+            roomPanelRefs.current[megaRoomIndex]?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+            })
+          })
+        }
+      }
+
+      void handleSend(megaRoomId, overrideName, overrideCollege, redirectedContentOverride)
+      return
+    }
+
     const rawText = contentOverride ?? inputTexts[roomId] ?? ''
     const text = rawText.trim()
     if (!text) return

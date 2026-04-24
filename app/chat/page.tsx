@@ -628,6 +628,7 @@ export default function GlobalChat() {
   const roomMessageFetchRequestIdByRoomRef = useRef<Record<string, number>>({})
   const roomFeedRealtimeFiredRef = useRef(false)
   const sentRoomIdsRef = useRef<Set<string>>(new Set())
+  const roomsContainerRef = useRef<HTMLDivElement | null>(null)
   const roomPanelRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
@@ -709,6 +710,18 @@ export default function GlobalChat() {
   useEffect(() => {
     activeRoomIdRef.current = activeRoomId
   }, [activeRoomId])
+
+  const scrollRoomFeedToIndex = useCallback((roomIndex: number, behavior: ScrollBehavior = 'smooth') => {
+    if (roomIndex < 0) return
+
+    const container = roomsContainerRef.current
+    if (!container) return
+
+    container.scrollTo({
+      top: roomIndex * container.clientHeight,
+      behavior,
+    })
+  }, [])
 
   const syncComposerText = useCallback((roomId: string, value: string) => {
     setInputTexts(prev => {
@@ -3440,10 +3453,7 @@ export default function GlobalChat() {
 
         if (typeof window !== 'undefined') {
           window.requestAnimationFrame(() => {
-            roomPanelRefs.current[megaRoomIndex]?.scrollIntoView({
-              behavior: 'smooth',
-              block: 'start',
-            })
+            scrollRoomFeedToIndex(megaRoomIndex)
           })
         }
       }
@@ -4007,7 +4017,10 @@ export default function GlobalChat() {
 
   return (
     <>
-      <div className="rooms-container">
+      <div
+        className="rooms-container"
+        ref={roomsContainerRef}
+      >
         {visibleRoomIndexes.map((index) => {
           const room = rooms[index]
           const messages = roomMessages[room.id] || []

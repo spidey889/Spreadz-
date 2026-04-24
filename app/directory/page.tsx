@@ -67,6 +67,7 @@ export default function PeopleDirectoryPage() {
   const [selectedProfile, setSelectedProfile] = useState<ProfileSheetProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const hasSingleVisibleProfile = users.length === 1
 
   useEffect(() => {
     let cancelled = false
@@ -172,7 +173,7 @@ export default function PeopleDirectoryPage() {
                 {college ? `People from ${college}` : 'People from your college'}
               </h1>
               <p className="people-directory-subtitle">
-                Browse profiles from your campus and tap anyone to open their sheet.
+                Tap anyone to view their profile.
               </p>
             </div>
           </div>
@@ -190,39 +191,48 @@ export default function PeopleDirectoryPage() {
               No visible profiles from {college} yet.
             </div>
           ) : (
-            <div className="people-directory-list">
-              {users.map((user) => (
-                <button
-                  key={user.id}
-                  type="button"
-                  className="people-directory-card"
-                  onClick={() => setSelectedProfile(user)}
-                >
-                  <div
-                    className="people-directory-avatar"
-                    style={!user.avatarUrl ? { backgroundColor: getUserColor(user.displayName) } : undefined}
+            <>
+              <div className="people-directory-list">
+                {users.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    className="people-directory-card"
+                    onClick={() => setSelectedProfile(user)}
                   >
-                    {user.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={user.avatarUrl}
-                        alt={`${user.displayName} profile`}
-                        className="profile-avatar-image"
-                        draggable={false}
-                      />
-                    ) : (
-                      <span>{getInitials(user.displayName)}</span>
-                    )}
-                  </div>
-                  <div className="people-directory-card-copy">
-                    <div className="people-directory-card-name">{user.displayName}</div>
-                    <div className="people-directory-card-meta">
-                      {formatMemberSince(user.joinedAt)}
+                    <div
+                      className="people-directory-avatar"
+                      style={!user.avatarUrl ? { backgroundColor: getUserColor(user.displayName) } : undefined}
+                    >
+                      {user.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={user.avatarUrl}
+                          alt={`${user.displayName} profile`}
+                          className="profile-avatar-image"
+                          draggable={false}
+                        />
+                      ) : (
+                        <span>{getInitials(user.displayName)}</span>
+                      )}
                     </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+                    <div className="people-directory-card-copy">
+                      <div className="people-directory-card-name">{user.displayName}</div>
+                      <div className="people-directory-card-college">{user.college || college}</div>
+                      <div className="people-directory-card-meta">
+                        {formatMemberSince(user.joinedAt)}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {hasSingleVisibleProfile ? (
+                <div className="people-directory-state people-directory-state-tease">
+                  More students joining soon 👀
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       </div>

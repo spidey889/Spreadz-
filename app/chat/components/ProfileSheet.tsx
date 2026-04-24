@@ -35,16 +35,16 @@ type ProfileSheetProps = {
   statusMessage?: string
 }
 
-const formatJoinedLabel = (isoString?: string | null) => {
+const formatJoinedDate = (isoString?: string | null) => {
   if (!isoString) return ''
 
   const targetDate = new Date(isoString)
   if (Number.isNaN(targetDate.getTime())) return ''
 
-  return `Member since ${targetDate.toLocaleDateString('en-US', {
+  return targetDate.toLocaleDateString('en-US', {
     month: 'long',
     year: 'numeric',
-  })}`
+  })
 }
 
 const getUserColor = (username: string) => {
@@ -194,7 +194,8 @@ export function ProfileSheet({
     }, 200)
   }
 
-  const joinedLabel = formatJoinedLabel(profile.joinedAt)
+  const joinedDate = formatJoinedDate(profile.joinedAt)
+  const bioText = profile.bio?.trim() || ''
   const collegeLabel = profile.college?.trim() || 'College not set'
   const visibleInterests = profile.limitedByPrivacy ? [] : (profile.interests ?? []).filter(Boolean)
   const aboutRows = profile.limitedByPrivacy
@@ -212,7 +213,7 @@ export function ProfileSheet({
 
   return (
     <>
-      <div className="profile-overlay" onClick={onClose}>
+      <div className="profile-overlay discord-profile-overlay" onClick={onClose}>
         <div
           ref={sheetRef}
           className={`profile-sheet view-only discord-profile-sheet${dragging ? ' dragging' : ''}`}
@@ -279,45 +280,52 @@ export function ProfileSheet({
                 </div>
               ) : (
                 <>
-                  {profile.bio?.trim() && (
-                    <div className="profile-sheet-view-card">
+                  {(bioText || joinedDate) && (
+                    <div className="profile-sheet-view-card discord-profile-sheet-bio-card">
                       <div className="profile-sheet-view-card-label">Bio</div>
-                      <div className="profile-sheet-view-card-value">{profile.bio.trim()}</div>
+                      {bioText && <div className="profile-sheet-view-card-value">{bioText}</div>}
+                      {joinedDate && (
+                        <div className="discord-profile-sheet-detail-block">
+                          <div className="profile-sheet-view-card-label discord-profile-sheet-inline-label">Member Since</div>
+                          <div className="discord-profile-sheet-detail-value">{joinedDate}</div>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {(aboutRows.length > 0 || visibleInterests.length > 0) && (
                     <div className="profile-sheet-view-card">
                       <div className="profile-sheet-view-card-label">About</div>
-                      <div className="profile-sheet-view-row-stack">
+                      <div className="discord-profile-sheet-chip-stack">
                         {aboutRows.map((item) => (
-                          <div key={item.label} className="profile-sheet-view-card-row">
-                            <span className="profile-sheet-view-card-row-label">{item.label}</span>
-                            <span className="profile-sheet-view-card-row-value">{item.value}</span>
+                          <div key={item.label} className="discord-profile-sheet-chip-group">
+                            <div className="profile-sheet-view-card-row-label">{item.label}</div>
+                            <div className="profile-sheet-view-tag-list discord-profile-sheet-chip-list">
+                              <span className="profile-sheet-view-tag discord-profile-sheet-chip">{item.value}</span>
+                            </div>
                           </div>
                         ))}
-                      </div>
-                      {visibleInterests.length > 0 && (
-                        <div className="profile-sheet-view-interest-block">
-                          <div className="profile-sheet-view-card-row-label">Interests</div>
-                          <div className="profile-sheet-view-tag-list">
-                            {visibleInterests.map((interest) => (
-                              <span key={interest} className="profile-sheet-view-tag">{interest}</span>
-                            ))}
+                        {visibleInterests.length > 0 && (
+                          <div className="discord-profile-sheet-chip-group">
+                            <div className="profile-sheet-view-card-row-label">Interests</div>
+                            <div className="profile-sheet-view-tag-list discord-profile-sheet-chip-list">
+                              {visibleInterests.map((interest) => (
+                                <span key={interest} className="profile-sheet-view-tag discord-profile-sheet-chip">{interest}</span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   )}
 
                   {favoriteRows.length > 0 && (
-                    <div className="profile-sheet-view-card">
-                      <div className="profile-sheet-view-card-label">Favorites</div>
+                    <div className="profile-sheet-view-card discord-profile-sheet-plain-card">
                       <div className="profile-sheet-view-row-stack">
                         {favoriteRows.map((item) => (
-                          <div key={item.label} className="profile-sheet-view-card-row">
-                            <span className="profile-sheet-view-card-row-label">{item.label}</span>
-                            <span className="profile-sheet-view-card-row-value">{item.value}</span>
+                          <div key={item.label} className="discord-profile-sheet-detail-row">
+                            <div className="profile-sheet-view-card-row-label">{item.label}</div>
+                            <div className="profile-sheet-view-card-row-value">{item.value}</div>
                           </div>
                         ))}
                       </div>
@@ -338,7 +346,7 @@ export function ProfileSheet({
               </button>
             )}
 
-            {(joinedLabel || actions.length > 0 || statusMessage) && (
+            {(actions.length > 0 || statusMessage) && (
               <div className="profile-sheet-view-footer">
                 {actions.length > 0 && (
                   <div className="profile-sheet-view-actions">
@@ -356,7 +364,6 @@ export function ProfileSheet({
                   </div>
                 )}
                 {statusMessage && <div className="profile-sheet-view-action-status error">{statusMessage}</div>}
-                {joinedLabel && <div className="profile-sheet-view-joined">{joinedLabel}</div>}
               </div>
             )}
           </div>
@@ -364,74 +371,91 @@ export function ProfileSheet({
       </div>
 
       <style jsx global>{`
+        .discord-profile-overlay {
+          padding: 14px 0 0;
+        }
         .discord-profile-sheet {
-          padding: 0 0 calc(20px + env(safe-area-inset-bottom, 0px));
+          width: 100%;
+          max-width: none;
+          max-height: calc(min(100dvh, 100svh) - 14px);
+          margin-top: 14px;
+          padding: 0 0 calc(22px + env(safe-area-inset-bottom, 0px));
           gap: 0;
           background: #1e1f22;
-          scroll-padding-top: 24px;
-          scroll-padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+          border: none;
+          border-radius: 28px 28px 0 0;
+          box-shadow: 0 -24px 46px rgba(0, 0, 0, 0.48);
+          overflow-x: hidden;
+          scroll-padding-top: 128px;
+          scroll-padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
         }
         .discord-profile-sheet .profile-sheet-view-drag-zone {
-          padding: 10px 0 4px;
-          min-height: 42px;
-          z-index: 2;
+          position: absolute;
+          inset: 0 0 auto;
+          min-height: 48px;
+          padding: 12px 0 0;
+          z-index: 3;
+          touch-action: none;
+          pointer-events: none;
         }
         .discord-profile-sheet .sheet-handle {
-          background: rgba(255, 255, 255, 0.78);
+          background: rgba(255, 255, 255, 0.84);
+          pointer-events: none;
         }
         .discord-profile-sheet .profile-sheet-settings-button {
           top: 10px;
           right: 16px;
-          background: rgba(30, 31, 34, 0.72);
+          background: rgba(30, 31, 34, 0.76);
           border: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+          box-shadow: 0 10px 20px rgba(0, 0, 0, 0.24);
+          pointer-events: auto;
         }
         .discord-profile-sheet .profile-sheet-view-content {
-          gap: 16px;
+          gap: 18px;
         }
         .discord-profile-sheet .profile-sheet-view-hero {
           gap: 0;
           padding: 0;
         }
         .discord-profile-sheet-banner {
-          height: 104px;
-          margin: 0 16px;
-          border-radius: 16px 16px 12px 12px;
-          background: #34694a;
-          background: color-mix(in srgb, var(--context-accent-green, #67d996) 48%, #1e1f22 52%);
+          width: 100%;
+          height: 110px;
+          background: var(--context-accent-green, #67d996);
         }
         .discord-profile-sheet-avatar-row {
-          padding: 0 32px;
-          margin-top: -42px;
+          padding: 0 18px;
+          margin-top: -45px;
           position: relative;
           z-index: 1;
         }
         .discord-profile-sheet-avatar {
-          width: 84px;
-          height: 84px;
-          flex: 0 0 84px;
-          border: 6px solid #1e1f22;
-          box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34);
+          width: 90px;
+          height: 90px;
+          flex: 0 0 90px;
+          border: 7px solid #1e1f22;
+          box-shadow: 0 12px 26px rgba(0, 0, 0, 0.32);
         }
         .discord-profile-sheet-identity {
-          padding: 12px 20px 0;
+          padding: 14px 20px 0;
         }
         .discord-profile-sheet .profile-sheet-view-name {
-          font-size: 30px;
-          font-weight: 800;
+          font-size: 32px;
+          font-weight: 900;
+          font-style: italic;
+          line-height: 1.04;
           letter-spacing: -0.03em;
           color: #ffffff;
         }
         .discord-profile-sheet-college {
           margin-top: 4px;
-          color: #b5bac1;
+          color: #a7adb5;
           font-size: 14px;
           font-weight: 500;
           line-height: 1.4;
         }
         .discord-profile-sheet .profile-sheet-view-cards {
           gap: 12px;
-          margin-top: 4px;
+          margin-top: 0;
           padding: 0 16px;
         }
         .discord-profile-sheet .profile-sheet-view-card {
@@ -443,6 +467,7 @@ export function ProfileSheet({
         }
         .discord-profile-sheet .profile-sheet-view-card-label {
           color: #b5bac1;
+          margin-bottom: 10px;
         }
         .discord-profile-sheet .profile-sheet-view-card-value,
         .discord-profile-sheet .profile-sheet-view-card-row-value {
@@ -452,27 +477,63 @@ export function ProfileSheet({
         .discord-profile-sheet .profile-sheet-view-note-card .profile-sheet-view-card-value {
           color: #b5bac1;
         }
-        .discord-profile-sheet .profile-sheet-view-tag {
-          background: rgba(88, 101, 242, 0.18);
-          color: #dfe3ff;
+        .discord-profile-sheet-bio-card .profile-sheet-view-card-value {
+          line-height: 1.55;
+        }
+        .discord-profile-sheet-detail-block {
+          margin-top: 14px;
+        }
+        .discord-profile-sheet-inline-label {
+          margin-bottom: 6px;
+        }
+        .discord-profile-sheet-detail-value {
+          color: #f2f3f5;
+          font-size: 14px;
+          font-weight: 500;
+          line-height: 1.45;
+        }
+        .discord-profile-sheet-chip-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .discord-profile-sheet-chip-group {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .discord-profile-sheet-chip-list {
+          margin-top: 0;
+        }
+        .discord-profile-sheet-chip {
+          background: #1e1f22;
+          color: #eef1f3;
+          padding: 7px 12px;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .discord-profile-sheet-plain-card .profile-sheet-view-row-stack {
+          gap: 14px;
+        }
+        .discord-profile-sheet-detail-row {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
         }
         .discord-profile-sheet .profile-sheet-view-primary-action {
-          width: calc(100% - 32px);
-          margin: 2px 16px 0;
-          border-radius: 10px;
-          padding: 12px 14px;
-          background: #5865f2;
+          width: auto;
+          min-width: 128px;
+          margin: 2px auto 0;
+          padding: 10px 28px;
+          border-radius: 999px;
+          background: var(--context-accent-green, #67d996);
+          color: #102116;
           box-shadow: none;
         }
         .discord-profile-sheet .profile-sheet-view-footer {
           gap: 10px;
-          margin-top: 2px;
+          margin-top: 0;
           padding: 0 16px;
-        }
-        .discord-profile-sheet .profile-sheet-view-joined {
-          color: #aeb4bc;
-          font-size: 12px;
-          font-weight: 500;
         }
         .discord-profile-sheet .profile-sheet-view-actions {
           gap: 14px;

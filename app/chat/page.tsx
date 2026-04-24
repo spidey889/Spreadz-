@@ -4404,29 +4404,36 @@ export default function GlobalChat() {
               <path d="M8 13h5.5" />
             </svg>
           </span>
-          <span className="chat-bottom-nav-label">Chat</span>
+          <span className="chat-bottom-nav-label">Global Chat</span>
         </Link>
 
-        <Link href="/directory" className="chat-bottom-nav-tab" aria-label="Open students directory">
+        <button type="button" className="chat-bottom-nav-tab" onClick={() => setFriendsSheetOpen(true)} aria-label="Open friends">
           <span className="chat-bottom-nav-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M16 21v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 19.5V21" />
-              <circle cx="10" cy="9" r="3.5" />
-              <path d="M19.5 20.5v-1a3 3 0 0 0-2.4-2.94" />
-              <path d="M16.5 5.3a3.5 3.5 0 0 1 0 7.4" />
+              <circle cx="9" cy="9" r="3" />
+              <path d="M4.5 19a5 5 0 0 1 9 0" />
+              <circle cx="16.5" cy="10" r="2.5" />
+              <path d="M13.8 18.8a4.5 4.5 0 0 1 5.7-1.4" />
             </svg>
           </span>
-          <span className="chat-bottom-nav-label">Students</span>
-        </Link>
+          <span className="chat-bottom-nav-label">Friends</span>
+        </button>
 
         <button type="button" className="chat-bottom-nav-tab" onClick={handleProfileButtonClick} aria-label="Open profile">
-          <span className="chat-bottom-nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="8" r="3.5" />
-              <path d="M5 20a7 7 0 0 1 14 0" />
-            </svg>
-          </span>
-          <span className="chat-bottom-nav-label">Profile</span>
+          {hasAvatarPhoto ? (
+            <span className="chat-bottom-nav-avatar" aria-hidden="true">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={currentAvatarUrl} alt="" className="chat-bottom-nav-avatar-image" />
+            </span>
+          ) : (
+            <span className="chat-bottom-nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="3.5" />
+                <path d="M5 20a7 7 0 0 1 14 0" />
+              </svg>
+            </span>
+          )}
+          <span className="chat-bottom-nav-label">You</span>
         </button>
       </nav>
 

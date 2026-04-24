@@ -411,7 +411,7 @@ export function ProfileSheet({
           pointer-events: auto;
         }
         .discord-profile-sheet .profile-sheet-view-content {
-          gap: 18px;
+          gap: 20px;
         }
         .discord-profile-sheet .profile-sheet-view-hero {
           gap: 0;
@@ -424,19 +424,19 @@ export function ProfileSheet({
         }
         .discord-profile-sheet-avatar-row {
           padding: 0 18px;
-          margin-top: -45px;
+          margin-top: -50px;
           position: relative;
           z-index: 1;
         }
         .discord-profile-sheet-avatar {
-          width: 90px;
-          height: 90px;
-          flex: 0 0 90px;
-          border: 7px solid #1e1f22;
-          box-shadow: 0 12px 26px rgba(0, 0, 0, 0.32);
+          width: 100px;
+          height: 100px;
+          flex: 0 0 100px;
+          border: none;
+          box-shadow: none;
         }
         .discord-profile-sheet-identity {
-          padding: 14px 20px 0;
+          padding: 12px 20px 0;
         }
         .discord-profile-sheet .profile-sheet-view-name {
           font-size: 32px;
@@ -445,6 +445,7 @@ export function ProfileSheet({
           line-height: 1.04;
           letter-spacing: -0.03em;
           color: #ffffff;
+          text-wrap: balance;
         }
         .discord-profile-sheet-college {
           margin-top: 4px;
@@ -454,16 +455,16 @@ export function ProfileSheet({
           line-height: 1.4;
         }
         .discord-profile-sheet .profile-sheet-view-cards {
-          gap: 12px;
+          gap: 14px;
           margin-top: 0;
-          padding: 0 16px;
+          padding: 0 12px;
         }
         .discord-profile-sheet .profile-sheet-view-card {
           border: none;
-          border-radius: 16px;
+          border-radius: 18px;
           background: #2b2d31;
-          padding: 16px;
-          box-shadow: none;
+          padding: 18px;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
         }
         .discord-profile-sheet .profile-sheet-view-card-label {
           color: #b5bac1;
@@ -478,10 +479,13 @@ export function ProfileSheet({
           color: #b5bac1;
         }
         .discord-profile-sheet-bio-card .profile-sheet-view-card-value {
-          line-height: 1.55;
+          line-height: 1.6;
+          font-size: 15px;
         }
         .discord-profile-sheet-detail-block {
-          margin-top: 14px;
+          margin-top: 16px;
+          padding-top: 14px;
+          border-top: 1px solid rgba(255, 255, 255, 0.04);
         }
         .discord-profile-sheet-inline-label {
           margin-bottom: 6px;
@@ -522,18 +526,18 @@ export function ProfileSheet({
         }
         .discord-profile-sheet .profile-sheet-view-primary-action {
           width: auto;
-          min-width: 128px;
-          margin: 2px auto 0;
-          padding: 10px 28px;
+          min-width: 136px;
+          margin: 0 auto;
+          padding: 10px 30px;
           border-radius: 999px;
           background: var(--context-accent-green, #67d996);
           color: #102116;
-          box-shadow: none;
+          box-shadow: 0 10px 24px rgba(103, 217, 150, 0.18);
         }
         .discord-profile-sheet .profile-sheet-view-footer {
           gap: 10px;
           margin-top: 0;
-          padding: 0 16px;
+          padding: 0 12px;
         }
         .discord-profile-sheet .profile-sheet-view-actions {
           gap: 14px;

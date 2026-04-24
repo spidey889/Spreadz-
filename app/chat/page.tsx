@@ -694,6 +694,7 @@ export default function GlobalChat() {
   const roomHasUserScrolledByIdRef = useRef<Record<string, boolean>>({})
   const roomProgrammaticScrollUntilByIdRef = useRef<Record<string, number>>({})
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
+  const firstRoomId = rooms[0]?.id ?? null
   const activeRoomMessagesList = activeRoomId ? (roomMessages[activeRoomId] ?? EMPTY_MESSAGE_LIST) : EMPTY_MESSAGE_LIST
   const activeRoomVisibleMessageIds = activeRoomId ? (visibleMessageIdsByRoom[activeRoomId] ?? EMPTY_VISIBLE_MESSAGE_IDS) : EMPTY_VISIBLE_MESSAGE_IDS
 
@@ -718,7 +719,7 @@ export default function GlobalChat() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    if (activeRoomId !== MEGA_ROOM_ID) {
+    if (!firstRoomId || activeRoomId !== firstRoomId) {
       setShowGlobalChatTip(false)
       return
     }
@@ -732,12 +733,12 @@ export default function GlobalChat() {
 
     const timeoutId = window.setTimeout(() => {
       setShowGlobalChatTip(false)
-    }, 5200)
+    }, 8200)
 
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [activeRoomId])
+  }, [activeRoomId, firstRoomId])
 
   const scrollRoomFeedToIndex = useCallback((roomIndex: number, behavior: ScrollBehavior = 'smooth') => {
     if (roomIndex < 0) return
@@ -4113,67 +4114,70 @@ export default function GlobalChat() {
                 onScroll={(e) => updateRoomBottomState(room.id, e.currentTarget)}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
               >
-                {isCurrentRoom && room.id === MEGA_ROOM_ID && showGlobalChatTip && (
+                {isCurrentRoom && room.id === firstRoomId && showGlobalChatTip && (
                   <div
                     style={{
                       position: 'sticky',
-                      top: 10,
+                      top: 12,
                       zIndex: 6,
                       display: 'flex',
                       justifyContent: 'center',
-                      padding: '8px 12px 2px',
+                      padding: '10px 12px 4px',
                       pointerEvents: 'none',
                     }}
                   >
                     <div
                       style={{
                         position: 'relative',
-                        width: 'min(100%, 320px)',
-                        borderRadius: 18,
+                        width: 'min(100%, 388px)',
+                        borderRadius: 22,
                         background: '#2d2d2d',
-                        color: '#eef2f7',
-                        padding: '12px 44px 12px 14px',
-                        boxShadow: '0 16px 28px rgba(0, 0, 0, 0.28)',
-                        fontSize: 13,
-                        lineHeight: 1.45,
+                        border: '1px solid rgba(255, 255, 255, 0.07)',
+                        color: '#f1f4f8',
+                        padding: '16px 58px 16px 16px',
+                        boxShadow: '0 18px 34px rgba(0, 0, 0, 0.34)',
+                        fontSize: 14,
+                        fontWeight: 600,
+                        lineHeight: 1.5,
                         letterSpacing: '-0.01em',
                         pointerEvents: 'auto',
                       }}
                       role="status"
                       aria-live="polite"
                     >
+                      <div
+                        style={{
+                          marginBottom: 6,
+                          color: '#c8d0dc',
+                          fontSize: 11,
+                          fontWeight: 800,
+                          letterSpacing: '0.08em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Room Tip
+                      </div>
                       <button
                         type="button"
                         onClick={() => setShowGlobalChatTip(false)}
                         style={{
                           position: 'absolute',
-                          top: 8,
-                          right: 10,
+                          top: 12,
+                          right: 12,
                           border: 'none',
-                          background: 'transparent',
-                          color: '#a8b0bc',
-                          fontSize: 12,
+                          borderRadius: 999,
+                          background: 'rgba(255,255,255,0.06)',
+                          color: '#b6bfcb',
+                          fontSize: 11,
                           fontWeight: 700,
                           cursor: 'pointer',
-                          padding: 0,
+                          padding: '5px 9px',
+                          lineHeight: 1,
                         }}
                         aria-label="Close chat room tip"
                       >
                         Cut
                       </button>
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: 24,
-                          bottom: -6,
-                          width: 14,
-                          height: 14,
-                          background: '#2d2d2d',
-                          transform: 'rotate(45deg)',
-                          borderRadius: 3,
-                        }}
-                        aria-hidden="true"
-                      />
                       {GLOBAL_CHAT_TIP_COPY}
                     </div>
                   </div>

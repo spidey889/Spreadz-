@@ -419,8 +419,12 @@ export function ProfileSheet({
         }
         .discord-profile-sheet-banner {
           width: 100%;
+          display: block;
+          flex: 0 0 110px;
           height: 110px;
-          background: var(--context-accent-green, #67d996);
+          margin: 0;
+          border-radius: 0;
+          background: #2d2d2d;
         }
         .discord-profile-sheet-avatar-row {
           padding: 0 18px;
@@ -530,9 +534,9 @@ export function ProfileSheet({
           margin: 0 auto;
           padding: 10px 30px;
           border-radius: 999px;
-          background: var(--context-accent-green, #67d996);
-          color: #102116;
-          box-shadow: 0 10px 24px rgba(103, 217, 150, 0.18);
+          background: #5865f2;
+          color: #ffffff;
+          box-shadow: 0 10px 24px rgba(88, 101, 242, 0.22);
         }
         .discord-profile-sheet .profile-sheet-view-footer {
           gap: 10px;

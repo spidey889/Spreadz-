@@ -1,7 +1,7 @@
 ﻿# Spreadz
 
 Real-time global chat where strangers discuss trending topics together.
-Swipe to find new people and live discussions — no commitment, no friend requests.
+Swipe to find new people and live discussions without friend requests or long setup.
 
 ## What's built
 - Live messaging with Supabase real-time
@@ -23,11 +23,15 @@ Swipe to find new people and live discussions — no commitment, no friend reque
 3. `npm install`
 4. `npm run dev`
 
+## Live
+- [spreadz.in](https://spreadz.in)
+
 ## Progress log
-- April 14, 2026 — README deployment refresh so the latest Vercel build is easy to spot.
-- April 12, 2026 — Light README refresh to keep the project snapshot current.
-- March 15, 2026 — Hit 101 pushes; shipped identity, reporting, PWA install flow, and UI polish.
-- March 15, 2026 — Crossed 100+ commits and kept shipping consistently.
-- Early build — Real-time chat, swipe rooms, discussion headlines, and FRIDAY personalization.
+- April 24, 2026 - README copy cleanup and live link refresh.
+- April 14, 2026 - README deployment refresh so the latest Vercel build is easy to spot.
+- April 12, 2026 - Light README refresh to keep the project snapshot current.
+- March 15, 2026 - Hit 101 pushes; shipped identity, reporting, PWA install flow, and UI polish.
+- March 15, 2026 - Crossed 100+ commits and kept shipping consistently.
+- Early build - Real-time chat, swipe rooms, discussion headlines, and FRIDAY personalization.
 
 

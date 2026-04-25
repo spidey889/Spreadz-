@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { BackFeedbackModal } from '@/app/chat/components/BackFeedbackModal'
 import { ProfileSheet, type ProfileSheetAction, type ProfileSheetProfile } from '@/app/chat/components/ProfileSheet'
+import { NotificationPopup } from '@/app/chat/components/NotificationPopup'
 import { useBackFeedbackIntercept } from '@/app/chat/hooks/useBackFeedbackIntercept'
 import { getRenderableMessages } from '@/app/chat/message-visibility'
 import { getRealtimeMessagePolicy } from '@/app/chat/realtime-message-policy'
@@ -4045,6 +4046,7 @@ export default function GlobalChat() {
 
   return (
     <>
+      <NotificationPopup messageCount={activeRoomMessagesList.length} />
       <div
         className="rooms-container"
         ref={roomsContainerRef}

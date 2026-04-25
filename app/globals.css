@@ -184,33 +184,8 @@ body {
         .room-panel.room-after {
           transform: translate3d(0, 100%, 0);
         }
-        @keyframes roomMsgsSlideFromBottom {
-          from { transform: translate3d(0, 100%, 0); }
-          to   { transform: translate3d(0, 0, 0); }
-        }
-        @keyframes roomMsgsSlideFromTop {
-          from { transform: translate3d(0, -100%, 0); }
-          to   { transform: translate3d(0, 0, 0); }
-        }
-        @keyframes roomMsgsSlideOutToTop {
-          from { transform: translate3d(0, 0, 0); }
-          to   { transform: translate3d(0, -100%, 0); }
-        }
-        @keyframes roomMsgsSlideOutToBottom {
-          from { transform: translate3d(0, 0, 0); }
-          to   { transform: translate3d(0, 100%, 0); }
-        }
-        .rooms-keyboard-animating-down .active-room .room-messages {
-          animation: roomMsgsSlideFromBottom 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
-        }
-        .rooms-keyboard-animating-down .room-before .room-messages {
-          animation: roomMsgsSlideOutToTop 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
-        }
-        .rooms-keyboard-animating-up .active-room .room-messages {
-          animation: roomMsgsSlideFromTop 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
-        }
-        .rooms-keyboard-animating-up .room-after .room-messages {
-          animation: roomMsgsSlideOutToBottom 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+        .rooms-keyboard-animating .room-panel {
+          transition: transform 350ms cubic-bezier(0.16, 1, 0.3, 1);
         }
         .room-panel::before {
           content: '';

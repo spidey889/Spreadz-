@@ -155,105 +155,38 @@ body {
         @keyframes chatLoadingRail {
           0% { transform: translateX(-140%); opacity: 0.2; }
           35% { opacity: 1; }
-        }
-        .chat-loading-rail {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: min(180px, 32vw);
-          height: 2px;
-          border-radius: 999px;
-          background: linear-gradient(90deg, rgba(72, 224, 255, 0), rgba(72, 224, 255, 0.95), rgba(72, 224, 255, 0));
-          box-shadow: 0 0 12px rgba(72, 224, 255, 0.38);
-          animation: chatLoadingRail 1.2s ease-in-out infinite;
-        }
-        .chat-visually-hidden {
-          position: absolute;
-          width: 1px;
-          height: 1px;
-          padding: 0;
-          margin: -1px;
-          overflow: hidden;
-          clip: rect(0, 0, 0, 0);
-          white-space: nowrap;
-          border: 0;
-        }
-        .chat-status-card {
-          width: min(100%, 420px);
-          padding: 24px 22px;
-          border-radius: 18px;
-          background: rgba(13, 15, 19, 0.92);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 0 28px 60px rgba(0, 0, 0, 0.35);
-          backdrop-filter: blur(14px);
-        }
-        .chat-status-card.error {
-          border-color: rgba(255, 112, 112, 0.28);
-        }
-        .chat-status-eyebrow {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          color: #8fb7ff;
-          margin-bottom: 12px;
-        }
-        .chat-status-title {
-          font-size: 28px;
-          line-height: 1.1;
-          letter-spacing: -0.03em;
-          color: #f7f8fb;
-        }
-        .chat-status-copy {
-          margin-top: 10px;
-          color: #b7bfcc;
-          font-size: 15px;
-          line-height: 1.55;
-        }
-        .chat-status-button {
-          margin-top: 18px;
-          border: 0;
-          border-radius: 999px;
-          padding: 11px 18px;
-          background: #ffffff;
-          color: #111214;
-          font-size: 14px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: transform 0.15s ease, filter 0.15s ease;
-        }
-        .chat-status-button:hover {
-          filter: brightness(0.98);
-          transform: translateY(-1px);
-        }
-        .chat-status-spinner {
-          width: 12px;
-          height: 12px;
-          border-radius: 999px;
-          border: 2px solid rgba(143, 183, 255, 0.28);
-          border-top-color: #8fb7ff;
-          animation: chatStatusSpin 0.9s linear infinite;
-        }
-        @keyframes chatLoadingRail {
-          0% { transform: translateX(-140%); opacity: 0.2; }
-          35% { opacity: 1; }
           100% { transform: translateX(calc(100vw + 140%)); opacity: 0.2; }
         }
         @keyframes chatStatusSpin {
           to { transform: rotate(360deg); }
         }
         .room-panel {
-          position: relative;
+          position: absolute;
+          inset: 0 0 var(--bottom-nav-height) 0;
           width: 100%;
-          height: 100dvh;
+          height: auto;
           display: flex;
           flex-direction: column;
           min-height: 0;
           overflow: hidden;
           opacity: 1;
+          pointer-events: none;
+          z-index: 1;
+        }
+        .room-panel.active-room {
+          transform: none;
+          pointer-events: auto;
+          z-index: 2;
+        }
+        .room-panel.room-before {
+          transform: translate3d(0, -100%, 0);
+        }
+        .room-panel.room-after {
+          transform: translate3d(0, 100%, 0);
+        }
+        .room-panel::before {
+          content: '';
+          position: absolute;
           inset: 0 0 auto;
           height: 260px;
           background: radial-gradient(circle at top center, rgba(113,185,255,0.18), transparent 72%);

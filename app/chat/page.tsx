@@ -3046,6 +3046,60 @@ export default function GlobalChat() {
     }
   }, [activeRoomId, inputTexts])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeElement = document.activeElement
+      const isTyping = activeElement?.tagName === 'INPUT' ||
+                       activeElement?.tagName === 'TEXTAREA' ||
+                       (activeElement as HTMLElement)?.isContentEditable
+
+      if (isTyping) return
+
+      if (
+        showProfileModal ||
+        activeGifPickerRoomId ||
+        friendsSheetOpen ||
+        notificationSheetOpen ||
+        activeFriendRequest ||
+        backFeedbackModalOpen ||
+        menuOpen
+      ) {
+        return
+      }
+
+      if (e.key === 'ArrowDown') {
+        const nextIndex = currentRoomIndex + 1
+        if (nextIndex < rooms.length) {
+          e.preventDefault()
+          currentRoomIndexRef.current = nextIndex
+          setCurrentRoomIndex(nextIndex)
+        }
+      } else if (e.key === 'ArrowUp') {
+        const prevIndex = currentRoomIndex - 1
+        if (prevIndex >= 0) {
+          e.preventDefault()
+          currentRoomIndexRef.current = prevIndex
+          setCurrentRoomIndex(prevIndex)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [
+    currentRoomIndex,
+    rooms.length,
+    showProfileModal,
+    activeGifPickerRoomId,
+    friendsSheetOpen,
+    notificationSheetOpen,
+    activeFriendRequest,
+    backFeedbackModalOpen,
+    menuOpen
+  ])
+
   const pushFriendRequest = useCallback((request: FriendRequest) => {
     if (request.created_at) {
       const ageMs = Date.now() - new Date(request.created_at).getTime()

@@ -4566,10 +4566,13 @@ export default function GlobalChat() {
         <Link href="/directory" className="chat-bottom-nav-tab" aria-label="Open your college directory">
           <span className="chat-bottom-nav-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="9" cy="9" r="3" />
-              <path d="M4.5 19a5 5 0 0 1 9 0" />
-              <circle cx="16.5" cy="10" r="2.5" />
-              <path d="M13.8 18.8a4.5 4.5 0 0 1 5.7-1.4" />
+              <path d="M3 21h18" />
+              <path d="M5 21V7l7-4 7 4v14" />
+              <path d="M9 21v-6h6v6" />
+              <path d="M9 10h.01" />
+              <path d="M15 10h.01" />
+              <path d="M9 14h.01" />
+              <path d="M15 14h.01" />
             </svg>
           </span>
           <span className="chat-bottom-nav-label">Your College</span>

@@ -3049,7 +3049,8 @@ export default function GlobalChat() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: Event) => {
+      const ke = e as KeyboardEvent;
       const activeElement = document.activeElement
       const isTyping = activeElement?.tagName === 'INPUT' ||
                        activeElement?.tagName === 'TEXTAREA' ||
@@ -3069,25 +3070,26 @@ export default function GlobalChat() {
         return
       }
 
-      if (e.key === 'ArrowDown') {
+      if (ke.key === 'ArrowDown') {
         const nextIndex = currentRoomIndex + 1
         if (nextIndex < rooms.length) {
-          e.preventDefault()
+          ke.preventDefault()
           currentRoomIndexRef.current = nextIndex
           setCurrentRoomIndex(nextIndex)
         }
-      } else if (e.key === 'ArrowUp') {
+      }
+      if (ke.key === 'ArrowUp') {
         const prevIndex = currentRoomIndex - 1
         if (prevIndex >= 0) {
-          e.preventDefault()
+          ke.preventDefault()
           currentRoomIndexRef.current = prevIndex
           setCurrentRoomIndex(prevIndex)
         }
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('keydown', handleKeyDown as EventListener)
+    return () => window.removeEventListener('keydown', handleKeyDown as EventListener)
   }, [
     currentRoomIndex,
     rooms.length,

@@ -245,7 +245,18 @@ export function ProfileSheet({
 
           <div className="profile-sheet-view-content">
             <div className="profile-sheet-view-hero">
-              <div className="discord-profile-sheet-banner" />
+              <div className="discord-profile-sheet-banner">
+                {profile.avatarUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profile.avatarUrl}
+                    alt="banner"
+                    className="discord-profile-sheet-banner-image"
+                    draggable={false}
+                  />
+                )}
+                <div className="discord-profile-sheet-banner-overlay" />
+              </div>
               <div className="discord-profile-sheet-avatar-row">
                 <div
                   className="profile-sheet-view-avatar discord-profile-sheet-avatar"
@@ -423,8 +434,22 @@ export function ProfileSheet({
           flex: 0 0 110px;
           height: 110px;
           margin: 0;
-          border-radius: 0;
+          border-radius: 28px 28px 0 0;
           background: #2d2d2d;
+          position: relative;
+          overflow: hidden;
+        }
+        .discord-profile-sheet-banner-image {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          filter: blur(20px) brightness(0.7);
+          transform: scale(1.2);
+        }
+        .discord-profile-sheet-banner-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(to bottom, rgba(30, 31, 34, 0.2), #1e1f22);
         }
         .discord-profile-sheet-avatar-row {
           padding: 0 18px;

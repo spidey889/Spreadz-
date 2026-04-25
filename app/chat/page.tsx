@@ -3077,7 +3077,7 @@ export default function GlobalChat() {
           const container = roomsContainerRef.current
           if (container) {
             container.classList.add('rooms-keyboard-animating-down')
-            window.setTimeout(() => container.classList.remove('rooms-keyboard-animating-down'), 250)
+            window.setTimeout(() => container.classList.remove('rooms-keyboard-animating-down'), 320)
           }
           currentRoomIndexRef.current = nextIndex
           setCurrentRoomIndex(nextIndex)
@@ -3090,7 +3090,7 @@ export default function GlobalChat() {
           const container = roomsContainerRef.current
           if (container) {
             container.classList.add('rooms-keyboard-animating-up')
-            window.setTimeout(() => container.classList.remove('rooms-keyboard-animating-up'), 250)
+            window.setTimeout(() => container.classList.remove('rooms-keyboard-animating-up'), 320)
           }
           currentRoomIndexRef.current = prevIndex
           setCurrentRoomIndex(prevIndex)

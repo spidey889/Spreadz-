@@ -4548,7 +4548,7 @@ export default function GlobalChat() {
               <path d="M8 13h5.5" />
             </svg>
           </span>
-          <span className="chat-bottom-nav-label">Chat</span>
+          <span className="chat-bottom-nav-label">University Chat</span>
         </Link>
 
         <Link href="/directory" className="chat-bottom-nav-tab" aria-label="Open your college directory">

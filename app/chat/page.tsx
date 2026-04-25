@@ -3074,6 +3074,11 @@ export default function GlobalChat() {
         const nextIndex = currentRoomIndex + 1
         if (nextIndex < rooms.length) {
           ke.preventDefault()
+          const container = roomsContainerRef.current
+          if (container) {
+            container.classList.add('rooms-keyboard-animating')
+            window.setTimeout(() => container.classList.remove('rooms-keyboard-animating'), 250)
+          }
           currentRoomIndexRef.current = nextIndex
           setCurrentRoomIndex(nextIndex)
         }
@@ -3082,6 +3087,11 @@ export default function GlobalChat() {
         const prevIndex = currentRoomIndex - 1
         if (prevIndex >= 0) {
           ke.preventDefault()
+          const container = roomsContainerRef.current
+          if (container) {
+            container.classList.add('rooms-keyboard-animating')
+            window.setTimeout(() => container.classList.remove('rooms-keyboard-animating'), 250)
+          }
           currentRoomIndexRef.current = prevIndex
           setCurrentRoomIndex(prevIndex)
         }

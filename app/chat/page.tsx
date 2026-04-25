@@ -3978,7 +3978,7 @@ export default function GlobalChat() {
       <ChatStatusScreen
         eyebrow="Chat"
         title="Signing you in..."
-        description="Connecting your anonymous chat session."
+        description="Connecting your chat session."
         showSpinner
       />
     )

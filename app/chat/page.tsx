@@ -3050,7 +3050,7 @@ export default function GlobalChat() {
     if (typeof window === 'undefined') return
 
     const handleKeyDown = (e: Event) => {
-      const ke = e as KeyboardEvent;
+      const ke = e as unknown as KeyboardEvent;
       const activeElement = document.activeElement
       const isTyping = activeElement?.tagName === 'INPUT' ||
                        activeElement?.tagName === 'TEXTAREA' ||

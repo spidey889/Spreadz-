@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, type ClipboardEvent, type For
 import Image from 'next/image'
 import Link from 'next/link'
 import { BackFeedbackModal } from '@/app/chat/components/BackFeedbackModal'
+import { NotificationPopup } from '@/app/chat/components/NotificationPopup'
 import { ProfileSheet, type ProfileSheetAction, type ProfileSheetProfile } from '@/app/chat/components/ProfileSheet'
 import { useBackFeedbackIntercept } from '@/app/chat/hooks/useBackFeedbackIntercept'
 import { getRenderableMessages } from '@/app/chat/message-visibility'
@@ -203,8 +204,11 @@ const MESSAGE_MAX_LENGTH = 500
 const MESSAGE_COUNTER_THRESHOLD = 400
 const MESSAGE_SELECT_COLUMNS = 'id, content, created_at, display_name, college, room_name, room_id, user_uuid'
 const MEGA_ROOM_ID = 'd43c1a5f-5417-4fbb-bc8f-92f6cf0212c9'
-const GLOBAL_CHAT_TIP_STORAGE_KEY = 'spreadz_global_chat_tip_seen_v1'
-const GLOBAL_CHAT_TIP_COPY = 'In this chat room you can talk to all the Gujarat University students from all the colleges in it.'
+const GLOBAL_CHAT_POPUP_STORAGE_KEY = 'spreadz_global_chat_popup_seen_v2'
+const GLOBAL_CHAT_POPUP_COPY = 'Gujarat University students are here... talk with students from different colleges of GU'
+const GLOBAL_CHAT_POPUP_TRIGGER_DELAY_MS = 10 * 1000
+const GLOBAL_CHAT_POPUP_AUTO_DISMISS_MS = 6 * 1000
+const GLOBAL_CHAT_POPUP_MESSAGE_THRESHOLD = 4
 
 const normalizeRoomFeed = (rooms: Room[]) => {
   const uniqueRoomsById = new Map<string, Room>()
@@ -622,7 +626,7 @@ export default function GlobalChat() {
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [backFeedbackModalOpen, setBackFeedbackModalOpen] = useState(false)
   const [showJumpToLatest, setShowJumpToLatest] = useState(false)
-  const [showGlobalChatTip, setShowGlobalChatTip] = useState(false)
+  const [showGlobalChatPopup, setShowGlobalChatPopup] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
   const userIdRef = useRef<string>('')
   const displayNameToUsernameRef = useRef<Record<string, string>>({})
@@ -661,6 +665,9 @@ export default function GlobalChat() {
   const gifPickerTouchScrollRef = useRef<HTMLDivElement | null>(null)
   const notifiedMessageKeysRef = useRef<Set<string>>(new Set())
   const notificationCooldownUntilRef = useRef(0)
+  const globalChatPopupTriggerTimeoutRef = useRef<number | null>(null)
+  const globalChatPopupDismissTimeoutRef = useRef<number | null>(null)
+  const hasTriggeredGlobalChatPopupRef = useRef(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const presenceChannelRef = useRef<any>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -694,7 +701,6 @@ export default function GlobalChat() {
   const roomHasUserScrolledByIdRef = useRef<Record<string, boolean>>({})
   const roomProgrammaticScrollUntilByIdRef = useRef<Record<string, number>>({})
   const activeRoomId = rooms[currentRoomIndex]?.id ?? null
-  const firstRoomId = rooms[0]?.id ?? null
   const activeRoomMessagesList = activeRoomId ? (roomMessages[activeRoomId] ?? EMPTY_MESSAGE_LIST) : EMPTY_MESSAGE_LIST
   const activeRoomVisibleMessageIds = activeRoomId ? (visibleMessageIdsByRoom[activeRoomId] ?? EMPTY_VISIBLE_MESSAGE_IDS) : EMPTY_VISIBLE_MESSAGE_IDS
 
@@ -715,30 +721,6 @@ export default function GlobalChat() {
   useEffect(() => {
     activeRoomIdRef.current = activeRoomId
   }, [activeRoomId])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    if (!firstRoomId || activeRoomId !== firstRoomId) {
-      setShowGlobalChatTip(false)
-      return
-    }
-
-    if (window.localStorage.getItem(GLOBAL_CHAT_TIP_STORAGE_KEY) === 'seen') {
-      return
-    }
-
-    window.localStorage.setItem(GLOBAL_CHAT_TIP_STORAGE_KEY, 'seen')
-    setShowGlobalChatTip(true)
-
-    const timeoutId = window.setTimeout(() => {
-      setShowGlobalChatTip(false)
-    }, 8200)
-
-    return () => {
-      window.clearTimeout(timeoutId)
-    }
-  }, [activeRoomId, firstRoomId])
 
   const scrollRoomFeedToIndex = useCallback((roomIndex: number, behavior: ScrollBehavior = 'smooth') => {
     if (roomIndex < 0) return
@@ -1415,6 +1397,78 @@ export default function GlobalChat() {
     const normalizedUserId = userId?.trim() || ''
     return Boolean(normalizedUserId && mutedUserIds.has(normalizedUserId))
   }, [mutedUserIds])
+
+  const activeRenderableMessagesCount = getRenderableMessages({
+    messages: activeRoomMessagesList,
+    visibleMessageIds: activeRoomVisibleMessageIds,
+    isMutedUser,
+  }).length
+
+  const dismissGlobalChatPopup = useCallback(() => {
+    if (typeof window !== 'undefined' && globalChatPopupDismissTimeoutRef.current !== null) {
+      window.clearTimeout(globalChatPopupDismissTimeoutRef.current)
+      globalChatPopupDismissTimeoutRef.current = null
+    }
+
+    setShowGlobalChatPopup(false)
+  }, [])
+
+  const triggerGlobalChatPopup = useCallback(() => {
+    if (typeof window === 'undefined' || hasTriggeredGlobalChatPopupRef.current) return
+
+    if (window.localStorage.getItem(GLOBAL_CHAT_POPUP_STORAGE_KEY) === 'seen') {
+      hasTriggeredGlobalChatPopupRef.current = true
+      return
+    }
+
+    hasTriggeredGlobalChatPopupRef.current = true
+    window.localStorage.setItem(GLOBAL_CHAT_POPUP_STORAGE_KEY, 'seen')
+
+    if (globalChatPopupTriggerTimeoutRef.current !== null) {
+      window.clearTimeout(globalChatPopupTriggerTimeoutRef.current)
+      globalChatPopupTriggerTimeoutRef.current = null
+    }
+
+    if (globalChatPopupDismissTimeoutRef.current !== null) {
+      window.clearTimeout(globalChatPopupDismissTimeoutRef.current)
+    }
+
+    setShowGlobalChatPopup(true)
+    globalChatPopupDismissTimeoutRef.current = window.setTimeout(() => {
+      setShowGlobalChatPopup(false)
+      globalChatPopupDismissTimeoutRef.current = null
+    }, GLOBAL_CHAT_POPUP_AUTO_DISMISS_MS)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    if (window.localStorage.getItem(GLOBAL_CHAT_POPUP_STORAGE_KEY) === 'seen') {
+      hasTriggeredGlobalChatPopupRef.current = true
+      return
+    }
+
+    globalChatPopupTriggerTimeoutRef.current = window.setTimeout(() => {
+      triggerGlobalChatPopup()
+    }, GLOBAL_CHAT_POPUP_TRIGGER_DELAY_MS)
+
+    return () => {
+      if (globalChatPopupTriggerTimeoutRef.current !== null) {
+        window.clearTimeout(globalChatPopupTriggerTimeoutRef.current)
+        globalChatPopupTriggerTimeoutRef.current = null
+      }
+
+      if (globalChatPopupDismissTimeoutRef.current !== null) {
+        window.clearTimeout(globalChatPopupDismissTimeoutRef.current)
+        globalChatPopupDismissTimeoutRef.current = null
+      }
+    }
+  }, [triggerGlobalChatPopup])
+
+  useEffect(() => {
+    if (activeRenderableMessagesCount < GLOBAL_CHAT_POPUP_MESSAGE_THRESHOLD) return
+    triggerGlobalChatPopup()
+  }, [activeRenderableMessagesCount, triggerGlobalChatPopup])
 
   const getNotificationMessageKey = useCallback((message: any) => {
     if (typeof message?.id === 'string' && message.id.trim()) {
@@ -4114,72 +4168,12 @@ export default function GlobalChat() {
                 onScroll={(e) => updateRoomBottomState(room.id, e.currentTarget)}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false }}
               >
-                {isCurrentRoom && room.id === firstRoomId && showGlobalChatTip && (
-                  <div
-                    style={{
-                      position: 'sticky',
-                      top: 12,
-                      zIndex: 6,
-                      display: 'flex',
-                      justifyContent: 'center',
-                      padding: '10px 12px 4px',
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: 'relative',
-                        width: 'min(100%, 388px)',
-                        borderRadius: 22,
-                        background: '#2d2d2d',
-                        border: '1px solid rgba(255, 255, 255, 0.07)',
-                        color: '#f1f4f8',
-                        padding: '16px 58px 16px 16px',
-                        boxShadow: '0 18px 34px rgba(0, 0, 0, 0.34)',
-                        fontSize: 14,
-                        fontWeight: 600,
-                        lineHeight: 1.5,
-                        letterSpacing: '-0.01em',
-                        pointerEvents: 'auto',
-                      }}
-                      role="status"
-                      aria-live="polite"
-                    >
-                      <div
-                        style={{
-                          marginBottom: 6,
-                          color: '#c8d0dc',
-                          fontSize: 11,
-                          fontWeight: 800,
-                          letterSpacing: '0.08em',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        Room Tip
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowGlobalChatTip(false)}
-                        style={{
-                          position: 'absolute',
-                          top: 12,
-                          right: 12,
-                          border: 'none',
-                          borderRadius: 999,
-                          background: 'rgba(255,255,255,0.06)',
-                          color: '#b6bfcb',
-                          fontSize: 11,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          padding: '5px 9px',
-                          lineHeight: 1,
-                        }}
-                        aria-label="Close chat room tip"
-                      >
-                        Cut
-                      </button>
-                      {GLOBAL_CHAT_TIP_COPY}
-                    </div>
+                {isCurrentRoom && showGlobalChatPopup && (
+                  <div className="chat-notification-popup-shell">
+                    <NotificationPopup
+                      message={GLOBAL_CHAT_POPUP_COPY}
+                      onClose={dismissGlobalChatPopup}
+                    />
                   </div>
                 )}
                 <div ref={isCurrentRoom ? activeMessagesRef : undefined} className="messages">

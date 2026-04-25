@@ -2322,6 +2322,57 @@ display: flex;
           from { opacity: 0; transform: translate(-50%, 12px); }
           to { opacity: 1; transform: translate(-50%, 0); }
         }
+        @keyframes chatNotificationSlideDown {
+          from { opacity: 0; transform: translateY(-16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .chat-notification-popup-shell {
+          position: sticky;
+          top: 12px;
+          z-index: 6;
+          display: flex;
+          justify-content: center;
+          padding: 10px 12px 4px;
+          pointer-events: none;
+        }
+        .chat-notification-popup {
+          position: relative;
+          width: min(100%, 420px);
+          border-radius: 16px;
+          background: linear-gradient(180deg, rgba(46, 48, 54, 0.98), rgba(31, 33, 38, 0.98));
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: #f1f4f8;
+          padding: 16px 52px 16px 16px;
+          box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
+          pointer-events: auto;
+          animation: chatNotificationSlideDown 0.24s ease-out;
+        }
+        .chat-notification-popup-copy {
+          font-size: 14px;
+          font-weight: 600;
+          line-height: 1.5;
+          letter-spacing: -0.01em;
+        }
+        .chat-notification-popup-close {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+          width: 28px;
+          height: 28px;
+          border: none;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.06);
+          color: #b6bfcb;
+          font-size: 12px;
+          font-weight: 700;
+          line-height: 1;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+        .chat-notification-popup-close:hover {
+          background: rgba(255,255,255,0.12);
+          color: #ffffff;
+        }
         .friend-request-popup {
           position: fixed;
           left: 50%;

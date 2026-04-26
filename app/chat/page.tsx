@@ -3838,6 +3838,19 @@ export default function GlobalChat() {
     setShowProfileModal(true)
   }
 
+  const handleShare = async () => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          text: "aa akha gujrat university ni group chat che try kari jo",
+          url: 'https://spreadz.in',
+        })
+      } catch (error) {
+        console.log('[Share] error:', error)
+      }
+    }
+  }
+
   const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -4198,7 +4211,20 @@ export default function GlobalChat() {
                 <div className="logo">
                   <Image src="/spreadz-logo.png" alt="SpreadZ" className="logo-img" width={176} height={88} priority unoptimized />
                 </div>
-                <div className="header-side" aria-hidden="true" />
+                <div className="header-side">
+                  <button 
+                    type="button" 
+                    className="share-btn" 
+                    onClick={handleShare}
+                    aria-label="Share"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20">
+                      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                      <polyline points="16 6 12 2 8 6" />
+                      <line x1="12" y1="2" x2="12" y2="15" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <div className={`ai-card-wrap${isComposerExpanded ? ' hidden' : ''}`}>

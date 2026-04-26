@@ -188,9 +188,9 @@ const SENT_ROOM_IDS_STORAGE_KEY_PREFIX = 'spreadz_sent_room_ids:'
 const FRIEND_REQUEST_TTL_MS = 10 * 1000
 const CLIENT_REFRESH_STORAGE_KEY = 'spreadz_client_refresh_version'
 const CLIENT_REFRESH_VERSION = '2026-04-05-gif-sheet-slide'
-const PUSH_PROMPT_MESSAGE_THRESHOLD = 2
-const PUSH_PROMPT_STATUS_STORAGE_KEY = 'spreadz_push_prompt_status'
-const PUSH_SENT_COUNT_STORAGE_KEY = 'spreadz_push_sent_count'
+const PUSH_PROMPT_MESSAGE_THRESHOLD = 4
+const PUSH_PROMPT_STATUS_STORAGE_KEY = 'notifAsked'
+const PUSH_SENT_COUNT_STORAGE_KEY = 'messageCount'
 const NOTIFICATION_COOLDOWN_MS = 2500
 const AVATAR_MAX_BYTES = 200 * 1024
 const AVATAR_MAX_DIMENSION = 400
@@ -2072,7 +2072,7 @@ export default function GlobalChat() {
     }
 
     if (Notification.permission === 'denied') {
-      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
+      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'true')
       setNotificationStatus('error')
       setNotificationErrorMessage('Notifications are blocked for this app or site.')
       return false
@@ -2098,7 +2098,7 @@ export default function GlobalChat() {
         return false
       }
 
-      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'enabled')
+      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'true')
       setNotificationStatus('enabled')
       setNotificationErrorMessage('')
       return true
@@ -2111,6 +2111,7 @@ export default function GlobalChat() {
   }, [])
 
   const handleEnableNotifications = useCallback(async () => {
+    localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'true')
     const enabled = await enableNotifications()
     if (!enabled) return
 
@@ -2132,27 +2133,19 @@ export default function GlobalChat() {
 
   const closeNotificationSheet = useCallback(() => {
     setNotificationSheetOpen(false)
+    localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'true')
   }, [])
 
   const handleNotificationPromptAfterSend = useCallback(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return
 
-    if (Notification.permission === 'granted') {
-      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'enabled')
-      setNotificationStatus('enabled')
-      setNotificationErrorMessage('')
-      return
-    }
-
-    if (Notification.permission === 'denied') {
-      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
-      setNotificationStatus('error')
-      setNotificationErrorMessage('Notifications are blocked for this app or site.')
-      return
-    }
-
     const promptStatus = localStorage.getItem(PUSH_PROMPT_STATUS_STORAGE_KEY)
-    if (promptStatus === 'enabled' || promptStatus === 'denied') return
+    if (promptStatus === 'true') return
+
+    if (Notification.permission === 'granted' || Notification.permission === 'denied') {
+      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'true')
+      return
+    }
 
     const sentCount = Number(localStorage.getItem(PUSH_SENT_COUNT_STORAGE_KEY) || '0') + 1
     localStorage.setItem(PUSH_SENT_COUNT_STORAGE_KEY, String(sentCount))
@@ -2205,17 +2198,15 @@ export default function GlobalChat() {
       return
     }
 
-    if (Notification.permission === 'granted') {
-      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'enabled')
-      setNotificationStatus('enabled')
-      setNotificationErrorMessage('')
-      return
-    }
-
-    if (Notification.permission === 'denied') {
-      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'denied')
-      setNotificationStatus('error')
-      setNotificationErrorMessage('Notifications are blocked for this app or site.')
+    if (Notification.permission === 'granted' || Notification.permission === 'denied') {
+      localStorage.setItem(PUSH_PROMPT_STATUS_STORAGE_KEY, 'true')
+      if (Notification.permission === 'granted') {
+        setNotificationStatus('enabled')
+        setNotificationErrorMessage('')
+      } else {
+        setNotificationStatus('error')
+        setNotificationErrorMessage('Notifications are blocked for this app or site.')
+      }
     }
   }, [isMounted])
 

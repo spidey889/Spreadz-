@@ -487,18 +487,30 @@ const readStoredProfile = () => {
   const storedDisplayName = localStorage.getItem(DISPLAY_NAME_STORAGE_KEY)?.trim() || ''
   const storedCollege = localStorage.getItem(COLLEGE_STORAGE_KEY)?.trim() || ''
 
-  if (!storedDisplayName && rawStoredUsername && !isGeneratedUsername(rawStoredUsername)) {
+  let urlName = ''
+  let urlCollege = ''
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search)
+    urlName = params.get('name')?.trim() || ''
+    urlCollege = params.get('college')?.trim() || ''
+  }
+
+  const hasUrlProfile = urlName && urlCollege
+  const activeDisplayName = hasUrlProfile ? urlName : storedDisplayName
+  const activeCollege = hasUrlProfile ? urlCollege : storedCollege
+
+  if (!activeDisplayName && rawStoredUsername && !isGeneratedUsername(rawStoredUsername)) {
     return {
       displayName: rawStoredUsername,
       username: '',
-      college: storedCollege,
+      college: activeCollege,
     }
   }
 
   return {
-    displayName: storedDisplayName,
+    displayName: activeDisplayName,
     username: rawStoredUsername,
-    college: storedCollege,
+    college: activeCollege,
   }
 }
 

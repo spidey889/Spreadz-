@@ -36,17 +36,17 @@ const THANK_YOU_COPY = "you're a legend \u{1F64F} we'll make it better"
 
 const LOW_RATING_REASONS = [
   'felt empty, no one to talk to',
-  "didn't get what this was",
-  'something broke',
-  'just not for me',
+  "didn't understand it",
+  'not interested',
+  'privacy issues',
   'Other',
 ]
 
 const MID_RATING_REASONS = [
+  'rooms felt empty',
   'needs more people',
-  'missing something I wanted',
-  'a bit confusing',
-  'almost but not quite',
+  'want more topic variety',
+  'privacy concerns',
   'Other',
 ]
 

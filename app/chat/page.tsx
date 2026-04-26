@@ -2483,6 +2483,8 @@ export default function GlobalChat() {
 
       setDisplayName(nextDisplayName)
       setUniversity(nextCollege)
+      setTempProfileName(nextDisplayName)
+      setTempProfileCollege(nextCollege)
       setAvatarUrl(userRow?.avatar_url || '')
       setProfileJoinedAt(userRow?.created_at || null)
       setAccountUsername(nextUsername)

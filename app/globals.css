@@ -231,7 +231,7 @@ body {
         .share-btn {
           width: 38px;
           height: 38px;
-          background: rgba(255, 255, 255, 0.05);
+          background: none;
           border: none;
           color: #d9dde4;
           cursor: pointer;

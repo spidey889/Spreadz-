@@ -213,11 +213,23 @@ export default function PeopleDirectoryPage() {
                       )}
                     </div>
                     <div className="people-directory-card-copy">
-                      <div className="people-directory-card-name">{user.displayName}</div>
-                      <div className="people-directory-card-college">{user.college || college}</div>
-                      <div className="people-directory-card-meta">
-                        {formatMemberSince(user.joinedAt)}
+                      <div className="people-directory-card-header">
+                        <span className="people-directory-card-name">{user.displayName}</span>
+                        {(user.branch || user.year) && (
+                          <span className="people-directory-card-info">
+                            {user.branch && <span>{user.branch}</span>}
+                            {user.branch && user.year && <span style={{ opacity: 0.4 }}>•</span>}
+                            {user.year && <span>{user.year}</span>}
+                          </span>
+                        )}
                       </div>
+                      {user.interests && user.interests.length > 0 && (
+                        <div className="people-directory-card-interests">
+                          {user.interests.slice(0, 4).map((interest, idx) => (
+                            <span key={idx} className="interest-tag">{interest}</span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </button>
                 ))}

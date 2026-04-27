@@ -43,19 +43,18 @@ const getUserColor = (username: string) => {
     hash = username.charCodeAt(i) + ((hash << 5) - hash)
   }
   return colors[Math.abs(hash) % colors.length]
-}
 
 const getInitials = (name: string) => (
   name.split(' ').map(part => part[0]).join('').toUpperCase().slice(0, 2)
 )
 
-const formatMemberSince = (isoString?: string | null) => {
-  if (!isoString) return 'Member since recently'
+const formatJoinedDate = (isoString?: string | null) => {
+  if (!isoString) return 'Joined recently'
 
   const targetDate = new Date(isoString)
-  if (Number.isNaN(targetDate.getTime())) return 'Member since recently'
+  if (Number.isNaN(targetDate.getTime())) return 'Joined recently'
 
-  return `Member since ${targetDate.toLocaleDateString('en-US', {
+  return `Joined ${targetDate.toLocaleDateString('en-US', {
     month: 'long',
     year: 'numeric',
   })}`
@@ -213,23 +212,11 @@ export default function PeopleDirectoryPage() {
                       )}
                     </div>
                     <div className="people-directory-card-copy">
-                      <div className="people-directory-card-header">
-                        <span className="people-directory-card-name">{user.displayName}</span>
-                        {(user.branch || user.year) && (
-                          <span className="people-directory-card-info">
-                            {user.branch && <span>{user.branch}</span>}
-                            {user.branch && user.year && <span style={{ opacity: 0.4 }}>•</span>}
-                            {user.year && <span>{user.year}</span>}
-                          </span>
-                        )}
+                      <div className="people-directory-card-name">{user.displayName}</div>
+                      <div className="people-directory-card-college">{user.college || college}</div>
+                      <div className="people-directory-card-joined">
+                        {formatJoinedDate(user.joinedAt)}
                       </div>
-                      {user.interests && user.interests.length > 0 && (
-                        <div className="people-directory-card-interests">
-                          {user.interests.slice(0, 4).map((interest, idx) => (
-                            <span key={idx} className="interest-tag">{interest}</span>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </button>
                 ))}

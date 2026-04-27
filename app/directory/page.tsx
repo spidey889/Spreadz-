@@ -1,12 +1,19 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useState } from 'react'
 import { ProfileSheet, type ProfileSheetProfile } from '@/app/chat/components/ProfileSheet'
 import { supabase } from '@/lib/supabase'
 
 const COLLEGE_STORAGE_KEY = 'spreadz_college'
 const USER_UUID_STORAGE_KEY = 'spreadz_user_uuid'
+
+const DIRECTORY_ACCENTS = [
+  { strong: '#57F287', soft: 'rgba(87, 242, 135, 0.2)', wash: 'rgba(87, 242, 135, 0.12)' },
+  { strong: '#7DD3FC', soft: 'rgba(125, 211, 252, 0.2)', wash: 'rgba(125, 211, 252, 0.12)' },
+  { strong: '#F7B955', soft: 'rgba(247, 185, 85, 0.2)', wash: 'rgba(247, 185, 85, 0.12)' },
+  { strong: '#FB7185', soft: 'rgba(251, 113, 133, 0.2)', wash: 'rgba(251, 113, 133, 0.12)' },
+]
 
 type DirectoryUser = ProfileSheetProfile & {
   id: string
@@ -43,6 +50,21 @@ const DirectoryFallbackAvatar = () => (
   </svg>
 )
 
+const getDirectoryAccent = (seed: string) => {
+  let hash = 0
+  for (let i = 0; i < seed.length; i++) {
+    hash = seed.charCodeAt(i) + ((hash << 5) - hash)
+  }
+
+  return DIRECTORY_ACCENTS[Math.abs(hash) % DIRECTORY_ACCENTS.length]
+}
+
+const formatProfileHandle = (handle?: string | null) => {
+  const normalizedHandle = normalizeProfileText(handle)
+  if (!normalizedHandle) return ''
+  return `@${normalizedHandle.replace(/^@/, '')}`
+}
+
 const formatJoinedDate = (isoString?: string | null) => {
   if (!isoString) return 'Joined recently'
 
@@ -62,6 +84,7 @@ export default function PeopleDirectoryPage() {
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const hasSingleVisibleProfile = users.length === 1
+  const directoryCountLabel = `${users.length} ${users.length === 1 ? 'student' : 'students'}`
 
   useEffect(() => {
     let cancelled = false
@@ -162,9 +185,18 @@ export default function PeopleDirectoryPage() {
               <span>Back to chat</span>
             </Link>
             <div className="people-directory-copy">
-              <h1 className="people-directory-title">
-                {college ? `People from ${college}` : 'People from your college'}
-              </h1>
+              <div className="people-directory-eyebrow">Campus directory</div>
+              <div className="people-directory-title-row">
+                <h1 className="people-directory-title">
+                  {college ? `People from ${college}` : 'People from your college'}
+                </h1>
+                {!loading && users.length > 0 ? (
+                  <div className="people-directory-count">{directoryCountLabel}</div>
+                ) : null}
+              </div>
+              <p className="people-directory-subtitle">
+                Real profiles from your college, with the people you are most likely to bump into next.
+              </p>
             </div>
           </div>
 
@@ -183,42 +215,56 @@ export default function PeopleDirectoryPage() {
           ) : (
             <>
               <div className="people-directory-list">
-                {users.map((user) => (
-                  <button
-                    key={user.id}
-                    type="button"
-                    className="people-directory-card"
-                    onClick={() => setSelectedProfile(user)}
-                  >
-                    <div
-                      className={`people-directory-avatar${user.avatarUrl ? '' : ' fallback'}`}
+                {users.map((user, index) => {
+                  const handleLabel = formatProfileHandle(user.handle)
+                  const accent = getDirectoryAccent(`${user.displayName}${user.handle}${user.id}`)
+
+                  return (
+                    <button
+                      key={user.id}
+                      type="button"
+                      className="people-directory-card"
+                      style={{
+                        '--directory-accent-strong': accent.strong,
+                        '--directory-accent-soft': accent.soft,
+                        '--directory-accent-wash': accent.wash,
+                        animationDelay: `${Math.min(index, 10) * 45}ms`,
+                      } as CSSProperties}
+                      onClick={() => setSelectedProfile(user)}
                     >
-                      {user.avatarUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={user.avatarUrl}
-                          alt={`${user.displayName} profile`}
-                          className="profile-avatar-image"
-                          draggable={false}
-                        />
-                      ) : (
-                        <DirectoryFallbackAvatar />
-                      )}
-                    </div>
-                    <div className="people-directory-card-copy">
-                      <div className="people-directory-card-name">{user.displayName}</div>
-                      <div className="people-directory-card-college">{user.college || college}</div>
-                      <div className="people-directory-card-joined">
-                        {formatJoinedDate(user.joinedAt)}
+                      <div className={`people-directory-avatar${user.avatarUrl ? '' : ' fallback'}`}>
+                        {user.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={user.avatarUrl}
+                            alt={`${user.displayName} profile`}
+                            className="profile-avatar-image"
+                            draggable={false}
+                          />
+                        ) : (
+                          <DirectoryFallbackAvatar />
+                        )}
                       </div>
-                    </div>
-                  </button>
-                ))}
+                      <div className="people-directory-card-copy">
+                        <div className="people-directory-card-topline">
+                          <div className="people-directory-card-name">{user.displayName}</div>
+                          {handleLabel ? (
+                            <div className="people-directory-card-handle">{handleLabel}</div>
+                          ) : null}
+                        </div>
+                        <div className="people-directory-card-college">{user.college || college}</div>
+                        <div className="people-directory-card-joined">
+                          {formatJoinedDate(user.joinedAt)}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
 
               {hasSingleVisibleProfile ? (
                 <div className="people-directory-state people-directory-state-tease">
-                  More students joining soon 👀
+                  More students joining soon.
                 </div>
               ) : null}
             </>

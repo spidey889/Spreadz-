@@ -1716,13 +1716,42 @@ display: flex;
           color: #ff8a8a;
         }
         .people-directory-page {
+          position: relative;
+          isolation: isolate;
           height: 100dvh;
-          background: #111214;
+          background:
+            linear-gradient(180deg, #101114 0%, #0f1115 28%, #151920 100%);
           color: #ffffff;
           padding: calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(24px + env(safe-area-inset-bottom, 0px));
           overflow-y: auto;
           -webkit-overflow-scrolling: touch;
           overscroll-behavior-y: contain;
+        }
+        .people-directory-page::before {
+          content: '';
+          position: absolute;
+          inset: 0 0 auto 0;
+          height: 240px;
+          background:
+            linear-gradient(180deg, rgba(87, 242, 135, 0.12), rgba(87, 242, 135, 0) 72%),
+            linear-gradient(120deg, rgba(125, 211, 252, 0.08), transparent 42%);
+          pointer-events: none;
+          z-index: -2;
+        }
+        .people-directory-page::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: repeating-linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.025) 0,
+            rgba(255, 255, 255, 0.025) 1px,
+            transparent 1px,
+            transparent 24px
+          );
+          opacity: 0.25;
+          pointer-events: none;
+          z-index: -1;
         }
         .people-directory-shell {
           width: min(100%, 640px);
@@ -1730,21 +1759,28 @@ display: flex;
           display: flex;
           flex-direction: column;
           gap: 16px;
+          position: relative;
+          z-index: 1;
         }
         .people-directory-header {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 14px;
         }
         .people-directory-back {
           width: fit-content;
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          color: #b8c0cc;
+          color: #d8deea;
           text-decoration: none;
-          font-size: 14px;
-          font-weight: 600;
+          font-size: 13px;
+          font-weight: 700;
+          padding: 8px 10px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,0.06);
+          background: rgba(255,255,255,0.03);
+          backdrop-filter: blur(12px);
         }
         .people-directory-back svg {
           width: 16px;
@@ -1753,23 +1789,69 @@ display: flex;
         .people-directory-copy {
           display: flex;
           flex-direction: column;
+          gap: 10px;
+        }
+        .people-directory-eyebrow {
+          display: inline-flex;
+          align-items: center;
+          width: fit-content;
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.07);
+          color: #b5f6cf;
+          font-size: 11px;
+          font-weight: 800;
+          line-height: 1;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+        }
+        .people-directory-title-row {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
         }
         .people-directory-title {
           margin: 0;
           color: #ffffff;
-          font-size: clamp(24px, 5vw, 32px);
-          line-height: 1.1;
-          letter-spacing: -0.02em;
+          font-size: clamp(30px, 7vw, 40px);
+          line-height: 1.02;
+          letter-spacing: 0;
+          font-weight: 900;
+          text-wrap: balance;
+        }
+        .people-directory-count {
+          display: inline-flex;
+          align-items: center;
+          padding: 7px 11px;
+          border-radius: 999px;
+          border: 1px solid rgba(87, 242, 135, 0.18);
+          background: rgba(87, 242, 135, 0.1);
+          color: #d6ffe7;
+          font-size: 12px;
           font-weight: 800;
+          line-height: 1;
+          white-space: nowrap;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+        .people-directory-subtitle {
+          margin: 0;
+          max-width: 34ch;
+          color: #9ba6b6;
+          font-size: 14px;
+          line-height: 1.5;
         }
         .people-directory-state {
-          border-radius: 22px;
+          border-radius: 20px;
           border: 1px solid rgba(255,255,255,0.08);
-          background: rgba(255,255,255,0.04);
+          background: rgba(20, 23, 28, 0.9);
           padding: 18px;
           color: #c4ccd8;
           font-size: 15px;
           line-height: 1.55;
+          box-shadow: 0 18px 38px rgba(0, 0, 0, 0.22);
         }
         .people-directory-state.error {
           color: #ffb4b6;
@@ -1777,40 +1859,63 @@ display: flex;
           background: rgba(237, 66, 69, 0.08);
         }
         .people-directory-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 12px;
         }
         .people-directory-card {
+          --directory-accent-strong: #57F287;
+          --directory-accent-soft: rgba(87, 242, 135, 0.2);
+          --directory-accent-wash: rgba(87, 242, 135, 0.12);
           width: 100%;
           display: flex;
           align-items: center;
-          gap: 14px;
-          padding: 14px 14px 14px 16px;
-          border-radius: 14px;
-          border: 1px solid rgba(255, 255, 255, 0.04);
-          border-left: 3px solid #57F287;
-          background: #1e1f22;
+          gap: 16px;
+          padding: 16px 16px 16px 18px;
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          background:
+            linear-gradient(180deg, rgba(34, 35, 41, 0.96), rgba(24, 25, 31, 0.98)),
+            linear-gradient(135deg, var(--directory-accent-wash), transparent 48%);
           color: inherit;
           cursor: pointer;
           text-align: left;
-          transition: background 0.12s ease;
+          transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
           position: relative;
+          overflow: hidden;
+          min-height: 110px;
+          box-shadow: 0 18px 34px rgba(0, 0, 0, 0.22);
+          animation: peopleDirectoryCardIn 0.46s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .people-directory-card::before {
+          content: '';
+          position: absolute;
+          inset: 0 auto 0 0;
+          width: 4px;
+          background: linear-gradient(180deg, var(--directory-accent-strong), rgba(255,255,255,0.35));
+        }
+        .people-directory-card::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(130deg, rgba(255,255,255,0.08), transparent 34%);
+          pointer-events: none;
         }
         .people-directory-card:hover {
-          background: #2b2d31;
+          transform: translateY(-2px);
           border-color: rgba(255, 255, 255, 0.08);
+          box-shadow: 0 22px 42px rgba(0, 0, 0, 0.28);
         }
         .people-directory-card:focus-visible {
           outline: none;
-          box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.3);
+          box-shadow: 0 0 0 2px rgba(255,255,255,0.12), 0 22px 42px rgba(0,0,0,0.28);
         }
         .people-directory-avatar {
-          width: 52px;
-          height: 52px;
+          width: 62px;
+          height: 62px;
           border-radius: 50%;
           overflow: hidden;
-          flex: 0 0 52px;
+          flex: 0 0 62px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1819,10 +1924,16 @@ display: flex;
           font-weight: 700;
           user-select: none;
           background: #313338;
+          position: relative;
+          z-index: 1;
+          border: 2px solid rgba(255,255,255,0.06);
+          box-shadow:
+            0 0 0 6px var(--directory-accent-wash),
+            0 16px 26px rgba(0, 0, 0, 0.26);
         }
         .people-directory-avatar.fallback {
-          background: #0a0a0a;
-          color: #5a5a5a;
+          background: #111214;
+          color: #686d74;
         }
         .people-directory-avatar-fallback {
           width: 100%;
@@ -1835,36 +1946,76 @@ display: flex;
           flex-direction: column;
           align-items: flex-start;
           justify-content: center;
-          gap: 3px;
+          gap: 4px;
           flex: 1;
+          min-width: 0;
+          position: relative;
+          z-index: 1;
+        }
+        .people-directory-card-topline {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
         }
         .people-directory-card-name {
           color: #ffffff;
-          font-size: 16px;
+          font-size: 20px;
           font-weight: 800;
-          line-height: 1.15;
+          line-height: 1.05;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .people-directory-card-handle {
+          max-width: 100%;
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(255,255,255,0.07);
+          color: #d8e2ec;
+          font-size: 11px;
+          font-weight: 700;
+          line-height: 1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .people-directory-card-college {
-          color: #9aa3af;
+          color: #d6dde6;
           font-size: 12px;
-          font-weight: 500;
-          line-height: 1.35;
+          font-weight: 700;
+          line-height: 1.4;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
         }
         .people-directory-card-joined {
-          color: #7f8692;
-          font-size: 12px;
-          font-weight: 400;
-          line-height: 1.35;
+          color: #97a0ae;
+          font-size: 13px;
+          font-weight: 500;
+          line-height: 1.45;
         }
         .people-directory-state-tease {
           margin-top: 12px;
           padding: 14px;
-          border-radius: 12px;
+          border-radius: 18px;
           text-align: center;
           font-size: 13px;
-          color: #949ba4;
-          background: rgba(88, 101, 242, 0.04);
-          border: 1px solid rgba(88, 101, 242, 0.08);
+          color: #a8b0bb;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.06);
+        }
+        @keyframes peopleDirectoryCardIn {
+          from {
+            opacity: 0;
+            transform: translateY(18px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
         .profile-username {
           font-size: 12px;
@@ -2549,6 +2700,7 @@ display: flex;
           .ai-card-wrap { margin-left: 18px; margin-right: 18px; }
           .messages { padding-left: 28px; padding-right: 28px; }
           .input-area { padding-left: 22px; padding-right: 22px; }
+          .people-directory-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
         @media (max-width: 380px) {
@@ -2562,6 +2714,11 @@ display: flex;
           .people-directory-link { width: 30px; height: 30px; }
           .profile-meta-grid { grid-template-columns: 1fr; }
           .ai-card-wrap { margin-left: 10px; margin-right: 10px; }
+          .people-directory-title { font-size: 27px; }
+          .people-directory-subtitle { font-size: 13px; }
+          .people-directory-card { gap: 14px; padding: 15px 14px 15px 17px; }
+          .people-directory-avatar { width: 56px; height: 56px; flex-basis: 56px; }
+          .people-directory-card-name { font-size: 18px; }
         }
       
 

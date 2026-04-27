@@ -197,7 +197,21 @@ export default function Hell2Client({
         <form 
           onSubmit={handleSubmit} 
           className="profile-sheet profile-sheet-edit-mode" 
-          style={{ position: 'relative', width: '100%', height: 'auto', maxHeight: 'none', background: '#2b2d31', borderRadius: '18px', padding: '24px', margin: '0 auto', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 12px 24px rgba(0,0,0,0.4)', boxSizing: 'border-box', overflow: 'visible' }}
+          style={{ 
+            position: 'relative', 
+            width: '100%', 
+            height: 'auto', 
+            maxHeight: 'calc(100vh - 160px)', 
+            overflowY: 'auto',
+            background: '#2b2d31', 
+            borderRadius: '18px', 
+            padding: '24px', 
+            margin: '0 auto', 
+            border: '1px solid rgba(255,255,255,0.08)', 
+            boxShadow: '0 12px 24px rgba(0,0,0,0.4)', 
+            boxSizing: 'border-box',
+            display: 'block'
+          }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <h2 style={{ fontSize: '20px', margin: 0 }}>New Profile Details</h2>

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import './globals.css'
 import Providers from './providers'
+import { NotifyOnLoad } from './NotifyOnLoad'
 
 const organizationJsonLd = {
   '@context': 'https://schema.org',
@@ -41,6 +42,7 @@ export default function RootLayout({
       <body className="bg-[#1a1a1f]">
         <Providers>{children}</Providers>
         <GoogleAnalytics gaId="G-CZRY2915RE" />
+        <NotifyOnLoad />
       </body>
     </html>
   )

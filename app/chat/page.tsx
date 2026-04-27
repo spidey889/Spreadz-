@@ -203,7 +203,6 @@ const GIF_PICKER_CLOSE_DURATION_MS = 200
 const MESSAGE_MAX_LENGTH = 500
 const MESSAGE_COUNTER_THRESHOLD = 400
 const MESSAGE_SELECT_COLUMNS = 'id, content, created_at, display_name, college, room_name, room_id, user_uuid'
-const MEGA_ROOM_ID = 'd43c1a5f-5417-4fbb-bc8f-92f6cf0212c9'
 const GLOBAL_CHAT_POPUP_STORAGE_KEY = 'spreadz_global_chat_popup_seen_v2'
 const GLOBAL_CHAT_POPUP_COPY = 'Gujarat University students are here... talk with students from different colleges of GU'
 const GLOBAL_CHAT_POPUP_TRIGGER_DELAY_MS = 10 * 1000
@@ -3595,26 +3594,6 @@ export default function GlobalChat() {
   }, [clearGifPickerCloseTimeout, clearGifPickerFrame])
 
   const handleSend = async (roomId: string, overrideName?: string, overrideCollege?: string, contentOverride?: string) => {
-    if (roomId !== MEGA_ROOM_ID) {
-      const redirectedContentOverride = contentOverride ?? inputTexts[roomId] ?? ''
-      const megaRoomIndex = rooms.findIndex((room) => room.id === MEGA_ROOM_ID)
-
-      if (megaRoomIndex >= 0) {
-        currentRoomIndexRef.current = megaRoomIndex
-        activeRoomIdRef.current = MEGA_ROOM_ID
-        setCurrentRoomIndex(megaRoomIndex)
-
-        if (typeof window !== 'undefined') {
-          window.requestAnimationFrame(() => {
-            scrollRoomFeedToIndex(megaRoomIndex)
-          })
-        }
-      }
-
-      void handleSend(MEGA_ROOM_ID, overrideName, overrideCollege, redirectedContentOverride)
-      return
-    }
-
     const rawText = contentOverride ?? inputTexts[roomId] ?? ''
     const text = rawText.trim()
     if (!text) return

@@ -804,6 +804,23 @@ export default function SeedingClient({
     })
   }
 
+  const handleAvatarUrlChange = (displayName: string, url: string) => {
+    setAvatarDrafts((currentDrafts) => {
+      const currentDraft = currentDrafts[displayName] || {
+        file: null,
+        previewUrl: null,
+        avatarUrl: null,
+      }
+      return {
+        ...currentDrafts,
+        [displayName]: {
+          ...currentDraft,
+          avatarUrl: url,
+        },
+      }
+    })
+  }
+
   const saveSeededAvatars = async (
     roomId: string,
     avatarRows: Array<{
@@ -1315,6 +1332,15 @@ export default function SeedingClient({
                         style={{ display: 'none' }}
                       />
                     </label>
+                    <input
+                      type="text"
+                      placeholder="or paste image URL"
+                      value={avatarDraft?.avatarUrl || ''}
+                      onChange={(e) => handleAvatarUrlChange(displayName, e.target.value)}
+                      disabled={actionPending === 'now'}
+                      className={`${styles.fieldInput} ${styles.monoField}`}
+                      style={{ flex: 1, minWidth: '120px', marginLeft: '12px' }}
+                    />
 
                     <div className={styles.avatarPreview}>
                       {previewSource ? (

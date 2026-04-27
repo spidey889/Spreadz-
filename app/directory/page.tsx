@@ -77,6 +77,17 @@ const formatJoinedDate = (isoString?: string | null) => {
   })}`
 }
 
+const shuffleDirectoryUsers = <T,>(items: T[]) => {
+  const nextItems = [...items]
+
+  for (let index = nextItems.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    ;[nextItems[index], nextItems[swapIndex]] = [nextItems[swapIndex], nextItems[index]]
+  }
+
+  return nextItems
+}
+
 export default function PeopleDirectoryPage() {
   const [college, setCollege] = useState('')
   const [users, setUsers] = useState<DirectoryUser[]>([])
@@ -127,7 +138,6 @@ export default function PeopleDirectoryPage() {
         .from('users')
         .select('uuid, display_name, username, college, avatar_url, created_at, branch, year, bio, interests, fav_movie, relationship_status')
         .eq('college', resolvedCollege)
-        .order('display_name', { ascending: true })
 
       if (cancelled) return
 
@@ -162,7 +172,7 @@ export default function PeopleDirectoryPage() {
         })
       })
 
-      setUsers(nextUsers)
+      setUsers(shuffleDirectoryUsers(nextUsers))
       setLoading(false)
     }
 

@@ -43,6 +43,7 @@ const getUserColor = (username: string) => {
     hash = username.charCodeAt(i) + ((hash << 5) - hash)
   }
   return colors[Math.abs(hash) % colors.length]
+}
 
 const getInitials = (name: string) => (
   name.split(' ').map(part => part[0]).join('').toUpperCase().slice(0, 2)

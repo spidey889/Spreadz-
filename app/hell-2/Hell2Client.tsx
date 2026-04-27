@@ -30,6 +30,7 @@ export default function Hell2Client({
   const [favMovie, setFavMovie] = useState('')
   const [relationshipStatus, setRelationshipStatus] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
   
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -103,6 +104,27 @@ export default function Hell2Client({
     
     try {
       const newUuid = generateUUID()
+      let finalAvatarUrl = avatarUrl.trim() || null
+
+      if (avatarFile) {
+        const fileExt = avatarFile.name.split('.').pop() || 'png'
+        const fileName = `${newUuid}-${Date.now()}.${fileExt}`
+        const storagePath = `fake-profiles/${fileName}`
+        
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(storagePath, avatarFile, {
+            upsert: true,
+            contentType: avatarFile.type || 'image/png',
+          })
+          
+        if (uploadError) {
+          throw new Error(uploadError.message || 'Failed to upload avatar.')
+        }
+        
+        const { data } = supabase.storage.from('avatars').getPublicUrl(storagePath)
+        finalAvatarUrl = data.publicUrl
+      }
       
       const { error } = await supabase
         .from('users')
@@ -117,7 +139,7 @@ export default function Hell2Client({
           interests: interests.trim() ? interests.split(',').map(i => i.trim()) : null,
           fav_movie: favMovie.trim() || null,
           relationship_status: relationshipStatus.trim() || null,
-          avatar_url: avatarUrl.trim() || null,
+          avatar_url: finalAvatarUrl,
         })
         
       if (error) throw error
@@ -133,6 +155,7 @@ export default function Hell2Client({
       setFavMovie('')
       setRelationshipStatus('')
       setAvatarUrl('')
+      setAvatarFile(null)
       
       setSaveSuccess(true)
       setTimeout(() => setSaveSuccess(false), 3000)
@@ -337,15 +360,28 @@ export default function Hell2Client({
           </div>
 
           <div className="profile-field">
-            <label className="profile-label" htmlFor="avatar-url">Avatar URL</label>
-            <input
-              id="avatar-url"
-              type="text"
-              placeholder="https://example.com/image.png"
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              className="profile-input"
-            />
+            <label className="profile-label" htmlFor="avatar-file">Avatar (Upload or Paste URL)</label>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <input
+                id="avatar-file"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+                className="profile-input"
+                style={{ flex: 1, padding: '10px' }}
+              />
+              <span style={{ color: '#b5bac1', fontSize: '14px', fontWeight: 'bold' }}>OR</span>
+              <input
+                id="avatar-url"
+                type="text"
+                placeholder="https://example.com/image.png"
+                value={avatarUrl}
+                onChange={(e) => setAvatarUrl(e.target.value)}
+                className="profile-input"
+                style={{ flex: 1 }}
+              />
+            </div>
+            {avatarFile && <div style={{ fontSize: '13px', color: '#57f287', marginTop: '6px' }}>Selected file: {avatarFile.name}</div>}
           </div>
           
           {errorMessage && <div className="profile-save-status error">{errorMessage}</div>}

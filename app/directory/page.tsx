@@ -36,17 +36,11 @@ const normalizeProfileInterests = (value: unknown) => {
   return Array.from(uniqueValues)
 }
 
-const getUserColor = (username: string) => {
-  const colors = ['#5865F2', '#ED4245', '#FEE75C', '#57F287', '#EB459E', '#FF6B35', '#00B0F4']
-  let hash = 0
-  for (let i = 0; i < username.length; i++) {
-    hash = username.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  return colors[Math.abs(hash) % colors.length]
-}
-
-const getInitials = (name: string) => (
-  name.split(' ').map(part => part[0]).join('').toUpperCase().slice(0, 2)
+const DirectoryFallbackAvatar = () => (
+  <svg viewBox="0 0 64 64" className="people-directory-avatar-fallback" aria-hidden="true">
+    <circle cx="32" cy="21" r="13" fill="currentColor" />
+    <path d="M8 58c1.9-11.9 10.9-18 24-18s22.1 6.1 24 18H8Z" fill="currentColor" />
+  </svg>
 )
 
 const formatJoinedDate = (isoString?: string | null) => {
@@ -197,8 +191,7 @@ export default function PeopleDirectoryPage() {
                     onClick={() => setSelectedProfile(user)}
                   >
                     <div
-                      className="people-directory-avatar"
-                      style={!user.avatarUrl ? { backgroundColor: getUserColor(user.displayName) } : undefined}
+                      className={`people-directory-avatar${user.avatarUrl ? '' : ' fallback'}`}
                     >
                       {user.avatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -209,7 +202,7 @@ export default function PeopleDirectoryPage() {
                           draggable={false}
                         />
                       ) : (
-                        <span>{getInitials(user.displayName)}</span>
+                        <DirectoryFallbackAvatar />
                       )}
                     </div>
                     <div className="people-directory-card-copy">

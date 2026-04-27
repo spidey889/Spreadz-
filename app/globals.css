@@ -1820,6 +1820,15 @@ display: flex;
           user-select: none;
           background: #313338;
         }
+        .people-directory-avatar.fallback {
+          background: #0a0a0a;
+          color: #5a5a5a;
+        }
+        .people-directory-avatar-fallback {
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
         .people-directory-card-copy {
           min-width: 0;
           display: flex;

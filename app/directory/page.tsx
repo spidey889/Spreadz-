@@ -38,9 +38,8 @@ const normalizeProfileInterests = (value: unknown) => {
 
 const DirectoryFallbackAvatar = () => (
   <svg viewBox="0 0 64 64" className="people-directory-avatar-fallback" aria-hidden="true">
-    <circle cx="32" cy="32" r="32" fill="#000000" />
-    <circle cx="32" cy="22" r="11" fill="#ffffff" />
-    <path d="M6 64c2.9-15.2 13.5-23 26-23s23.1 7.8 26 23H6Z" fill="#ffffff" />
+    <circle cx="32" cy="21" r="13" fill="currentColor" />
+    <path d="M8 58c1.9-11.9 10.9-18 24-18s22.1 6.1 24 18H8Z" fill="currentColor" />
   </svg>
 )
 

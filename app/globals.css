@@ -1716,10 +1716,13 @@ display: flex;
           color: #ff8a8a;
         }
         .people-directory-page {
-          min-height: 100dvh;
+          height: 100dvh;
           background: #111214;
           color: #ffffff;
           padding: calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(24px + env(safe-area-inset-bottom, 0px));
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-y: contain;
         }
         .people-directory-shell {
           width: min(100%, 640px);

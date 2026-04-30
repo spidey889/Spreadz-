@@ -638,6 +638,7 @@ export default function GlobalChat() {
   const [backFeedbackModalOpen, setBackFeedbackModalOpen] = useState(false)
   const [userJoinedAtByRoom, setUserJoinedAtByRoom] = useState<Record<string, number>>({})
   const [currentTime, setCurrentTime] = useState(Date.now())
+  const [loadedAvatarUrls, setLoadedAvatarUrls] = useState<Set<string>>(new Set())
   const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   const [showGlobalChatPopup, setShowGlobalChatPopup] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
@@ -650,11 +651,37 @@ export default function GlobalChat() {
   const roomFeedRealtimeFiredRef = useRef(false)
   const sentRoomIdsRef = useRef<Set<string>>(new Set())
   const roomsContainerRef = useRef<HTMLDivElement | null>(null)
+  const preloadingUrlsRef = useRef<Set<string>>(new Set())
+
+  const preloadImage = useCallback((url: string) => {
+    if (!url || preloadingUrlsRef.current.has(url)) return
+    preloadingUrlsRef.current.add(url)
+    
+    const img = new Image()
+    img.src = url
+    img.onload = () => {
+      setLoadedAvatarUrls(prev => new Set(prev).add(url))
+    }
+  }, [])
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(Date.now()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    // Preload seeded avatars
+    Object.values(seededAvatarMap).forEach(roomMap => {
+      Object.values(roomMap).forEach(url => {
+        preloadImage(url)
+      })
+    })
+    
+    // Preload own avatar
+    if (avatarUrl) {
+      preloadImage(avatarUrl)
+    }
+  }, [seededAvatarMap, avatarUrl, preloadImage])
 
   useEffect(() => {
     rooms.forEach(room => {
@@ -4352,6 +4379,7 @@ export default function GlobalChat() {
                     const seededMessageAvatarUrl = roomSeededAvatarMap[msg.username.trim()]?.trim() || ''
                     const messageAvatarUrl = seededMessageAvatarUrl || (showOwnMessageAvatar ? currentAvatarUrl : (msg.avatarUrl?.trim() || ''))
                     const isReadOnlyProfileAvatar = isFirstInGroup && !isOwnMessage
+                    const isAvatarLoaded = messageAvatarUrl && loadedAvatarUrls.has(messageAvatarUrl)
 
                     return (
                       <div key={msg.renderKey || msg.id} className={`msg-reveal${isGifMessage(msg.text) ? ' has-media' : ''}`}
@@ -4370,13 +4398,13 @@ export default function GlobalChat() {
                             <>
                               <div
                                 className={`avatar${isReadOnlyProfileAvatar ? ' clickable' : ''}`}
-                                style={messageAvatarUrl ? undefined : { backgroundColor: getUserColor(msg.username) }}
+                                style={isAvatarLoaded ? undefined : { backgroundColor: getUserColor(msg.username) }}
                                 onClick={isReadOnlyProfileAvatar ? (e) => {
                                   e.stopPropagation()
                                   void openReadOnlyProfile(msg, messageAvatarUrl || null)
                                 } : undefined}
                               >
-                                {messageAvatarUrl ? (
+                                {isAvatarLoaded ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
                                     src={messageAvatarUrl}
@@ -4384,6 +4412,11 @@ export default function GlobalChat() {
                                     className="profile-avatar-image"
                                     style={{ borderRadius: '50%' }}
                                     draggable={false}
+                                    onLoad={() => {
+                                      if (!loadedAvatarUrls.has(messageAvatarUrl)) {
+                                        setLoadedAvatarUrls(prev => new Set(prev).add(messageAvatarUrl))
+                                      }
+                                    }}
                                   />
                                 ) : (
                                   msg.initials

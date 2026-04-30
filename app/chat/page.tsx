@@ -657,7 +657,7 @@ export default function GlobalChat() {
     if (!url || preloadingUrlsRef.current.has(url)) return
     preloadingUrlsRef.current.add(url)
     
-    const img = new Image()
+    const img = document.createElement('img')
     img.src = url
     img.onload = () => {
       setLoadedAvatarUrls(prev => new Set(prev).add(url))
@@ -3013,7 +3013,7 @@ export default function GlobalChat() {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
       isCurrentlyTypingRef.current = false
     }
-  }, [authReady, activeRoomId, getCurrentUsername])
+  }, [authReady, activeRoomId, getCurrentUsername, getCurrentUserId])
 
   useEffect(() => {
     if (!activeRoomId) return

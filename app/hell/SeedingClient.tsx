@@ -214,6 +214,7 @@ export default function SeedingClient({
   const [avatarModalRun, setAvatarModalRun] = useState<SeedRun | null>(null)
   const [currentRoomId, setCurrentRoomId] = useState('')
   const [avatarDrafts, setAvatarDrafts] = useState<Record<string, AvatarDraft>>({})
+  const [activeSeedingMode, setActiveSeedingMode] = useState<'standard' | 'auto'>('standard')
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false)
   const [avatarModalError, setAvatarModalError] = useState('')
   const [authPending, setAuthPending] = useState(false)
@@ -827,75 +828,44 @@ export default function SeedingClient({
     }
   }
 
-  const handleAutoStart = async () => {
-    const draft = validateRunDraft('now')
-    if (!draft) return
-
-    setActionPending('now')
-    setErrorMessage('')
-    appendLog('Setting up Auto Start Per User...')
-
-    try {
-      // 1. Create a run record (to get a room)
-      const createResult = await createRunRecord('now', {
-        ...draft,
-        totalMessages: 1, // We only post the script message
-      })
-
-      if (!createResult.run) {
-        throw new Error(createResult.error || 'Failed to create run.')
-      }
-
-      // 2. Start the run to create the room and place it in the feed
-      const startResult = await startRunRecord(createResult.run.id)
-      if (!startResult.run || !startResult.run.room_id) {
-        throw new Error(startResult.error || 'Failed to start run.')
-      }
-
-      const run = startResult.run
-      const roomId = run.room_id
-
-      // 3. Parse and post the script message
-      const parsed = parseMessagesInput(messagesInput)
-      const scriptMessage = {
-        displayName: 'SYSTEM_SEEDING_SCRIPT',
-        college: 'SYSTEM',
-        messageText: JSON.stringify(parsed.messages),
-      }
-
-      await fetch('/api/seeding', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          action: 'create-message',
-          runId: run.id,
-          roomId: roomId,
-          displayName: scriptMessage.displayName,
-          college: scriptMessage.college,
-          messageText: scriptMessage.messageText,
-          shouldIncrementUserCount: false,
-        }),
-      })
-
-      upsertRun({ ...run, status: 'completed' })
-      appendLog(`Auto Start enabled for room: ${run.room_name}`)
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Auto start failed.')
-    } finally {
-      setActionPending(null)
-    }
-  }
 
   const handleAvatarModalContinue = async () => {
-    if (!pendingLiveRunDraft || !avatarModalRun || !currentRoomId) {
-      setAvatarModalError('Room id is missing for this run.')
-      return
-    }
-
     setAvatarModalError('')
     setActionPending('now')
 
     try {
+      let activeRoomId = currentRoomId
+      let activeRun = avatarModalRun
+
+      // For auto mode, we delayed the creation until now
+      if (activeSeedingMode === 'auto' && !activeRun) {
+        const draft = pendingLiveRunDraft!
+        const createResult = await createRunRecord('now', {
+          ...draft,
+          totalMessages: 1, // We only post the script message
+        })
+
+        if (!createResult.run) {
+          throw new Error(createResult.error || 'Failed to create run.')
+        }
+
+        const startResult = await startRunRecord(createResult.run.id)
+        if (!startResult.run || !startResult.run.room_id) {
+          throw new Error(startResult.error || 'Failed to start run.')
+        }
+
+        activeRoomId = startResult.run.room_id
+        activeRun = startResult.run
+
+        // Update state for consistency
+        setCurrentRoomId(activeRoomId)
+        setAvatarModalRun(activeRun)
+      }
+
+      if (!pendingLiveRunDraft || !activeRun || !activeRoomId) {
+        throw new Error('Room id is missing for this run.')
+      }
+
       const avatarUrlsByName = new Map<string, string>()
 
       for (const displayName of pendingLiveRunDraft.displayNames) {
@@ -914,7 +884,7 @@ export default function SeedingClient({
           continue
         }
 
-        const storagePath = buildAvatarStoragePath(currentRoomId, displayName)
+        const storagePath = buildAvatarStoragePath(activeRoomId, displayName)
         const { error: uploadError } = await supabase.storage.from('avatars').upload(storagePath, draft.file, {
           upsert: true,
           contentType: draft.file.type || 'image/png',
@@ -946,29 +916,49 @@ export default function SeedingClient({
         })
 
         await saveSeededAvatars(
-          currentRoomId,
+          activeRoomId,
           Array.from(avatarUrlsByName.entries()).map(([displayName, avatarUrl]) => ({
-            room_id: currentRoomId,
+            room_id: activeRoomId,
             display_name: displayName,
             avatar_url: avatarUrl,
           }))
         )
       }
 
-      // Special handling for auto mode: we don't attachRun (global post)
-      if (avatarModalRun.status === 'auto' || (avatarModalRun as any).isAuto) {
-         // This path isn't strictly used currently but good for future proofing
-         upsertRun(avatarModalRun)
+      if (activeSeedingMode === 'auto') {
+        // Parse and post the script message
+        const parsed = parseMessagesInput(messagesInput)
+        const scriptMessage = {
+          displayName: 'SYSTEM_SEEDING_SCRIPT',
+          college: 'SYSTEM',
+          messageText: JSON.stringify(parsed.messages),
+        }
+
+        await fetch('/api/seeding', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            action: 'create-message',
+            runId: activeRun.id,
+            roomId: activeRoomId,
+            displayName: scriptMessage.displayName,
+            college: scriptMessage.college,
+            messageText: scriptMessage.messageText,
+            shouldIncrementUserCount: false,
+          }),
+        })
+
+        upsertRun({ ...activeRun, status: 'completed' })
+        appendLog(`Auto Start enabled for room: ${activeRun.room_name}`)
       } else {
-        upsertRun(avatarModalRun)
-        appendLog(`Run queued for ${avatarModalRun.room_name}.`)
-        attachRun(avatarModalRun)
+        upsertRun(activeRun)
+        appendLog(`Run queued for ${activeRun.room_name}.`)
+        attachRun(activeRun)
       }
-      
+
       closeAvatarModal()
     } catch (error) {
-      const nextError =
-        error instanceof Error ? error.message : 'Failed to save seeded avatars.'
+      const nextError = error instanceof Error ? error.message : 'Failed to save seeded avatars.'
       setErrorMessage(nextError)
       setAvatarModalError(nextError)
     } finally {
@@ -976,14 +966,27 @@ export default function SeedingClient({
     }
   }
 
-  const handleCreateRun = async (mode: 'now' | 'schedule') => {
-    const draft = validateRunDraft(mode)
+  const handleCreateRun = async (mode: 'now' | 'schedule' | 'auto') => {
+    const draft = validateRunDraft(mode === 'auto' ? 'now' : mode)
 
     if (!draft) {
       return
     }
 
+    if (mode === 'auto') {
+      setActiveSeedingMode('auto')
+      setErrorMessage('')
+      setAvatarModalError('')
+      setCurrentRoomId('')
+      setAvatarModalRun(null)
+      setPendingLiveRunDraft(draft)
+      setAvatarDrafts(createAvatarDrafts(draft.displayNames))
+      setIsAvatarModalOpen(true)
+      return
+    }
+
     if (mode === 'now') {
+      setActiveSeedingMode('standard')
       setErrorMessage('')
       setAvatarModalError('')
       setCurrentRoomId('')
@@ -1018,6 +1021,7 @@ export default function SeedingClient({
       return
     }
 
+    setActiveSeedingMode('standard')
     const result = await createRunRecord(mode, draft)
 
     if (!result.run) {
@@ -1167,7 +1171,7 @@ export default function SeedingClient({
                 <button
                   type="button"
                   disabled={!canCreateRun}
-                  onClick={() => void handleAutoStart()}
+                  onClick={() => void handleCreateRun('auto')}
                   className={`${styles.adminButton} ${styles.adminButtonSecondary}`}
                   style={{
                     background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',

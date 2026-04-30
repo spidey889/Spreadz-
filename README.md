@@ -1,4 +1,4 @@
-# Spreadz
+# Spreadz 🚀
 
 Spreadz is a real-time social app for college students. It is built for fast, casual room-based conversation with student identity, swipeable discovery, and lightweight profiles.
 
@@ -13,6 +13,7 @@ Built with Next.js and Supabase.
 - **GIF Support** — Send GIFs directly in chat via GIPHY integration
 - **Mute Users** — Mute specific users to hide their messages from your feed
 - **Push Notifications** — Get browser notifications for new messages when you're away
+- **🧪 Hell Protocol** — Advanced engagement tools for community growth
 
 ## Getting Started
 

@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-import { Bebas_Neue, IBM_Plex_Mono } from 'next/font/google'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import styles from './SeedingClient.module.css'
@@ -56,44 +55,6 @@ type SeedingResponse = {
   run?: SeedRun
   runs?: SeedRun[]
 }
-
-const bebasNeue = Bebas_Neue({
-  weight: '400',
-  subsets: ['latin'],
-  variable: '--font-seeding-display',
-})
-
-const ibmPlexMono = IBM_Plex_Mono({
-  weight: ['400', '500', '600'],
-  subsets: ['latin'],
-  variable: '--font-seeding-mono',
-})
-
-const whyWeSeedLines = [
-  'Because cold starts are for the weak.',
-  "Because empty rooms don't build tribes.",
-  'Because someone has to light the fire.',
-]
-
-const footerProtocolItems = [
-  {
-    icon: '🜏',
-    title: 'THE HELL PROTOCOL',
-    copy: 'No users? No problem. We create the universe.',
-  },
-  {
-    icon: '🔥',
-    title: 'CHAOS SEEDING ACTIVE',
-  },
-  {
-    icon: '💀',
-    title: 'CONNECTIONS WILL FOLLOW',
-  },
-  {
-    icon: '📈',
-    title: 'GROWTH IS INEVITABLE',
-  },
-]
 
 const parseClockToSeconds = (value: string) => {
   const match = value.trim().match(/^(\d{2}):(\d{2}):(\d{2})$/)
@@ -1006,290 +967,141 @@ export default function SeedingClient({
   const canCreateRun = isAuthorized && !actionPending && !isAvatarModalOpen
 
   return (
-    <main className={`${styles.page} ${bebasNeue.variable} ${ibmPlexMono.variable}`}>
-      <div className={styles.shell}>
-        <header className={styles.hero}>
-          <div className={styles.heroCopy}>
-            <div className={styles.badge}>
-              <span>🔥</span>
-              <span>SPREADZ SEEDING</span>
-            </div>
-            <h1 className={styles.heroTitle}>
-              WELCOME TO <span className={styles.heroAccent}>HELL</span>
-            </h1>
-            <p className={styles.heroKicker}>YOU DON&apos;T BUILD AUDIENCES. YOU SUMMON THEM.</p>
-            <p className={styles.heroBody}>Every message is a spark. Every room is a world.</p>
-            <p className={styles.heroBodyAccent}>Seed chaos. Watch connection rise from it.</p>
-          </div>
-
-          <div className={styles.heroQuoteWrap}>
-            <div className={styles.quoteCard}>
-              <div className={styles.quoteMark}>66</div>
-              <p className={styles.quoteText}>
-                In the absence of users, we create them. In the name of growth, we seed the
-                storm.
-              </p>
-              <p className={styles.quoteAttribution}>- Spreadz Protocol</p>
-            </div>
-
-            <div className={styles.portalCard} aria-hidden="true">
-              <div className={styles.portalLabel}>
-                <span>SEED</span>
-                <br />
-                <span>THE</span>
-                <br />
-                <span>CHAOS</span>
-              </div>
-              <div className={styles.portalGlow} />
-            </div>
-          </div>
+    <main className={styles.adminPage}>
+      <div className={styles.adminShell}>
+        {/* Admin Header */}
+        <header className={styles.adminHeader}>
+          <h1 className={styles.adminTitle}>Admin Panel</h1>
+          {isAuthorized && (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className={`${styles.adminButton} ${styles.adminButtonSecondary}`}
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+            >
+              Logout
+            </button>
+          )}
         </header>
 
-        <section className={styles.controlShell}>
-          {!secretConfigured && (
-            <div className={styles.notice}>
-              Add <code className={styles.inlineCode}>ADMIN_BROADCAST_SECRET</code> to your
-              environment to enable this page.
+        {!secretConfigured && (
+          <div className={styles.adminNotice}>
+            Add <code style={{ color: 'inherit' }}>ADMIN_BROADCAST_SECRET</code> to your
+            environment to enable this page.
+          </div>
+        )}
+
+        {secretConfigured && !isAuthorized && (
+          <form onSubmit={handleUnlock} className={styles.adminCard}>
+            <div className={styles.adminField}>
+              <label className={styles.adminLabel}>Admin Secret Key</label>
+              <input
+                type="password"
+                value={adminKey}
+                onChange={(event) => setAdminKey(event.target.value)}
+                placeholder="Enter admin secret"
+                autoComplete="current-password"
+                className={styles.adminInput}
+              />
             </div>
-          )}
 
-          {secretConfigured && !isAuthorized && (
-            <div className={styles.unlockShell}>
-              <div className={styles.unlockIntro}>
-                <div className={styles.cardEyebrow}>LOCKED GATE</div>
-                <h2 className={styles.unlockTitle}>ENTER THE KEY. OPEN THE GATE.</h2>
-                <p className={styles.unlockCopy}>
-                  Unlock the seeding panel to access the room controls, script altar, and launch
-                  sequence.
-                </p>
-              </div>
+            {errorMessage && <div className={styles.adminNotice}>{errorMessage}</div>}
 
-              <form onSubmit={handleUnlock} className={styles.card}>
-                <div className={styles.cardHeader}>
-                  <span className={styles.cardIcon}>🔐</span>
-                  <h2>ACCESS RITUAL</h2>
-                </div>
+            <button type="submit" disabled={authPending} className={styles.adminButton}>
+              {authPending ? 'Unlocking...' : 'Unlock Panel'}
+            </button>
+          </form>
+        )}
 
-                <div className={styles.formField}>
-                  <label htmlFor="admin-key" className={styles.fieldLabel}>
-                    ADMIN SECRET
-                  </label>
+        {secretConfigured && isAuthorized && (
+          <>
+            {errorMessage && <div className={styles.adminNotice}>{errorMessage}</div>}
+
+            {/* Room Setup */}
+            <section className={styles.adminCard}>
+              <h2 className={styles.adminSectionTitle}>Room Setup</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem' }}>
+                <div className={styles.adminField}>
+                  <label className={styles.adminLabel}>Feed Position</label>
                   <input
-                    id="admin-key"
-                    type="password"
-                    value={adminKey}
-                    onChange={(event) => setAdminKey(event.target.value)}
-                    placeholder="Enter your admin secret"
-                    autoComplete="current-password"
-                    className={`${styles.fieldInput} ${styles.monoField}`}
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={feedPosition}
+                    onChange={(event) => setFeedPosition(event.target.value)}
+                    className={styles.adminInput}
                   />
                 </div>
+                <div className={styles.adminField}>
+                  <label className={styles.adminLabel}>Room Name</label>
+                  <input
+                    type="text"
+                    value={roomName}
+                    onChange={(event) => setRoomName(event.target.value)}
+                    placeholder="e.g. Placement Talk"
+                    className={styles.adminInput}
+                  />
+                </div>
+              </div>
+            </section>
 
-                {errorMessage ? (
-                  <div className={`${styles.notice} ${styles.errorNotice}`}>{errorMessage}</div>
-                ) : null}
+            {/* Messages */}
+            <section className={styles.adminCard}>
+              <h2 className={styles.adminSectionTitle}>Messages</h2>
+              <div className={styles.adminField}>
+                <label className={styles.adminLabel}>
+                  Script (Format: Name - College - Message - HH:MM:SS)
+                </label>
+                <textarea
+                  value={messagesInput}
+                  onChange={(event) => setMessagesInput(event.target.value)}
+                  placeholder="Rahul - IIT Bombay - hello - 00:00:10"
+                  className={`${styles.adminInput} ${styles.adminTextarea}`}
+                />
+                <div className={styles.adminStatus}>Unique names: {scriptDisplayNames.length}</div>
+              </div>
+            </section>
+
+            {/* Launch Seeding */}
+            <section className={styles.adminCard}>
+              <h2 className={styles.adminSectionTitle}>Launch Seeding</h2>
+              <div className={styles.adminField}>
+                <label className={styles.adminLabel}>Schedule Time (Optional)</label>
+                <input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={(event) => setScheduledFor(event.target.value)}
+                  className={styles.adminInput}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  disabled={!canCreateRun}
+                  onClick={() => void handleCreateRun('now')}
+                  className={styles.adminButton}
+                  style={{ flex: 2 }}
+                >
+                  {actionPending === 'now' ? 'Starting...' : 'Start Seeding'}
+                </button>
 
                 <button
-                  type="submit"
-                  disabled={authPending}
-                  className={`${styles.buttonBase} ${styles.primaryButton} ${styles.errorNotice}`}
+                  type="button"
+                  disabled={!canCreateRun}
+                  onClick={() => void handleCreateRun('schedule')}
+                  className={`${styles.adminButton} ${styles.adminButtonSecondary}`}
+                  style={{ flex: 1 }}
                 >
-                  <span className={styles.buttonTitle}>
-                    {authPending ? 'UNLOCKING...' : 'UNLOCK PANEL'}
-                  </span>
-                  <span className={styles.buttonSubtitle}>SUMMON ACCESS</span>
+                  {actionPending === 'schedule' ? 'Scheduling...' : 'Schedule'}
                 </button>
-              </form>
-            </div>
-          )}
-
-          {secretConfigured && isAuthorized && (
-            <>
-              <div className={styles.accessBanner}>
-                <div className={styles.accessLead}>
-                  <div className={styles.accessIcon}>🔒</div>
-                  <div>
-                    <div className={styles.microLabel}>ACCESS LEVEL</div>
-                    <div className={styles.accessStatus}>AUTHORIZED &amp; READY</div>
-                  </div>
-                </div>
-
-                <div className={styles.accessMeta}>
-                  <span className={styles.accessMetaText}>
-                    Existing scheduled runs attach in the background.
-                  </span>
-                  <div className={styles.heartbeatRail} aria-hidden="true">
-                    <span className={styles.heartbeatPulse} />
-                  </div>
-                  <span className={styles.accessSkull}>💀</span>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className={`${styles.buttonBase} ${styles.ghostButton}`}
-                  >
-                    Lock Panel
-                  </button>
-                </div>
               </div>
-
-              {errorMessage ? (
-                <div className={`${styles.notice} ${styles.errorNotice}`}>{errorMessage}</div>
-              ) : null}
-
-              <div className={styles.dashboardGrid}>
-                <div className={styles.leftColumn}>
-                  <section className={styles.card}>
-                    <div className={styles.cardHeader}>
-                      <span className={styles.cardIcon}>🎯</span>
-                      <h2>ROOM SETUP</h2>
-                    </div>
-
-                    <div className={styles.fieldGrid}>
-                      <div className={styles.formField}>
-                        <label htmlFor="feed-position" className={styles.fieldLabel}>
-                          FEED POSITION
-                        </label>
-                        <input
-                          id="feed-position"
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={feedPosition}
-                          onChange={(event) => setFeedPosition(event.target.value)}
-                          placeholder="1"
-                          className={`${styles.fieldInput} ${styles.monoField}`}
-                        />
-                      </div>
-
-                      <div className={styles.formField}>
-                        <label htmlFor="room-name" className={styles.fieldLabel}>
-                          ROOM NAME
-                        </label>
-                        <input
-                          id="room-name"
-                          type="text"
-                          value={roomName}
-                          onChange={(event) => setRoomName(event.target.value)}
-                          placeholder="Placement talk"
-                          className={`${styles.fieldInput} ${styles.monoField}`}
-                        />
-                      </div>
-                    </div>
-                  </section>
-
-                  <section className={styles.card}>
-                    <div className={styles.cardHeader}>
-                      <span className={styles.cardIcon}>🚀</span>
-                      <h2>LAUNCH SEEDING</h2>
-                    </div>
-
-                    <div className={styles.launchGrid}>
-                      <div className={styles.formField}>
-                        <label htmlFor="schedule-at" className={styles.fieldLabel}>
-                          SCHEDULE
-                        </label>
-                        <input
-                          id="schedule-at"
-                          type="datetime-local"
-                          value={scheduledFor}
-                          onChange={(event) => setScheduledFor(event.target.value)}
-                          className={`${styles.fieldInput} ${styles.monoField}`}
-                        />
-                      </div>
-
-                      <div className={styles.buttonStack}>
-                        <button
-                          type="button"
-                          disabled={!canCreateRun}
-                          onClick={() => void handleCreateRun('now')}
-                          className={`${styles.buttonBase} ${styles.primaryButton}`}
-                        >
-                          <span className={styles.buttonTitle}>
-                            {actionPending === 'now' ? 'IGNITING...' : 'IGNITE NOW'}
-                          </span>
-                          <span className={styles.buttonSubtitle}>GO LIVE</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={!canCreateRun}
-                          onClick={() => void handleCreateRun('schedule')}
-                          className={`${styles.buttonBase} ${styles.secondaryButton}`}
-                        >
-                          {actionPending === 'schedule' ? 'SCHEDULING...' : 'SCHEDULE RITUAL'}
-                        </button>
-                      </div>
-                    </div>
-
-                    <p className={styles.helperText}>
-                      Go live immediately or pick a time. The backend seeding flow stays the same.
-                    </p>
-                  </section>
-
-                  <section className={`${styles.card} ${styles.whyCard}`}>
-                    <div className={styles.whyIcon}>💀</div>
-                    <div className={styles.whyCopy}>
-                      <div className={styles.cardEyebrow}>WHY WE SEED</div>
-                      {whyWeSeedLines.map((line) => (
-                        <p key={line} className={styles.whyLine}>
-                          {line}
-                        </p>
-                      ))}
-                      <p className={styles.whyFinal}>BE THE REASON IT STARTS.</p>
-                    </div>
-                    <div className={styles.whySigil} aria-hidden="true" />
-                  </section>
-                </div>
-
-                <section className={`${styles.card} ${styles.scriptCard}`}>
-                  <div className={styles.scriptHeader}>
-                    <h2 className={styles.scriptTitle}>
-                      <span className={styles.codeTag}>{'<>'}</span>
-                      MESSAGE SCRIPT
-                    </h2>
-                    <p className={styles.scriptSubtitle}>Format each line like:</p>
-                    <code className={styles.scriptPattern}>
-                      Name - College - message - HH:MM:SS
-                    </code>
-                  </div>
-
-                  <div className={styles.formFieldGrow}>
-                    <label htmlFor="bulk-messages" className={styles.fieldLabel}>
-                      MESSAGES
-                    </label>
-                    <textarea
-                      id="bulk-messages"
-                      value={messagesInput}
-                      onChange={(event) => setMessagesInput(event.target.value)}
-                      placeholder={
-                        'Rahul - IIT Bombay - anyone else getting placed? - 00:00:10\nPriya - BITS Pilani - heard Flipkart is coming - 00:01:30\nArjun - VIT - bro same, super nervous - 00:02:00'
-                      }
-                      rows={16}
-                      className={`${styles.fieldInput} ${styles.monoField} ${styles.scriptTextarea}`}
-                    />
-                    <div className={styles.detectedCount}>
-                      Unique names detected: {scriptDisplayNames.length}
-                    </div>
-                  </div>
-                </section>
-              </div>
-            </>
-          )}
-        </section>
-
-        <footer className={styles.footerBar}>
-          {footerProtocolItems.map((item) => (
-            <div key={item.title} className={styles.footerItem}>
-              <span className={styles.footerIcon}>{item.icon}</span>
-              <div>
-                <div className={styles.footerTitle}>{item.title}</div>
-                {item.copy ? <p className={styles.footerCopy}>{item.copy}</p> : null}
-              </div>
-            </div>
-          ))}
-          <div className={styles.footerManifesto}>SEED THE STORM. OWN THE FUTURE.</div>
-        </footer>
+            </section>
+          </>
+        )}
       </div>
+
+      {/* Avatar Modal - PRESERVED EXACTLY AS IS */}
       {isAvatarModalOpen && pendingLiveRunDraft ? (
         <div className={styles.modalOverlay}>
           <div className={styles.modalCard}>

@@ -827,6 +827,65 @@ export default function SeedingClient({
     }
   }
 
+  const handleAutoStart = async () => {
+    const draft = validateRunDraft('now')
+    if (!draft) return
+
+    setActionPending('now')
+    setErrorMessage('')
+    appendLog('Setting up Auto Start Per User...')
+
+    try {
+      // 1. Create a run record (to get a room)
+      const createResult = await createRunRecord('now', {
+        ...draft,
+        totalMessages: 1, // We only post the script message
+      })
+
+      if (!createResult.run) {
+        throw new Error(createResult.error || 'Failed to create run.')
+      }
+
+      // 2. Start the run to create the room and place it in the feed
+      const startResult = await startRunRecord(createResult.run.id)
+      if (!startResult.run || !startResult.run.room_id) {
+        throw new Error(startResult.error || 'Failed to start run.')
+      }
+
+      const run = startResult.run
+      const roomId = run.room_id
+
+      // 3. Parse and post the script message
+      const parsed = parseMessagesInput(messagesInput)
+      const scriptMessage = {
+        displayName: 'SYSTEM_SEEDING_SCRIPT',
+        college: 'SYSTEM',
+        messageText: JSON.stringify(parsed.messages),
+      }
+
+      await fetch('/api/seeding', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create-message',
+          runId: run.id,
+          roomId: roomId,
+          displayName: scriptMessage.displayName,
+          college: scriptMessage.college,
+          messageText: scriptMessage.messageText,
+          shouldIncrementUserCount: false,
+        }),
+      })
+
+      upsertRun({ ...run, status: 'completed' })
+      appendLog(`Auto Start enabled for room: ${run.room_name}`)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Auto start failed.')
+    } finally {
+      setActionPending(null)
+    }
+  }
+
   const handleAvatarModalContinue = async () => {
     if (!pendingLiveRunDraft || !avatarModalRun || !currentRoomId) {
       setAvatarModalError('Room id is missing for this run.')
@@ -896,10 +955,17 @@ export default function SeedingClient({
         )
       }
 
-      upsertRun(avatarModalRun)
-      appendLog(`Run queued for ${avatarModalRun.room_name}.`)
+      // Special handling for auto mode: we don't attachRun (global post)
+      if (avatarModalRun.status === 'auto' || (avatarModalRun as any).isAuto) {
+         // This path isn't strictly used currently but good for future proofing
+         upsertRun(avatarModalRun)
+      } else {
+        upsertRun(avatarModalRun)
+        appendLog(`Run queued for ${avatarModalRun.room_name}.`)
+        attachRun(avatarModalRun)
+      }
+      
       closeAvatarModal()
-      attachRun(avatarModalRun)
     } catch (error) {
       const nextError =
         error instanceof Error ? error.message : 'Failed to save seeded avatars.'
@@ -1075,25 +1141,43 @@ export default function SeedingClient({
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-                <button
-                  type="button"
-                  disabled={!canCreateRun}
-                  onClick={() => void handleCreateRun('now')}
-                  className={styles.adminButton}
-                  style={{ flex: 2 }}
-                >
-                  {actionPending === 'now' ? 'Starting...' : 'Start Seeding'}
-                </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button
+                    type="button"
+                    disabled={!canCreateRun}
+                    onClick={() => void handleCreateRun('now')}
+                    className={styles.adminButton}
+                    style={{ flex: 2 }}
+                  >
+                    {actionPending === 'now' ? 'Starting...' : 'Start Seeding'}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!canCreateRun}
+                    onClick={() => void handleCreateRun('schedule')}
+                    className={`${styles.adminButton} ${styles.adminButtonSecondary}`}
+                    style={{ flex: 1 }}
+                  >
+                    {actionPending === 'schedule' ? 'Scheduling...' : 'Schedule'}
+                  </button>
+                </div>
 
                 <button
                   type="button"
                   disabled={!canCreateRun}
-                  onClick={() => void handleCreateRun('schedule')}
+                  onClick={() => void handleAutoStart()}
                   className={`${styles.adminButton} ${styles.adminButtonSecondary}`}
-                  style={{ flex: 1 }}
+                  style={{
+                    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                    color: 'white',
+                    border: 'none',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
+                  }}
                 >
-                  {actionPending === 'schedule' ? 'Scheduling...' : 'Schedule'}
+                  {actionPending === 'now' ? 'Enabling...' : 'Auto Start Per User'}
                 </button>
               </div>
             </section>

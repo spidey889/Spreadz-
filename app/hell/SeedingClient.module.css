@@ -161,7 +161,6 @@
     radial-gradient(circle at top, rgba(255, 68, 0, 0.08), transparent 30%),
     linear-gradient(180deg, rgba(18, 10, 10, 0.98), rgba(10, 9, 9, 0.98));
   position: relative;
-  overflow: hidden;
   border: 1px solid rgba(204, 34, 0, 0.42);
   border-radius: 10px;
   box-shadow:

@@ -636,6 +636,8 @@ export default function GlobalChat() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [backFeedbackModalOpen, setBackFeedbackModalOpen] = useState(false)
+  const [userJoinedAtByRoom, setUserJoinedAtByRoom] = useState<Record<string, number>>({})
+  const [currentTime, setCurrentTime] = useState(Date.now())
   const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   const [showGlobalChatPopup, setShowGlobalChatPopup] = useState(false)
   const longPressTimerRef = useRef<number | null>(null)
@@ -648,6 +650,23 @@ export default function GlobalChat() {
   const roomFeedRealtimeFiredRef = useRef(false)
   const sentRoomIdsRef = useRef<Set<string>>(new Set())
   const roomsContainerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    rooms.forEach(room => {
+      const msgs = roomMessages[room.id]
+      if (msgs && !userJoinedAtByRoom[room.id]) {
+        const hasScript = msgs.some(m => m.username === 'SYSTEM_SEEDING_SCRIPT')
+        if (hasScript) {
+          setUserJoinedAtByRoom(prev => ({ ...prev, [room.id]: Date.now() }))
+        }
+      }
+    })
+  }, [rooms, roomMessages, userJoinedAtByRoom])
   const roomPanelRefs = useRef<Record<number, HTMLDivElement | null>>({})
   const messageEndRefs = useRef<(HTMLDivElement | null)[]>([])
   const channelRef = useRef<any>(null)
@@ -4172,9 +4191,46 @@ export default function GlobalChat() {
           const messageStatus = roomMessageStatusByRoom[room.id] ?? 'idle'
           const roomSeededAvatarMap = seededAvatarMap[room.id] || {}
           const visibleMessageIds = visibleMessageIdsByRoom[room.id] || EMPTY_VISIBLE_MESSAGE_IDS
+          const scriptMsg = messages.find(m => m.username === 'SYSTEM_SEEDING_SCRIPT')
+          const joinedAt = userJoinedAtByRoom[room.id]
+          const elapsed = joinedAt ? (currentTime - joinedAt) / 1000 : 0
+          const roomVisibleIds = new Set(visibleMessageIds)
+          let augmentedMessages = messages
+          if (scriptMsg && joinedAt) {
+            try {
+              const script = JSON.parse(scriptMsg.text) as any[]
+              const ghostMessages = script
+                .filter(m => m.postAtSeconds <= elapsed)
+                .map(m => {
+                  const ghostId = `ghost-${room.id}-${m.order}`
+                  roomVisibleIds.add(ghostId)
+                  return {
+                    id: ghostId,
+                    username: m.displayName,
+                    initials: getInitials(m.displayName),
+                    university: m.college,
+                    text: m.messageText,
+                    timestamp: formatTime(new Date(joinedAt + m.postAtSeconds * 1000).toISOString()),
+                    created_at: new Date(joinedAt + m.postAtSeconds * 1000).toISOString(),
+                    room_id: room.id,
+                    room_name: room.headline,
+                  }
+                })
+              
+              augmentedMessages = [
+                ...messages.filter(m => m.username !== 'SYSTEM_SEEDING_SCRIPT'),
+                ...ghostMessages
+              ].sort((a, b) => new Date(a.created_at!).getTime() - new Date(b.created_at!).getTime())
+            } catch (e) {
+              augmentedMessages = messages.filter(m => m.username !== 'SYSTEM_SEEDING_SCRIPT')
+            }
+          } else {
+            augmentedMessages = messages.filter(m => m.username !== 'SYSTEM_SEEDING_SCRIPT')
+          }
+
           const renderableMessages = getRenderableMessages({
-            messages,
-            visibleMessageIds,
+            messages: augmentedMessages,
+            visibleMessageIds: roomVisibleIds,
             isMutedUser,
           }) as Message[]
           const showMessageLoadingState = messages.length === 0 && (messageStatus === 'idle' || messageStatus === 'loading')

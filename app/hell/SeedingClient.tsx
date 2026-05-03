@@ -228,6 +228,7 @@ export default function SeedingClient({
       : 'Set ADMIN_BROADCAST_SECRET or ADMIN_SECRET_KEY first.',
   ])
   const [errorMessage, setErrorMessage] = useState('')
+  const [typingPersona, setTypingPersona] = useState<string | null>(null)
   const startTimeoutsRef = useRef<Map<string, number>>(new Map())
   const runTimeoutsRef = useRef<Map<string, number>>(new Map())
   const startingRunIdsRef = useRef<Set<string>>(new Set())
@@ -254,6 +255,7 @@ export default function SeedingClient({
 
     startingRunIdsRef.current.delete(runId)
     runningRunIdsRef.current.delete(runId)
+    setTypingPersona(null)
   }
 
   const clearAllTimers = () => {
@@ -263,6 +265,7 @@ export default function SeedingClient({
     runTimeoutsRef.current.clear()
     startingRunIdsRef.current.clear()
     runningRunIdsRef.current.clear()
+    setTypingPersona(null)
   }
 
   useEffect(() => {
@@ -443,6 +446,9 @@ export default function SeedingClient({
       const nextTargetTime = startedAtMs + message.postAtSeconds * 1000
       const delayMs = Math.max(0, nextTargetTime - Date.now())
 
+      // Show typing indicator for the persona about to send the next message
+      setTypingPersona(message.displayName)
+
       const timeoutId = window.setTimeout(() => {
         runTimeoutsRef.current.delete(run.id)
 
@@ -450,6 +456,9 @@ export default function SeedingClient({
           const userKey = `${message.displayName.toLowerCase()}::${message.college.toLowerCase()}`
 
           try {
+            // Clear typing indicator the moment the message actually fires
+            setTypingPersona(null)
+
             const updatedRun = await postRunMessage(
               run,
               message,
@@ -1086,6 +1095,19 @@ export default function SeedingClient({
         {secretConfigured && isAuthorized && (
           <>
             {errorMessage && <div className={styles.adminNotice}>{errorMessage}</div>}
+
+            {typingPersona && (
+              <div className="typing-indicator" style={{ padding: '4px 0 4px 4px' }}>
+                <div className="typing-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <div className="typing-text">
+                  <b>{typingPersona}</b> is typing...
+                </div>
+              </div>
+            )}
 
             {/* Room Setup */}
             <section className={styles.adminCard}>

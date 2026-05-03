@@ -4268,8 +4268,10 @@ export default function GlobalChat() {
           if (scriptMsg && joinedAt) {
             try {
               const script = JSON.parse(scriptMsg.text) as any[]
+              // First 2 messages are always visible immediately on room load.
+              // From index 2 onwards, normal drip-feed timing applies.
               const ghostMessages = script
-                .filter(m => m.postAtSeconds <= elapsed)
+                .filter((m, i) => i < 2 || m.postAtSeconds <= elapsed)
                 .map(m => {
                   const ghostId = `ghost-${room.id}-${m.order}`
                   roomVisibleIds.add(ghostId)
@@ -4286,9 +4288,10 @@ export default function GlobalChat() {
                   }
                 })
 
-              // Next pending script entry is the "typing" persona
+              // Next pending script entry is the "typing" persona.
+              // Skip the first 2 (already force-visible) when looking for what's next.
               const nextPending = script
-                .filter(m => m.postAtSeconds > elapsed)
+                .filter((m, i) => i >= 2 && m.postAtSeconds > elapsed)
                 .sort((a, b) => a.postAtSeconds - b.postAtSeconds)[0]
               ghostTypingPersona = nextPending ? (nextPending.displayName as string) : null
 

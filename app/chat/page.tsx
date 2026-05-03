@@ -4223,6 +4223,7 @@ export default function GlobalChat() {
           const elapsed = joinedAt ? (currentTime - joinedAt) / 1000 : 0
           const roomVisibleIds = new Set(visibleMessageIds)
           let augmentedMessages = messages
+          let ghostTypingPersona: string | null = null
           if (scriptMsg && joinedAt) {
             try {
               const script = JSON.parse(scriptMsg.text) as any[]
@@ -4243,7 +4244,13 @@ export default function GlobalChat() {
                     room_name: room.headline,
                   }
                 })
-              
+
+              // Next pending script entry is the "typing" persona
+              const nextPending = script
+                .filter(m => m.postAtSeconds > elapsed)
+                .sort((a, b) => a.postAtSeconds - b.postAtSeconds)[0]
+              ghostTypingPersona = nextPending ? (nextPending.displayName as string) : null
+
               augmentedMessages = [
                 ...messages.filter(m => m.username !== 'SYSTEM_SEEDING_SCRIPT'),
                 ...ghostMessages
@@ -4550,7 +4557,7 @@ export default function GlobalChat() {
                   </div>
                 )}
                 <div ref={isCurrentRoom ? composerAreaRef : undefined} className="input-area global-composer">
-                  {isCurrentRoom && typingUsers.length > 0 && (
+                  {isCurrentRoom && (ghostTypingPersona || typingUsers.length > 0) && (
                     <div className="typing-indicator">
                       <div className="typing-dots">
                         <span></span>
@@ -4558,7 +4565,9 @@ export default function GlobalChat() {
                         <span></span>
                       </div>
                       <div className="typing-text">
-                        {typingUsers.length === 1 ? (
+                        {ghostTypingPersona ? (
+                          <><b>{ghostTypingPersona}</b> is typing...</>
+                        ) : typingUsers.length === 1 ? (
                           <><b>{typingUsers[0]}</b> is typing...</>
                         ) : typingUsers.length === 2 ? (
                           <><b>{typingUsers[0]}</b> and <b>{typingUsers[1]}</b> are typing...</>

@@ -638,6 +638,7 @@ export default function GlobalChat() {
   const [backFeedbackModalOpen, setBackFeedbackModalOpen] = useState(false)
   const [userJoinedAtByRoom, setUserJoinedAtByRoom] = useState<Record<string, number>>({})
   const [currentTime, setCurrentTime] = useState(Date.now())
+  const [ghostRevealCountByRoom, setGhostRevealCountByRoom] = useState<Record<string, number>>({})
   const [loadedAvatarUrls, setLoadedAvatarUrls] = useState<Set<string>>(new Set())
   const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   const [showGlobalChatPopup, setShowGlobalChatPopup] = useState(false)
@@ -665,9 +666,40 @@ export default function GlobalChat() {
   }, [])
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(Date.now()), 1000)
+    const timer = setInterval(() => {
+      const now = Date.now()
+      setCurrentTime(now)
+
+      // Recompute ghost reveal counts so the scroll effect can react
+      setGhostRevealCountByRoom(prev => {
+        let changed = false
+        const next = { ...prev }
+
+        Object.entries(userJoinedAtByRoom).forEach(([roomId, joinedAt]) => {
+          const msgs = roomMessages[roomId]
+          if (!msgs) return
+          const scriptMsg = msgs.find(m => m.username === 'SYSTEM_SEEDING_SCRIPT')
+          if (!scriptMsg) return
+
+          try {
+            const script = JSON.parse(scriptMsg.text) as any[]
+            const elapsed = (now - joinedAt) / 1000
+            const revealed = script.filter(m => m.postAtSeconds <= elapsed).length
+            if (revealed !== prev[roomId]) {
+              next[roomId] = revealed
+              changed = true
+            }
+          } catch {
+            // ignore parse errors
+          }
+        })
+
+        return changed ? next : prev
+      })
+    }, 1000)
     return () => clearInterval(timer)
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userJoinedAtByRoom, roomMessages])
 
   useEffect(() => {
     // Preload seeded avatars
@@ -3032,6 +3064,15 @@ export default function GlobalChat() {
     scrollCurrentRoomToBottom,
     syncActiveRoomBottomState,
   ])
+
+  // Auto-scroll when a new ghost message is revealed during a seed run
+  useEffect(() => {
+    if (!activeRoomId) return
+    const shouldStickToBottom = roomIsAtBottomByIdRef.current[activeRoomId] ?? true
+    if (!shouldStickToBottom) return
+    scrollCurrentRoomToBottom('smooth')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeRoomId, ghostRevealCountByRoom[activeRoomId], scrollCurrentRoomToBottom])
 
   useEffect(() => {
     setCardCollapsed(false)
